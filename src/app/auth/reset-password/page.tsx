@@ -65,7 +65,7 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Image src="/logo-main.png" alt="Desco Financial" width={724} height={86} className="h-[44px] w-auto mx-auto" />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto" />
           </div>
           <Card>
             <CardContent className="pt-6 text-center">
@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image src="/logo-main.png" alt="Desco Financial" width={724} height={86} className="h-[44px] w-auto mx-auto" />
+          <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto" />
         </div>
 
         <Card>

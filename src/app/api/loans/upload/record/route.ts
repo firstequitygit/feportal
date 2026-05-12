@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 // Step 3: Record the uploaded document in the database and notify staff
 export async function POST(req: NextRequest) {
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true })
 }
 
-const BASE_URL = 'https://portal.descofinancial.com'
+const BASE_URL = PORTAL_URL
 
 function actionButton(label: string, action: string, token: string, bgColor: string) {
   const url = `${BASE_URL}/api/conditions/action?token=${token}&action=${action}`
@@ -158,12 +159,12 @@ async function sendNotification({
     : ''
 
   await transporter.sendMail({
-    from: `Desco Portal <${user}>`,
-    to: 'processing@descofinancial.com',
+    from: `First Equity Funding <${user}>`,
+    to: 'fefprocessing@gmail.com',
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-        <strong>${borrowerName}</strong> has uploaded a document on the DESCO Financial Online Portal.
+        <strong>${borrowerName}</strong> has uploaded a document on the First Equity Funding Online Portal.
       </p>
       <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Property</td><td><strong>${propertyAddress}</strong></td></tr>
@@ -172,7 +173,7 @@ async function sendNotification({
       </table>
       ${actionButtons}
       <p style="font-family: Arial, sans-serif; font-size: 13px; color: #888; margin-top: 24px;">
-        Or log in to the <a href="${BASE_URL}/loan-processor" style="color: #2DC653;">processor portal</a> to review.
+        Or log in to the <a href="${BASE_URL}/loan-processor" style="color: #1F5D8F;">processor portal</a> to review.
       </p>
     `,
     attachments: fileBuffer

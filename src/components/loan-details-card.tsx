@@ -239,7 +239,7 @@ function calcDSCR(
   return annualRevenue / annualDebt
 }
 
-/** Color-coded pill for a DSCR ratio. Desco thresholds: ≥1.0 green, 0.75–0.99 amber, <0.75 red. */
+/** Color-coded pill for a DSCR ratio. Thresholds: ≥1.0 green, 0.75–0.99 amber, <0.75 red. */
 function DSCRBadge({ value }: { value: number | null }) {
   if (value === null) return <span className="text-gray-400">—</span>
   let cls: string

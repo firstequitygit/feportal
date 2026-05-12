@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -65,21 +66,21 @@ export async function POST(req: NextRequest) {
 
     if (assigned_to === 'borrower' && borrower?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`, to: borrower.email,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: borrower.email,
         subject: `New condition added — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${borrower.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to your loan file for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="https://portal.descofinancial.com" style="background-color:#2DC653;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View My Loan</a></p>`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${borrower.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to your loan file for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View My Loan</a></p>`,
       })
     } else if (assigned_to === 'loan_officer' && loanOfficer?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`, to: loanOfficer.email,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: loanOfficer.email,
         subject: `New condition assigned to you — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="https://portal.descofinancial.com/loan-officer" style="background-color:#2DC653;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
       })
     } else if (assigned_to === 'loan_processor' && loanProcessor?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`, to: loanProcessor.email,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: loanProcessor.email,
         subject: `New condition assigned to you — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanProcessor.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="https://portal.descofinancial.com/loan-processor" style="background-color:#2DC653;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanProcessor.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
       })
     }
   } catch (err) { console.error('Notification error:', err) }

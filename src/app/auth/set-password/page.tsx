@@ -103,15 +103,15 @@ export default function SetPasswordPage() {
   if (!ready) {
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-        <div className="w-full py-4 px-6" style={{ backgroundColor: '#FFF6EF', borderBottom: '1px solid #e8ddd6' }}>
-          <Image src="/logo-symbol.png" alt="Desco Financial" width={36} height={36} className="h-8 w-auto" />
+        <div className="w-full py-4 px-6" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+          <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
         </div>
         <div className="flex-1 flex items-center justify-center px-4">
           {timedOut ? (
             <div className="text-center space-y-2">
               <p className="text-gray-700 font-medium">This link has expired or is no longer valid.</p>
               <p className="text-sm text-gray-500">
-                Please contact <a href="mailto:info@descofinancial.com" className="text-primary hover:opacity-80">info@descofinancial.com</a> to request a new invitation.
+                Please contact <a href="mailto:ascovill@fefunding.com" className="text-primary hover:opacity-80">ascovill@fefunding.com</a> to request a new invitation.
               </p>
             </div>
           ) : (
@@ -124,21 +124,21 @@ export default function SetPasswordPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-      <div className="w-full py-4 px-6" style={{ backgroundColor: '#FFF6EF', borderBottom: '1px solid #e8ddd6' }}>
-        <Image src="/logo-symbol.png" alt="Desco Financial" width={36} height={36} className="h-8 w-auto" />
+      <div className="w-full py-4 px-6" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+        <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
       </div>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Image src="/logo-main.png" alt="Desco Financial" width={724} height={86} className="h-[44px] w-auto mx-auto mb-3" />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto mb-3" />
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Welcome — set your password</CardTitle>
               <CardDescription>
-                Create a password to access the DESCO Financial Online Portal.
+                Create a password to access the First Equity Funding Online Portal.
               </CardDescription>
             </CardHeader>
             <CardContent>

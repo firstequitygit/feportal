@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   // Notify the assigned loan processor
   const lp = loan.loan_processors as unknown as { full_name: string; email: string | null } | null
-  const toEmail = lp?.email ?? 'processing@descofinancial.com'
+  const toEmail = lp?.email ?? 'fefprocessing@gmail.com'
   const toName  = lp?.full_name ?? 'Loan Processor'
 
   try {
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true })
 }
 
-const BASE_URL = 'https://portal.descofinancial.com'
+const BASE_URL = PORTAL_URL
 
 function actionButton(label: string, action: string, token: string, bgColor: string) {
   const url = `${BASE_URL}/api/conditions/action?token=${token}&action=${action}`
@@ -105,10 +106,10 @@ async function sendNotification({ toEmail, toName, uploaderName, propertyAddress
     : ''
 
   await transporter.sendMail({
-    from: `Desco Portal <${gmailUser}>`,
+    from: `First Equity Funding <${gmailUser}>`,
     to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
-    html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${toName},<br/><br/><strong>${uploaderName}</strong> (Underwriter) has uploaded a document to the DESCO Financial portal.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;"><tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr></table>${actionButtons}<p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">Or log in to the <a href="${BASE_URL}/loan-processor" style="color:#2DC653;">processor portal</a> to review.</p>`,
+    html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${toName},<br/><br/><strong>${uploaderName}</strong> (Underwriter) has uploaded a document to the First Equity Funding portal.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;"><tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr></table>${actionButtons}<p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">Or log in to the <a href="${BASE_URL}/loan-processor" style="color:#1F5D8F;">processor portal</a> to review.</p>`,
     attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : [],
   })
 }

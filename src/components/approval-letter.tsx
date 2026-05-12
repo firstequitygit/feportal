@@ -7,10 +7,10 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { type Condition, CONDITION_CATEGORIES } from '@/lib/types'
 import { formatDate } from '@/lib/format-date'
 
-const COMPANY_ADDRESS = '971 US Hwy 202 North, Suite R, Branchburg, NJ 08876'
-const COMPANY_WEBSITE = 'https://www.descofinancial.com/'
-const COMPANY_EMAIL = 'info@descofinancial.com'
-const COMPANY_PHONE = '(551) 363 - 2266'
+const COMPANY_ADDRESS = '1330 Laurel Ave., Suite 101, Sea Girt, NJ 08750'
+const COMPANY_WEBSITE = 'https://www.fefunding.com/'
+const COMPANY_EMAIL = 'ascovill@fefunding.com'
+const COMPANY_PHONE = '732-820-9886'
 
 const DEFAULT_INTRO =
   'We are pleased to inform you that your loan application has been conditionally approved. ' +
@@ -138,7 +138,7 @@ export function ApprovalLetter({ loan, borrower, loanOfficer, conditions, backHr
 
           {/* Letterhead */}
           <div className="flex items-end justify-between gap-6 pb-6 border-b-2 border-gray-800">
-            <Image src="/logo-main.png" alt="Desco Financial" width={724} height={86} className="h-8 w-auto" priority />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-8 w-auto" priority />
             <div className="text-right text-xs text-gray-700 leading-relaxed">
               <p>{COMPANY_ADDRESS}</p>
               <p>{COMPANY_WEBSITE}</p>
@@ -239,7 +239,7 @@ export function ApprovalLetter({ loan, borrower, loanOfficer, conditions, backHr
             <div className="mt-4">
               <p className="font-semibold">{loanOfficer?.full_name ?? '—'}</p>
               {loanOfficer?.title && <p className="text-gray-700">{loanOfficer.title}</p>}
-              <p className="text-gray-700">Desco Financial</p>
+              <p className="text-gray-700">First Equity Funding</p>
               {loanOfficer?.phone && <p className="text-gray-700 mt-1">{loanOfficer.phone}</p>}
               {loanOfficer?.email && <p className="text-gray-700">{loanOfficer.email}</p>}
             </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { type ConditionStatus } from '@/lib/types'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 const VALID_ACTIONS: Record<string, ConditionStatus> = {
   received:  'Received',
@@ -15,7 +16,7 @@ function htmlPage(title: string, message: string, color: string) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${title} — Desco Financial</title>
+  <title>${title} — First Equity Funding</title>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     .card { background: #fff; border-radius: 12px; padding: 48px 40px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -31,7 +32,7 @@ function htmlPage(title: string, message: string, color: string) {
     <div class="icon">${color === '#16a34a' ? '✅' : color === '#dc2626' ? '❌' : '📥'}</div>
     <h1>${title}</h1>
     <p>${message}</p>
-    <a href="https://portal.descofinancial.com/loan-processor">Go to Portal</a>
+    <a href="${PORTAL_URL}/loan-processor">Go to Portal</a>
   </div>
 </body>
 </html>`,
@@ -45,7 +46,7 @@ function errorPage(message: string) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Error — Desco Financial</title>
+  <title>Error — First Equity Funding</title>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     .card { background: #fff; border-radius: 12px; padding: 48px 40px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }

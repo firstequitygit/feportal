@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
-const REDIRECT = 'https://portal.descofinancial.com/auth/set-password'
+const REDIRECT = `${PORTAL_URL}/auth/set-password`
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json()
@@ -28,24 +29,24 @@ export async function POST(req: NextRequest) {
   })
 
   await transporter.sendMail({
-    from: `Desco Financial <${process.env.GMAIL_USER}>`,
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: email,
-    subject: 'Reset your DESCO Financial Portal password',
+    subject: 'Reset your First Equity Funding Portal password',
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi,</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-        We received a request to reset the password for your <strong>DESCO Financial Online Portal</strong> account.
+        We received a request to reset the password for your <strong>First Equity Funding Online Portal</strong> account.
         Click the button below to set a new password.
       </p>
       <p style="margin-top: 24px;">
-        <a href="${data.properties.action_link}" style="background-color: #2DC653; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
+        <a href="${data.properties.action_link}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
           Reset Password
         </a>
       </p>
       <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">
         This link expires in 24 hours. If you didn't request a password reset, you can safely ignore this email.
       </p>
-      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999;">DESCO Financial Online Portal</p>
+      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999;">First Equity Funding Online Portal</p>
     `,
   })
 

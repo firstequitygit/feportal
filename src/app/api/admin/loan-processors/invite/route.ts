@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
-const REDIRECT = 'https://portal.descofinancial.com/auth/set-password'
+const REDIRECT = `${PORTAL_URL}/auth/set-password`
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -74,24 +75,24 @@ export async function POST(req: NextRequest) {
   })
 
   await transporter.sendMail({
-    from: `Desco Financial <${process.env.GMAIL_USER}>`,
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: lp.email,
-    subject: 'Your DESCO Financial Online Portal access',
+    subject: 'Your First Equity Funding Online Portal access',
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${lp.full_name ?? 'there'},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-        You've been given access to the <strong>DESCO Financial Online Portal</strong> as a Loan Processor.
+        You've been given access to the <strong>First Equity Funding Online Portal</strong> as a Loan Processor.
         Click the button below to set your password and access your loan files.
       </p>
       <p style="margin-top: 24px;">
-        <a href="${linkData.properties.action_link}" style="background-color: #2DC653; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
+        <a href="${linkData.properties.action_link}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
           Set Password &amp; Sign In
         </a>
       </p>
       <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">
         This link expires in 24 hours. If you did not expect this email, you can ignore it.
       </p>
-      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999;">DESCO Financial Online Portal</p>
+      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999;">First Equity Funding Online Portal</p>
     `,
   })
 

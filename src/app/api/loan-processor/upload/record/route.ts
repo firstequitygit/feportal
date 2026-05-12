@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -115,16 +116,16 @@ async function sendNotification({
     auth: { user: gmailUser, pass: gmailPass },
   })
 
-  const BASE_URL = 'https://portal.descofinancial.com'
+  const BASE_URL = PORTAL_URL
 
   await transporter.sendMail({
-    from: `Desco Portal <${gmailUser}>`,
+    from: `First Equity Funding <${gmailUser}>`,
     to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
         Hi ${toName},<br/><br/>
-        <strong>${uploaderName}</strong> (Loan Processor) has uploaded a document to the DESCO Financial portal.
+        <strong>${uploaderName}</strong> (Loan Processor) has uploaded a document to the First Equity Funding portal.
       </p>
       <table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">
         <tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr>
@@ -132,7 +133,7 @@ async function sendNotification({
         <tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr>
       </table>
       <p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">
-        Log in to the <a href="${BASE_URL}/loan-officer" style="color:#2DC653;">loan officer portal</a> to review.
+        Log in to the <a href="${BASE_URL}/loan-officer" style="color:#1F5D8F;">loan officer portal</a> to review.
       </p>
     `,
     attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : [],

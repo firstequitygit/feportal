@@ -1,5 +1,5 @@
 -- ============================================================
--- Desco Financial Borrower Portal — Database Schema
+-- First Equity Funding Borrower Portal — Database Schema
 -- Run this entire file in Supabase SQL Editor
 -- ============================================================
 

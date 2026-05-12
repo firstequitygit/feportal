@@ -108,7 +108,7 @@ export function PortalShell({
       )}
 
       {/* Top bar — full width, logo top-right */}
-      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10" style={{ backgroundColor: '#FFF6EF', borderBottom: '1px solid #e8ddd6' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(true)}
@@ -122,10 +122,10 @@ export function PortalShell({
         <div className="ml-auto pr-5">
           <Link href={dashboardHref} className="flex items-center gap-2.5">
             <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">DESCO Financial</p>
+              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
               <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
             </div>
-            <Image src="/logo-symbol.png" alt="Desco Financial" width={32} height={32} className="h-8 w-auto" />
+            <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
           </Link>
         </div>
       </header>

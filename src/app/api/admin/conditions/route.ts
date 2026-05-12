@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 async function verifyAdmin() {
   const supabase = await createClient()
@@ -83,28 +84,28 @@ export async function POST(request: Request) {
         ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
       </table>
       <p style="margin-top: 16px;">
-        <a href="${portalUrl}" style="background-color: #2DC653; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View in Portal</a>
+        <a href="${portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View in Portal</a>
       </p>
-      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">DESCO Financial Online Portal</p>
+      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
     `
 
     if (assigned_to === 'loan_officer' && lo?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
         to: lo.email,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
-        html: staffHtml(lo.full_name, 'Loan Officer', 'https://portal.descofinancial.com/loan-officer'),
+        html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
       })
     } else if (assigned_to === 'loan_processor' && lp?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
         to: lp.email,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
-        html: staffHtml(lp.full_name, 'Loan Processor', 'https://portal.descofinancial.com/loan-processor'),
+        html: staffHtml(lp.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
       })
     } else if (assigned_to === 'borrower' && borrower?.email) {
       await getTransporter().sendMail({
-        from: `Desco Financial <${process.env.GMAIL_USER}>`,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
         to: borrower.email,
         subject: `New condition added — ${loan?.property_address ?? 'your loan'}`,
         html: `
@@ -117,9 +118,9 @@ export async function POST(request: Request) {
             ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
           </table>
           <p style="margin-top: 16px;">
-            <a href="https://portal.descofinancial.com" style="background-color: #2DC653; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View My Loan</a>
+            <a href="${PORTAL_URL}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View My Loan</a>
           </p>
-          <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">DESCO Financial Online Portal</p>
+          <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
         `,
       })
     }
@@ -226,7 +227,7 @@ async function sendBorrowerStatusNotification({
   const color = statusColors[status] ?? '#333'
 
   await getTransporter().sendMail({
-    from: `Desco Financial <${process.env.GMAIL_USER}>`,
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: borrower.email,
     subject: `Condition update — ${loan?.property_address ?? 'your loan'}`,
     html: `
@@ -241,9 +242,9 @@ async function sendBorrowerStatusNotification({
       </table>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-top: 16px;">${message}</p>
       <p style="margin-top: 16px;">
-        <a href="https://portal.descofinancial.com" style="background-color: #2DC653; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View My Loan</a>
+        <a href="${PORTAL_URL}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View My Loan</a>
       </p>
-      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">DESCO Financial Online Portal</p>
+      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
     `,
   })
 }

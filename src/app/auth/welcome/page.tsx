@@ -88,7 +88,7 @@ export default function WelcomePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Image src="/logo-main.png" alt="DESCO Financial" width={724} height={86} className="h-[44px] w-auto mx-auto" />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto" />
           </div>
           <Card>
             <CardContent className="pt-6 text-center space-y-3">
@@ -112,13 +112,13 @@ export default function WelcomePage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image src="/logo-main.png" alt="Desco Financial" width={724} height={86} className="h-[44px] w-auto mx-auto" />
+          <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto" />
         </div>
         <Card>
           <CardHeader>
             <CardTitle>Welcome{name ? `, ${name.split(' ')[0]}` : ''}!</CardTitle>
             <CardDescription>
-              You&apos;ve been invited to the DESCO Financial Online Portal.
+              You&apos;ve been invited to the First Equity Funding Online Portal.
               Set a password to access your loans.
             </CardDescription>
           </CardHeader>
