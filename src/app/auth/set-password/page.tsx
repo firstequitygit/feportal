@@ -102,8 +102,8 @@ export default function SetPasswordPage() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-        <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff' }}>
+        <div className="w-full py-4 px-6" style={{ backgroundColor: '#ffffff' }}>
           <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
         </div>
         <div className="flex-1 flex items-center justify-center px-4">
@@ -123,8 +123,8 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-      <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff' }}>
+      <div className="w-full py-4 px-6" style={{ backgroundColor: '#ffffff' }}>
         <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
       </div>
 

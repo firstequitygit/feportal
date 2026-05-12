@@ -37,9 +37,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff' }}>
       {/* Top bar */}
-      <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
+      <div className="w-full py-4 px-6" style={{ backgroundColor: '#ffffff' }}>
         <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
       </div>
 
