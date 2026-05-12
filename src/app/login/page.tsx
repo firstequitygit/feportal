@@ -39,7 +39,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
       {/* Top bar */}
-      <div className="w-full py-4 px-6" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+      <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
         <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
       </div>
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto mb-3" />
+          <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-20 w-auto mx-auto mb-3" />
         </div>
 
         <Card>

@@ -103,7 +103,7 @@ export default function SetPasswordPage() {
   if (!ready) {
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-        <div className="w-full py-4 px-6" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+        <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
           <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
         </div>
         <div className="flex-1 flex items-center justify-center px-4">
@@ -124,14 +124,14 @@ export default function SetPasswordPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f8f9fa' }}>
-      <div className="w-full py-4 px-6" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+      <div className="w-full py-4 px-6" style={{ backgroundColor: '#f8f9fa' }}>
         <Image src="/logo-symbol.png" alt="First Equity Funding" width={36} height={36} className="h-8 w-auto" />
       </div>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-[44px] w-auto mx-auto mb-3" />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-20 w-auto mx-auto mb-3" />
           </div>
 
           <Card>
