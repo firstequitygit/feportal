@@ -65,14 +65,10 @@ export async function POST() {
       const isNowClosed = deal.pipeline_stage === 'Closed'
       const stageChanged = !!existing && deal.pipeline_stage !== null && previousStage !== deal.pipeline_stage
 
-      // archived rule:
-      //   pipedrive_status=lost → archived=true (historical, not claimable)
+      // archived rule (per FE policy):
       //   pipedrive_status=open → archived=false (active, claimable)
-      //   pipedrive_status=won  → omit from upsert (auto-archive cron handles)
-      const archivedField: { archived?: boolean } =
-        deal.pipedrive_status === 'lost' ? { archived: true } :
-        deal.pipedrive_status === 'open' ? { archived: false } :
-        {}
+      //   anything else (won/lost) → archived=true (out of the active flow)
+      const archivedField = { archived: deal.pipedrive_status !== 'open' }
 
       const { error } = await supabase
         .from('loans')

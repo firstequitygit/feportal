@@ -66,12 +66,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, skipped: true, reason: 'not_deals_pipeline' })
     }
 
-    // archived rule: lost → archived=true, open → archived=false,
-    // won → leave alone (auto-archive cron handles after 30d)
-    const archivedField: { archived?: boolean } =
-      deal.pipedrive_status === 'lost' ? { archived: true } :
-      deal.pipedrive_status === 'open' ? { archived: false } :
-      {}
+    // archived rule (per FE policy):
+    //   pipedrive_status=open → archived=false (active, claimable)
+    //   anything else (won/lost) → archived=true (out of the active flow)
+    const archivedField = { archived: deal.pipedrive_status !== 'open' }
 
     const { error } = await supabase
       .from('loans')

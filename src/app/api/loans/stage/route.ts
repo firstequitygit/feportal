@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, pipedrive_deal_id, pipeline_stage, loan_officer_id, loan_processor_id, underwriter_id, property_address')
+    .select('id, pipedrive_deal_id, pipeline_stage, closed_at, loan_officer_id, loan_processor_id, underwriter_id, property_address')
     .eq('id', loanId)
     .single()
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
@@ -76,10 +76,16 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: `Could not update Pipedrive: ${msg}` }, { status: 502 })
   }
 
-  // Mirror locally
+  // Mirror locally. FE policy: moving a loan to Closed also archives it
+  // immediately (no 30-day grace period). Sets closed_at if not already set.
+  const updatePayload: Record<string, unknown> = { pipeline_stage: stage }
+  if (stage === 'Closed') {
+    updatePayload.archived = true
+    if (!loan.closed_at) updatePayload.closed_at = new Date().toISOString()
+  }
   const { error } = await adminClient
     .from('loans')
-    .update({ pipeline_stage: stage })
+    .update(updatePayload)
     .eq('id', loanId)
 
   if (error) {
