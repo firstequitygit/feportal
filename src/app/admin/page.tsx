@@ -29,15 +29,18 @@ export default async function AdminPage() {
     { count: borrowerCount },
     { data: archivedIds },
   ] = await Promise.all([
+    // Filter archived loans out at the DB level — PostgREST caps results
+    // at 1000 rows per query regardless of the .limit() value, so we can't
+    // fetch everything and filter in JS. Archived loans are visible on the
+    // dedicated /admin/archived page.
     adminClient
       .from('loans')
       .select('*, borrowers (full_name, email)')
-      .order('created_at', { ascending: false })
-      .limit(5000),  // PostgREST default is 1000; raise to fit FE's full book
+      .eq('archived', false)
+      .order('created_at', { ascending: false }),
     adminClient
       .from('conditions')
-      .select('loan_id, status')
-      .limit(10000),
+      .select('loan_id, status'),
     adminClient
       .from('borrowers')
       .select('*', { count: 'exact', head: true }),
@@ -60,12 +63,14 @@ export default async function AdminPage() {
     }
   }
 
-  // Build archived set via RPC (bypasses schema cache)
-  const archivedSet = new Set<string>((archivedIds ?? []) as string[])
+  // archivedIds still used to surface the archived count in the UI;
+  // the loans list itself has already been filtered to non-archived
+  // at the DB query above.
+  void archivedIds // referenced for clarity; not needed for filtering anymore
 
   const loansWithMeta: LoanWithMeta[] = (loans ?? []).map(loan => ({
     ...loan,
-    archived: archivedSet.has(loan.id),
+    archived: false, // all loans returned by the DB query are non-archived
     outstandingCount: outstandingMap[loan.id] ?? 0,
     pendingReviewCount: pendingReviewMap[loan.id] ?? 0,
     totalConditionsCount: totalConditionsMap[loan.id] ?? 0,
@@ -94,7 +99,7 @@ export default async function AdminPage() {
                   <Building2 className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900">{(loans ?? []).filter(l => !archivedSet.has(l.id)).length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{(loans ?? []).length}</p>
                   <p className="text-sm text-gray-500 mt-0.5">Total Loans</p>
                 </div>
               </div>
