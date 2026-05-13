@@ -119,9 +119,10 @@ create table if not exists loans (
   id uuid primary key default uuid_generate_v4(),
   pipedrive_deal_id integer unique not null,
   borrower_id uuid references borrowers(id) on delete set null,
-  loan_officer_id   uuid references loan_officers(id)   on delete set null,
-  loan_processor_id uuid references loan_processors(id) on delete set null,
-  underwriter_id    uuid references underwriters(id)    on delete set null,
+  loan_officer_id     uuid references loan_officers(id)   on delete set null,
+  loan_processor_id   uuid references loan_processors(id) on delete set null,
+  loan_processor_id_2 uuid references loan_processors(id) on delete set null,  -- FE supports up to 2 LPs per loan
+  underwriter_id      uuid references underwriters(id)    on delete set null,
 
   -- Property
   property_address text,
@@ -167,6 +168,7 @@ create table if not exists loans (
 -- Backfill columns for portals upgrading from an older schema
 alter table loans add column if not exists loan_officer_id        uuid references loan_officers(id)   on delete set null;
 alter table loans add column if not exists loan_processor_id      uuid references loan_processors(id) on delete set null;
+alter table loans add column if not exists loan_processor_id_2    uuid references loan_processors(id) on delete set null;
 alter table loans add column if not exists underwriter_id         uuid references underwriters(id)    on delete set null;
 alter table loans add column if not exists loan_number            text;
 alter table loans add column if not exists rate_locked_days       text;

@@ -19,19 +19,27 @@ export async function POST(req: NextRequest) {
   const { loanId } = await req.json()
   if (!loanId) return NextResponse.json({ error: 'Missing loanId' }, { status: 400 })
 
-  // Verify the loan is still unassigned (prevent race conditions)
+  // Up to 2 LPs per loan. Fill the first open slot; reject if both
+  // already filled or if this LP is already assigned.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, loan_processor_id, property_address')
+    .select('id, loan_processor_id, loan_processor_id_2, property_address')
     .eq('id', loanId)
     .single()
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
-  if (loan.loan_processor_id) return NextResponse.json({ error: 'This loan has already been claimed' }, { status: 409 })
+  if (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id) {
+    return NextResponse.json({ error: 'You are already assigned to this loan' }, { status: 409 })
+  }
+  const slot: 'loan_processor_id' | 'loan_processor_id_2' | null =
+    !loan.loan_processor_id   ? 'loan_processor_id' :
+    !loan.loan_processor_id_2 ? 'loan_processor_id_2' :
+    null
+  if (!slot) return NextResponse.json({ error: 'This loan already has 2 loan processors assigned' }, { status: 409 })
 
   const { error } = await adminClient
     .from('loans')
-    .update({ loan_processor_id: lp.id })
+    .update({ [slot]: lp.id })
     .eq('id', loanId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -52,7 +52,7 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
     .from('loans')
     .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
     .eq('id', id)
-    .eq('loan_processor_id', lp.id)
+    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .single()
 
   if (!loan) notFound()

@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors(full_name, email)')
+    .select('id, property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email)')
     .eq('id', loanId)
-    .eq('loan_processor_id', lp.id)
+    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -109,7 +109,7 @@ export async function PUT(req: NextRequest) {
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', condition.loan_id).eq('loan_processor_id', lp.id).single()
+    .from('loans').select('id').eq('id', condition.loan_id).or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const updatePayload: Record<string, unknown> = { status }
@@ -151,7 +151,7 @@ export async function PATCH(req: NextRequest) {
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', condition.loan_id).eq('loan_processor_id', lp.id).single()
+    .from('loans').select('id').eq('id', condition.loan_id).or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { error } = await adminClient

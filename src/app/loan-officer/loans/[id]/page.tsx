@@ -50,7 +50,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
   // Verify this loan is assigned to this LO
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_processors(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_processors!loan_processor_id(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
     .eq('id', id)
     .eq('loan_officer_id', lo.id)
     .single()

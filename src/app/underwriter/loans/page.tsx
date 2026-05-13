@@ -32,7 +32,7 @@ export default async function UnderwriterLoansPage() {
       .order('created_at', { ascending: false }),
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email), loan_officers(full_name), loan_processors(full_name)')
+      .select('*, borrowers(full_name, email), loan_officers(full_name), loan_processors!loan_processor_id(full_name)')
       .is('underwriter_id', null)
       .neq('pipeline_stage', 'Closed')
       .order('created_at', { ascending: false }),

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   // Fetch loan (verify ownership) + LP contact info in one query
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_processors(full_name, email)')
+    .select('id, property_address, loan_processors!loan_processor_id(full_name, email)')
     .eq('id', loanId)
     .eq('loan_officer_id', lo.id)
     .single()

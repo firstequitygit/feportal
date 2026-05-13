@@ -26,19 +26,27 @@ export default async function LoanProcessorLoansPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
-  const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
+  const [{ data: loans }, { data: unassignedLoansRaw }] = await Promise.all([
+    // My loans: I'm in either slot 1 or slot 2
     adminClient
       .from('loans')
       .select('*, borrowers(full_name, email)')
-      .eq('loan_processor_id', lp.id)
+      .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
       .order('created_at', { ascending: false }),
+    // Available to claim: at least one slot is open
     adminClient
       .from('loans')
       .select('*, borrowers(full_name, email), loan_officers(full_name)')
-      .is('loan_processor_id', null)
+      .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
       .neq('pipeline_stage', 'Closed')
+      .eq('archived', false)
       .order('created_at', { ascending: false }),
   ])
+
+  // Exclude loans where this LP already occupies one of the slots
+  const unassignedLoans = (unassignedLoansRaw ?? []).filter(
+    l => l.loan_processor_id !== lp.id && l.loan_processor_id_2 !== lp.id
+  )
 
   const loanIds = (loans ?? []).map((l: Loan) => l.id)
 

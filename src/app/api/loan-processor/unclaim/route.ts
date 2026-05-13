@@ -21,18 +21,24 @@ export async function POST(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, loan_processor_id')
+    .select('id, loan_processor_id, loan_processor_id_2')
     .eq('id', loanId)
     .single()
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
-  if (loan.loan_processor_id !== lp.id) {
-    return NextResponse.json({ error: 'You are not the assigned loan processor on this loan' }, { status: 403 })
+
+  // Determine which slot this LP occupies and clear it.
+  const slot: 'loan_processor_id' | 'loan_processor_id_2' | null =
+    loan.loan_processor_id   === lp.id ? 'loan_processor_id'   :
+    loan.loan_processor_id_2 === lp.id ? 'loan_processor_id_2' :
+    null
+  if (!slot) {
+    return NextResponse.json({ error: 'You are not assigned to this loan' }, { status: 403 })
   }
 
   const { error } = await adminClient
     .from('loans')
-    .update({ loan_processor_id: null })
+    .update({ [slot]: null })
     .eq('id', loanId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

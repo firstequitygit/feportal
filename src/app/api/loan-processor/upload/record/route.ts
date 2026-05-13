@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     .from('loans')
     .select('id, property_address, loan_officers(full_name, email)')
     .eq('id', loanId)
-    .eq('loan_processor_id', lp.id)
+    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

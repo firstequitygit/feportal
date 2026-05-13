@@ -26,7 +26,7 @@ function getTransporter() {
 async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminClient>, loanId: string) {
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors(full_name, email)')
+    .select('property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email)')
     .eq('id', loanId)
     .single()
   return loan

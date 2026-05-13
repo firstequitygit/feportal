@@ -73,6 +73,7 @@ export interface Loan {
   borrower_id: string | null
   loan_officer_id: string | null
   loan_processor_id: string | null
+  loan_processor_id_2: string | null   // FE supports up to 2 LPs per loan
   underwriter_id: string | null
   property_address: string | null
   loan_type: LoanType | null

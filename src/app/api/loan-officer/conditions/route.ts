@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors(full_name, email)')
+    .select('id, property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email)')
     .eq('id', loanId)
     .eq('loan_officer_id', lo.id)
     .single()

@@ -34,7 +34,7 @@ export default async function LoanOfficerLoansPage() {
       .order('created_at', { ascending: false }),
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email), loan_processors(full_name)')
+      .select('*, borrowers(full_name, email), loan_processors!loan_processor_id(full_name)')
       .is('loan_officer_id', null)
       .neq('pipeline_stage', 'Closed')
       .order('created_at', { ascending: false }),

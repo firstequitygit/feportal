@@ -72,7 +72,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     { data: loanDetails },
     { data: loanDemographics },
   ] = await Promise.all([
-    adminClient.from('loans').select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email, phone, title), loan_processors(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
+    adminClient.from('loans').select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('condition_templates').select('*').order('title'),
     adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
@@ -216,6 +216,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             <AdminLoanProcessorAssign
               loanId={id}
               currentLoanProcessorId={loan.loan_processors?.id ?? null}
+              currentLoanProcessorId2={(loan as unknown as { loan_processor_2: { id: string } | null }).loan_processor_2?.id ?? null}
               allLoanProcessors={(allLoanProcessors ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
             />
 
