@@ -26,7 +26,7 @@ function getTransporter() {
 async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminClient>, loanId: string) {
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email)')
+    .select('property_address, borrowers(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
     .eq('id', loanId)
     .single()
   return loan
@@ -72,6 +72,8 @@ export async function POST(request: Request) {
 
     const lo = loan?.loan_officers as unknown as { full_name: string | null; email: string | null } | null
     const lp = (loan as unknown as { loan_processors?: { full_name: string | null; email: string | null } | null })?.loan_processors ?? null
+    const lp2 = (loan as unknown as { loan_processor_2?: { full_name: string | null; email: string | null } | null })?.loan_processor_2 ?? null
+    const lps = [lp, lp2].filter((p): p is { full_name: string | null; email: string | null } => !!p?.email)
     const borrower = loan?.borrowers as unknown as { full_name: string | null; email: string } | null
 
     const staffHtml = (name: string | null, role: string, portalUrl: string) => `
@@ -96,13 +98,13 @@ export async function POST(request: Request) {
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
       })
-    } else if (assigned_to === 'loan_processor' && lp?.email) {
-      await getTransporter().sendMail({
+    } else if (assigned_to === 'loan_processor' && lps.length > 0) {
+      await Promise.all(lps.map(processor => getTransporter().sendMail({
         from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-        to: lp.email,
+        to: processor.email!,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
-        html: staffHtml(lp.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
-      })
+        html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
+      })))
     } else if (assigned_to === 'borrower' && borrower?.email) {
       await getTransporter().sendMail({
         from: `First Equity Funding <${process.env.GMAIL_USER}>`,

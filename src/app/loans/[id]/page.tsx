@@ -47,14 +47,19 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
 
   // Fetch loan officer + loan processor via admin client (bypasses RLS)
   const adminClient = createAdminClient()
-  const [loanOfficer, loanProcessor] = await Promise.all([
+  const lpIds = [loan.loan_processor_id, loan.loan_processor_id_2].filter((id): id is string => !!id)
+  const [loanOfficer, lpRows] = await Promise.all([
     loan.loan_officer_id
       ? adminClient.from('loan_officers').select('full_name, email, phone, title').eq('id', loan.loan_officer_id).single().then(({ data }) => data)
       : null,
-    loan.loan_processor_id
-      ? adminClient.from('loan_processors').select('full_name, email, phone, title').eq('id', loan.loan_processor_id).single().then(({ data }) => data)
+    lpIds.length > 0
+      ? adminClient.from('loan_processors').select('id, full_name, email, phone, title').in('id', lpIds).then(({ data }) => data)
       : null,
   ])
+  // Preserve order: slot 1 first, slot 2 second
+  const loanProcessors = lpIds
+    .map(id => (lpRows ?? []).find(r => r.id === id))
+    .filter((r): r is { id: string; full_name: string; email: string | null; phone: string | null; title: string | null } => !!r)
 
   const { data: conditions } = await supabase
     .from('conditions')
@@ -181,25 +186,29 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
               </Card>
             )}
 
-            {/* Loan Processor */}
-            {loanProcessor && (
+            {/* Loan Processor(s) */}
+            {loanProcessors.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Your Loan Processor</CardTitle>
+                  <CardTitle className="text-base">{loanProcessors.length > 1 ? 'Your Loan Processors' : 'Your Loan Processor'}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{loanProcessor.full_name}</p>
-                  {loanProcessor.title && <p className="text-gray-500">{loanProcessor.title}</p>}
-                  {loanProcessor.email && (
-                    <p className="text-gray-500">
-                      ✉ <a href={`mailto:${loanProcessor.email}`} className="text-primary hover:opacity-80">{loanProcessor.email}</a>
-                    </p>
-                  )}
-                  {loanProcessor.phone && (
-                    <p className="text-gray-500">
-                      📞 <a href={`tel:${loanProcessor.phone}`} className="text-primary hover:opacity-80">{loanProcessor.phone}</a>
-                    </p>
-                  )}
+                <CardContent className="space-y-4 text-sm">
+                  {loanProcessors.map((lp, i) => (
+                    <div key={lp.id} className={`space-y-1 ${i > 0 ? 'pt-3 border-t border-gray-100' : ''}`}>
+                      <p className="font-medium text-gray-900">{lp.full_name}</p>
+                      {lp.title && <p className="text-gray-500">{lp.title}</p>}
+                      {lp.email && (
+                        <p className="text-gray-500">
+                          ✉ <a href={`mailto:${lp.email}`} className="text-primary hover:opacity-80">{lp.email}</a>
+                        </p>
+                      )}
+                      {lp.phone && (
+                        <p className="text-gray-500">
+                          📞 <a href={`tel:${lp.phone}`} className="text-primary hover:opacity-80">{lp.phone}</a>
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}

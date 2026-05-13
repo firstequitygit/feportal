@@ -32,17 +32,18 @@ export async function sendStageUpdateEmail(
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email)')
+    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
 
   const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
-  const lp = loan.loan_processors as unknown as { email: string | null } | null
+  const lp  = loan.loan_processors as unknown as { email: string | null } | null
+  const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
   const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email].filter((e): e is string => !!e),
+    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
   ))
   if (recipients.length === 0) return
 
@@ -91,7 +92,7 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email)')
+    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
 
@@ -99,10 +100,11 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
-  const lp = loan.loan_processors as unknown as { email: string | null } | null
+  const lp  = loan.loan_processors as unknown as { email: string | null } | null
+  const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
   const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email].filter((e): e is string => !!e),
+    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
   ))
   if (recipients.length === 0) return
 
@@ -157,7 +159,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email)')
+    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
 
@@ -165,10 +167,11 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
-  const lp = loan.loan_processors as unknown as { email: string | null } | null
+  const lp  = loan.loan_processors as unknown as { email: string | null } | null
+  const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
   const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email].filter((e): e is string => !!e),
+    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
   ))
   if (recipients.length === 0) return
 

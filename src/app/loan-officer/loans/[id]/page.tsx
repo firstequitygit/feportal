@@ -50,7 +50,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
   // Verify this loan is assigned to this LO
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_processors!loan_processor_id(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
     .eq('id', id)
     .eq('loan_officer_id', lo.id)
     .single()
@@ -94,6 +94,8 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
 
   const borrower = loan.borrowers as { full_name: string | null; email: string; phone: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
+  const loanProcessor2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null; phone: string | null; title: string | null } | null }).loan_processor_2
+  const loanProcessors = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string; email: string | null; phone: string | null; title: string | null } => !!p)
   const underwriter = loan.underwriters as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
 
   return (
@@ -214,38 +216,36 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Loan Processor</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {loanProcessor ? (
-                  <>
+              <CardHeader><CardTitle className="text-base">{loanProcessors.length > 1 ? 'Loan Processors' : 'Loan Processor'}</CardTitle></CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {loanProcessors.length === 0 ? (
+                  <p className="text-gray-400 italic">No loan processor assigned</p>
+                ) : loanProcessors.map((lp, i) => (
+                  <div key={i} className={`space-y-2 ${i > 0 ? 'pt-3 border-t border-gray-100' : ''}`}>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Name</span>
-                      <span className="font-medium">{loanProcessor.full_name}</span>
+                      <span className="font-medium">{lp.full_name}</span>
                     </div>
-                    {loanProcessor.title && (
+                    {lp.title && (
                       <div className="flex justify-between">
                         <span className="text-gray-500">Title</span>
-                        <span className="font-medium">{loanProcessor.title}</span>
+                        <span className="font-medium">{lp.title}</span>
                       </div>
                     )}
-                    {loanProcessor.email && (
+                    {lp.email && (
                       <div className="flex justify-between">
                         <span className="text-gray-500">Email</span>
-                        <a href={`mailto:${loanProcessor.email}`} className="font-medium text-primary hover:opacity-80">
-                          {loanProcessor.email}
-                        </a>
+                        <a href={`mailto:${lp.email}`} className="font-medium text-primary hover:opacity-80">{lp.email}</a>
                       </div>
                     )}
-                    {loanProcessor.phone && (
+                    {lp.phone && (
                       <div className="flex justify-between">
                         <span className="text-gray-500">Phone</span>
-                        <span className="font-medium">{loanProcessor.phone}</span>
+                        <span className="font-medium">{lp.phone}</span>
                       </div>
                     )}
-                  </>
-                ) : (
-                  <p className="text-gray-400 italic">No loan processor assigned</p>
-                )}
+                  </div>
+                ))}
               </CardContent>
             </Card>
 

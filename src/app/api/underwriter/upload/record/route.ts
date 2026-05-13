@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_processors!loan_processor_id(full_name, email)')
+    .select('id, property_address, loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
     .eq('id', loanId)
     .eq('underwriter_id', uw.id)
     .single()
@@ -65,19 +65,24 @@ export async function POST(req: NextRequest) {
     if (fileData) fileBuffer = Buffer.from(await fileData.arrayBuffer())
   } catch (err) { console.error('File download error:', err) }
 
-  // Notify the assigned loan processor
-  const lp = loan.loan_processors as unknown as { full_name: string; email: string | null } | null
-  const toEmail = lp?.email ?? 'fefprocessing@gmail.com'
-  const toName  = lp?.full_name ?? 'Loan Processor'
+  // Notify both assigned loan processors (FE supports up to 2 LPs per loan)
+  const lp1 = loan.loan_processors as unknown as { full_name: string; email: string | null } | null
+  const lp2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null } | null }).loan_processor_2
+  const recipients = [lp1, lp2]
+    .filter((p): p is { full_name: string; email: string } => !!p?.email)
+    .map(p => ({ toEmail: p.email, toName: p.full_name ?? 'Loan Processor' }))
+  if (recipients.length === 0) {
+    recipients.push({ toEmail: 'fefprocessing@gmail.com', toName: 'Loan Processor' })
+  }
 
   try {
-    await sendNotification({
-      toEmail, toName,
+    await Promise.all(recipients.map(r => sendNotification({
+      toEmail: r.toEmail, toName: r.toName,
       uploaderName: uw.full_name,
       propertyAddress: loan.property_address ?? 'Unknown property',
       conditionTitle: condition?.title ?? 'Unknown condition',
       fileName, fileBuffer, actionToken,
-    })
+    })))
   } catch (err) { console.error('Email notification error:', err) }
 
   return NextResponse.json({ success: true })

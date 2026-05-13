@@ -48,7 +48,7 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone)')
+    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
     .eq('id', id)
     .eq('underwriter_id', uw.id)
     .single()
@@ -84,6 +84,8 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
   const borrower = loan.borrowers as unknown as { full_name: string | null; email: string; phone: string | null } | null
   const loanOfficer = loan.loan_officers as unknown as { full_name: string; email: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null } | null
+  const loanProcessor2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null; phone: string | null } | null }).loan_processor_2
+  const loanProcessors = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string; email: string | null; phone: string | null } => !!p)
 
 
   return (
@@ -200,16 +202,25 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
                     <a href={`mailto:${loanOfficer.email}`} className="font-medium text-primary hover:opacity-80">{loanOfficer.email}</a>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Loan Processor</span>
-                  <span className="font-medium">{loanProcessor?.full_name ?? '—'}</span>
-                </div>
-                {loanProcessor?.email && (
+                {loanProcessors.length === 0 ? (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">LP Email</span>
-                    <a href={`mailto:${loanProcessor.email}`} className="font-medium text-primary hover:opacity-80">{loanProcessor.email}</a>
+                    <span className="text-gray-500">Loan Processor</span>
+                    <span className="font-medium">—</span>
                   </div>
-                )}
+                ) : loanProcessors.map((lp, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{loanProcessors.length > 1 ? (i === 0 ? 'Loan Processor 1' : 'Loan Processor 2') : 'Loan Processor'}</span>
+                      <span className="font-medium">{lp.full_name}</span>
+                    </div>
+                    {lp.email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">LP Email</span>
+                        <a href={`mailto:${lp.email}`} className="font-medium text-primary hover:opacity-80">{lp.email}</a>
+                      </div>
+                    )}
+                  </div>
+                ))}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Underwriter</span>
                   <span className="font-medium">{uw.full_name}</span>
