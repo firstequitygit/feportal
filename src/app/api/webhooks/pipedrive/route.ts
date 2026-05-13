@@ -60,6 +60,19 @@ export async function POST(request: Request) {
     const wasClosed = existingLoan?.pipeline_stage === 'Closed'
     const isNowClosed = deal.pipeline_stage === 'Closed'
 
+    // Skip non-Pipeline-2 deals — only the Deals Pipeline syncs to the portal.
+    if (deal.pipedrive_pipeline_id !== 2) {
+      console.log(`Skipping deal ${dealId} — pipeline_id=${deal.pipedrive_pipeline_id}, not Deals Pipeline`)
+      return NextResponse.json({ received: true, skipped: true, reason: 'not_deals_pipeline' })
+    }
+
+    // archived rule: lost → archived=true, open → archived=false,
+    // won → leave alone (auto-archive cron handles after 30d)
+    const archivedField: { archived?: boolean } =
+      deal.pipedrive_status === 'lost' ? { archived: true } :
+      deal.pipedrive_status === 'open' ? { archived: false } :
+      {}
+
     const { error } = await supabase
       .from('loans')
       .upsert(
@@ -78,6 +91,7 @@ export async function POST(request: Request) {
           maturity_date:      deal.maturity_date,
           entity_name:        deal.entity_name,
           last_synced_at:     new Date().toISOString(),
+          ...archivedField,
         },
         { onConflict: 'pipedrive_deal_id' }
       )

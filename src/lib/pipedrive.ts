@@ -45,6 +45,8 @@ export interface PipedriveDeal {
   title: string
   stage_id: number
   value?: number | null  // Pipedrive's default deal value field — FE uses this for loan amount
+  status?: 'open' | 'won' | 'lost' | 'deleted' | string
+  pipeline_id?: number
   person_id?: { name: string; value: number } | null
   custom_fields?: Record<string, unknown>  // Automated Webhooks nest custom fields here
   [key: string]: unknown
@@ -52,6 +54,8 @@ export interface PipedriveDeal {
 
 export interface NormalizedDeal {
   pipedrive_deal_id: number
+  pipedrive_status: string         // 'open' | 'won' | 'lost' — drives archived rules
+  pipedrive_pipeline_id: number | null
   property_address: string | null
   pipeline_stage: PipelineStage | null
   pipedrive_person_id: number | null
@@ -127,6 +131,8 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
 
   return {
     pipedrive_deal_id:  deal.id,
+    pipedrive_status:   (deal.status as string) ?? 'open',
+    pipedrive_pipeline_id: typeof deal.pipeline_id === 'number' ? deal.pipeline_id : null,
     property_address:   propertyAddress,
     pipeline_stage:     PIPEDRIVE_STAGE_MAP[deal.stage_id] ?? null,
     pipedrive_person_id: deal.person_id?.value ?? null,
@@ -149,17 +155,25 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
   }
 }
 
-// Fetches every active and won deal from FE's Deals Pipeline (id 2),
-// paginated across as many pages as Pipedrive returns. Skips status=lost
-// and status=deleted — those are dead deals that shouldn't appear in the
-// portal as "active" loans.
+// Fetches every Pipeline-2 deal (FE's "Deals Pipeline") across open, won,
+// and lost statuses, paginated. Pipedrive's /deals endpoint ignores
+// pipeline_id as a query param so we filter client-side. The Leads
+// Pipeline (id 6) is excluded entirely — those are pre-application
+// leads, not loans worth tracking in the portal.
+//
+// Sync route decides archived state from `pipedrive_status`:
+//   open → archived=false (active, claimable)
+//   won  → archived left untouched (auto-archive cron handles after 30d)
+//   lost → archived=true (in portal as historical record, not claimable)
 export async function fetchAllDeals(): Promise<NormalizedDeal[]> {
-  const [open, won] = await Promise.all([
-    pipedriveGetAllPages('/deals?status=open&pipeline_id=2'),
-    pipedriveGetAllPages('/deals?status=won&pipeline_id=2'),
+  const [open, won, lost] = await Promise.all([
+    pipedriveGetAllPages('/deals?status=open'),
+    pipedriveGetAllPages('/deals?status=won'),
+    pipedriveGetAllPages('/deals?status=lost'),
   ])
-  const deals = [...open, ...won] as PipedriveDeal[]
-  return deals.map(normalizeDeal)
+  const all = [...open, ...won, ...lost] as PipedriveDeal[]
+  const pipeline2 = all.filter(d => d.pipeline_id === 2)
+  return pipeline2.map(normalizeDeal)
 }
 
 export async function fetchDeal(dealId: number): Promise<NormalizedDeal | null> {

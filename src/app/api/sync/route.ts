@@ -65,6 +65,15 @@ export async function POST() {
       const isNowClosed = deal.pipeline_stage === 'Closed'
       const stageChanged = !!existing && deal.pipeline_stage !== null && previousStage !== deal.pipeline_stage
 
+      // archived rule:
+      //   pipedrive_status=lost → archived=true (historical, not claimable)
+      //   pipedrive_status=open → archived=false (active, claimable)
+      //   pipedrive_status=won  → omit from upsert (auto-archive cron handles)
+      const archivedField: { archived?: boolean } =
+        deal.pipedrive_status === 'lost' ? { archived: true } :
+        deal.pipedrive_status === 'open' ? { archived: false } :
+        {}
+
       const { error } = await supabase
         .from('loans')
         .upsert(
@@ -88,6 +97,7 @@ export async function POST() {
             interest_only:             deal.interest_only,
             loan_type_ii:              deal.loan_type_ii,
             last_synced_at:            new Date().toISOString(),
+            ...archivedField,
           },
           { onConflict: 'pipedrive_deal_id' }
         )
