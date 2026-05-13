@@ -22,6 +22,7 @@ export interface PipedriveDeal {
   id: number
   title: string
   stage_id: number
+  value?: number | null  // Pipedrive's default deal value field — FE uses this for loan amount
   person_id?: { name: string; value: number } | null
   custom_fields?: Record<string, unknown>  // Automated Webhooks nest custom fields here
   [key: string]: unknown
@@ -97,13 +98,18 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
   const loanType: LoanType | null =
     loanTypeRaw !== null ? (PIPEDRIVE_LOAN_TYPE_MAP[loanTypeRaw] ?? null) : null
 
+  // Property address: prefer FE's structured Property Address field;
+  // fall back to deal title if not populated.
+  const structuredAddress = toString(getField(deal, f.propertyAddress))
+  const propertyAddress = structuredAddress ?? toString(deal.title)
+
   return {
     pipedrive_deal_id:  deal.id,
-    property_address:   toString(deal.title),
+    property_address:   propertyAddress,
     pipeline_stage:     PIPEDRIVE_STAGE_MAP[deal.stage_id] ?? null,
     pipedrive_person_id: deal.person_id?.value ?? null,
     borrower_name:      deal.person_id?.name ?? null,
-    loan_amount:        toNumber(getField(deal, f.loanAmount)),
+    loan_amount:        toNumber(deal.value), // FE: default deal value field, not a custom field
     loan_type:          loanType,
     interest_rate:      toNumber(getField(deal, f.interestRate)),
     ltv:                toNumber(getField(deal, f.ltv)),

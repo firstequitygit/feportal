@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/format-date'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 
-const BOARD_STAGES = PIPELINE_STAGES.slice(0, 5) // New Loan → Cleared to Close
+const BOARD_STAGES = PIPELINE_STAGES.slice(0, 5) // New Application → Submitted
 
 type LoanWithBorrower = Loan & { borrowers?: { full_name: string | null; email: string } | null }
 
@@ -45,12 +45,12 @@ function formatRelative(iso: string | undefined): string {
 
 function stageBadgeColor(stage: PipelineStage | null): string {
   switch (stage) {
-    case 'New Loan / Listing':      return 'bg-gray-100 text-gray-700'
-    case 'Appraisal Paid':          return 'bg-blue-100 text-blue-700'
-    case 'Processing / Listed':     return 'bg-green-100 text-green-700'
-    case 'Underwriting / Contract': return 'bg-orange-100 text-orange-700'
-    case 'Cleared to Close':        return 'bg-green-100 text-green-700'
-    case 'Closed':                  return 'bg-purple-100 text-purple-700'
+    case 'New Application':  return 'bg-gray-100 text-gray-700'
+    case 'Processing':       return 'bg-blue-100 text-blue-700'
+    case 'Pre-Underwriting': return 'bg-yellow-100 text-yellow-700'
+    case 'Underwriting':     return 'bg-orange-100 text-orange-700'
+    case 'Submitted':        return 'bg-green-100 text-green-700'
+    case 'Closed':           return 'bg-purple-100 text-purple-700'
     default:                        return 'bg-gray-100 text-gray-600'
   }
 }

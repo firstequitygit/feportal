@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type ConditionTemplate, type LoanType, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 
-const LOAN_TYPES: LoanType[] = ['Bridge', 'Fix & Flip', 'New Construction', 'DSCR']
+const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 
 interface Props {
   initialTemplates: ConditionTemplate[]
@@ -107,10 +107,9 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
 
   const grouped = {
     universal: templates.filter(t => !t.loan_type),
-    Bridge: templates.filter(t => t.loan_type === 'Bridge'),
-    'Fix & Flip': templates.filter(t => t.loan_type === 'Fix & Flip'),
-    'New Construction': templates.filter(t => t.loan_type === 'New Construction'),
-    DSCR: templates.filter(t => t.loan_type === 'DSCR'),
+    'Fix & Flip (Bridge)': templates.filter(t => t.loan_type === 'Fix & Flip (Bridge)'),
+    'Rental (DSCR)':       templates.filter(t => t.loan_type === 'Rental (DSCR)'),
+    'New Construction':    templates.filter(t => t.loan_type === 'New Construction'),
   }
 
   function renderTemplate(t: ConditionTemplate) {

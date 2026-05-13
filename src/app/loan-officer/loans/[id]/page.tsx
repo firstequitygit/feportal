@@ -23,7 +23,7 @@ import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/bo
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { LoanType } from '@/lib/types'
 
-const LOAN_TYPES: LoanType[] = ['Bridge', 'Fix & Flip', 'New Construction', 'DSCR']
+const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 
 function formatCurrency(val: number | null): string {

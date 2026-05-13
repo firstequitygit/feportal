@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeDeal, type PipedriveDeal } from '@/lib/pipedrive'
-import { sendClearedToCloseEmail, sendLoanFundedEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail } from '@/lib/email'
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -48,15 +48,15 @@ export async function POST(request: Request) {
     const deal = normalizeDeal(dealData)
     console.log('Normalized deal:', JSON.stringify(deal))
 
-    // Fetch current stage before upserting to detect Cleared to Close transition
+    // Fetch current stage before upserting to detect Submitted (Loan Approved) transition
     const { data: existingLoan } = await supabase
       .from('loans')
       .select('id, pipeline_stage')
       .eq('pipedrive_deal_id', dealId)
       .single()
 
-    const wasCleared = existingLoan?.pipeline_stage === 'Cleared to Close'
-    const isNowCleared = deal.pipeline_stage === 'Cleared to Close'
+    const wasApproved = existingLoan?.pipeline_stage === 'Submitted'
+    const isNowApproved = deal.pipeline_stage === 'Submitted'
     const wasClosed = existingLoan?.pipeline_stage === 'Closed'
     const isNowClosed = deal.pipeline_stage === 'Closed'
 
@@ -87,13 +87,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Send "Cleared to Close" email if this is a new transition
-    if (isNowCleared && !wasCleared && existingLoan?.id) {
+    // Send "Loan Approved" email if this is a new transition to Submitted
+    if (isNowApproved && !wasApproved && existingLoan?.id) {
       try {
-        await sendClearedToCloseEmail(existingLoan.id)
-        console.log(`Cleared to Close email sent for deal ${dealId}`)
+        await sendLoanApprovedEmail(existingLoan.id)
+        console.log(`Loan Approved email sent for deal ${dealId}`)
       } catch (err) {
-        console.error(`Cleared to Close email failed for deal ${dealId}:`, err)
+        console.error(`Loan Approved email failed for deal ${dealId}:`, err)
       }
     }
 

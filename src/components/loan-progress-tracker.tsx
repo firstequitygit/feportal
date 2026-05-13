@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 
-const PROGRESS_STAGES = PIPELINE_STAGES.slice(0, 5) // New Loan → Cleared to Close
+const PROGRESS_STAGES = PIPELINE_STAGES.slice(0, 5) // New Application → Submitted
 
 function formatStage(stage: PipelineStage | string | null): string {
   if (!stage) return 'Unknown'

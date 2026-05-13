@@ -127,7 +127,7 @@ create table if not exists loans (
   property_address text,
 
   -- Loan details
-  loan_type text check (loan_type in ('Bridge', 'Fix & Flip', 'New Construction', 'DSCR')),
+  loan_type text check (loan_type in ('Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction')),
   loan_amount numeric(12, 2),
   interest_rate numeric(5, 3),
   ltv numeric(5, 2),
@@ -146,11 +146,11 @@ create table if not exists loans (
 
   -- Pipeline (mirrors Pipedrive stage)
   pipeline_stage text check (pipeline_stage in (
-    'New Loan / Listing',
-    'Appraisal Paid',
-    'Processing / Listed',
-    'Underwriting / Contract',
-    'Cleared to Close',
+    'New Application',
+    'Processing',
+    'Pre-Underwriting',
+    'Underwriting',
+    'Submitted',
     'Closed'
   )),
 
@@ -571,12 +571,14 @@ begin
       ('Bank Statements (3 months)', 'Most recent 3 months of bank statements for all accounts.', null),
       ('Credit Authorization', 'Signed credit pull authorization for all guarantors.', null),
 
-      -- Bridge / Fix & Flip
-      ('Scope of Work', 'Detailed scope of work and itemized rehab budget from licensed contractor.', 'Fix & Flip'),
-      ('Contractor License & Insurance', 'Copy of contractor''s license and general liability insurance.', 'Fix & Flip'),
-      ('ARV Appraisal', 'As-repaired value appraisal from approved appraiser.', 'Fix & Flip'),
-      ('Purchase Contract', 'Fully executed purchase and sale agreement.', 'Fix & Flip'),
-      ('Draw Schedule', 'Agreed draw schedule tied to construction milestones.', 'Fix & Flip'),
+      -- Fix & Flip (Bridge) — combines former Bridge + Fix & Flip
+      ('Scope of Work', 'Detailed scope of work and itemized rehab budget from licensed contractor.', 'Fix & Flip (Bridge)'),
+      ('Contractor License & Insurance', 'Copy of contractor''s license and general liability insurance.', 'Fix & Flip (Bridge)'),
+      ('ARV Appraisal', 'As-repaired value appraisal from approved appraiser.', 'Fix & Flip (Bridge)'),
+      ('Purchase Contract', 'Fully executed purchase and sale agreement.', 'Fix & Flip (Bridge)'),
+      ('Draw Schedule', 'Agreed draw schedule tied to construction milestones.', 'Fix & Flip (Bridge)'),
+      ('Exit Strategy Documentation', 'Written exit strategy (refinance approval letter, listing agreement, or sale contract).', 'Fix & Flip (Bridge)'),
+      ('Property Photos', 'Interior and exterior photos of subject property.', 'Fix & Flip (Bridge)'),
 
       -- New Construction
       ('Building Plans & Permits', 'Approved building plans and issued construction permits.', 'New Construction'),
@@ -584,15 +586,11 @@ begin
       ('Builder''s Risk Insurance', 'Builder''s risk insurance policy naming lender as additional insured.', 'New Construction'),
       ('Survey', 'Current survey of subject property.', 'New Construction'),
 
-      -- Bridge
-      ('Exit Strategy Documentation', 'Written exit strategy (refinance approval letter, listing agreement, or sale contract).', 'Bridge'),
-      ('Property Photos', 'Interior and exterior photos of subject property.', 'Bridge'),
-
-      -- DSCR
-      ('Lease Agreement(s)', 'Executed lease agreement(s) for all units.', 'DSCR'),
-      ('Rent Roll', 'Current rent roll signed by borrower.', 'DSCR'),
-      ('DSCR Appraisal', 'Full appraisal with rent schedule from approved appraiser.', 'DSCR'),
-      ('Property Management Agreement', 'Property management agreement if professionally managed.', 'DSCR'),
-      ('Mortgage Statements', 'Most recent 12 months mortgage statements for all investment properties.', 'DSCR');
+      -- Rental (DSCR)
+      ('Lease Agreement(s)', 'Executed lease agreement(s) for all units.', 'Rental (DSCR)'),
+      ('Rent Roll', 'Current rent roll signed by borrower.', 'Rental (DSCR)'),
+      ('DSCR Appraisal', 'Full appraisal with rent schedule from approved appraiser.', 'Rental (DSCR)'),
+      ('Property Management Agreement', 'Property management agreement if professionally managed.', 'Rental (DSCR)'),
+      ('Mortgage Statements', 'Most recent 12 months mortgage statements for all investment properties.', 'Rental (DSCR)');
   end if;
 end $$;

@@ -17,7 +17,7 @@ export type LoanWithMeta = Loan & {
   totalConditionsCount: number
 }
 
-const LOAN_TYPES: LoanType[] = ['Bridge', 'Fix & Flip', 'New Construction', 'DSCR']
+const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -31,12 +31,12 @@ function formatStage(stage: string | null): string {
 
 function stageColor(stage: PipelineStage | string | null): string {
   switch (stage) {
-    case 'New Loan / Listing':      return 'bg-gray-100 text-gray-700'
-    case 'Appraisal Paid':          return 'bg-blue-100 text-blue-700'
-    case 'Processing / Listed':     return 'bg-yellow-100 text-yellow-700'
-    case 'Underwriting / Contract': return 'bg-orange-100 text-orange-700'
-    case 'Cleared to Close':        return 'bg-green-100 text-green-700'
-    case 'Closed':                  return 'bg-purple-100 text-purple-700'
+    case 'New Application':  return 'bg-gray-100 text-gray-700'
+    case 'Processing':       return 'bg-blue-100 text-blue-700'
+    case 'Pre-Underwriting': return 'bg-yellow-100 text-yellow-700'
+    case 'Underwriting':     return 'bg-orange-100 text-orange-700'
+    case 'Submitted':        return 'bg-green-100 text-green-700'
+    case 'Closed':           return 'bg-purple-100 text-purple-700'
     default:                        return 'bg-gray-100 text-gray-600'
   }
 }
@@ -291,7 +291,7 @@ function ListView({
 }
 
 function KanbanView({ loans }: { loans: LoanWithMeta[] }) {
-  // Board view shows New Loan → Cleared to Close only (excludes Closed)
+  // Board view shows New Application → Submitted only (excludes Closed)
   const BOARD_STAGES = PIPELINE_STAGES.slice(0, 5)
   const columns = BOARD_STAGES.map(stage => ({
     stage,

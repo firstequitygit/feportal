@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
-import { sendClearedToCloseEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 
 export async function POST() {
@@ -41,7 +41,7 @@ export async function POST() {
       return NextResponse.json({ error: `Supabase client failed: ${msg}` }, { status: 500 })
     }
 
-    // Step 3: Fetch current stages so we can detect Cleared to Close transitions
+    // Step 3: Fetch current stages so we can detect Submitted (Loan Approved) transitions
     const { data: existingLoans } = await supabase
       .from('loans')
       .select('id, pipedrive_deal_id, pipeline_stage')
@@ -59,8 +59,8 @@ export async function POST() {
     for (const deal of deals) {
       const existing = currentStageMap[deal.pipedrive_deal_id]
       const previousStage = existing?.stage ?? null
-      const wasCleared = previousStage === 'Cleared to Close'
-      const isNowCleared = deal.pipeline_stage === 'Cleared to Close'
+      const wasApproved = previousStage === 'Submitted'
+      const isNowApproved = deal.pipeline_stage === 'Submitted'
       const wasClosed = previousStage === 'Closed'
       const isNowClosed = deal.pipeline_stage === 'Closed'
       const stageChanged = !!existing && deal.pipeline_stage !== null && previousStage !== deal.pipeline_stage
@@ -104,12 +104,12 @@ export async function POST() {
             try { await recordStageChange(existing.id, deal.pipeline_stage) }
             catch (err) { console.error(`Stage history failed for deal ${deal.pipedrive_deal_id}:`, err) }
           }
-          // Cleared/Closed get specialized celebratory emails; everything
+          // Submitted/Closed get specialized celebratory emails; everything
           // else gets the generic stage-update email. All three go to
           // borrower + LO + LP.
           try {
-            if (isNowCleared && !wasCleared) {
-              await sendClearedToCloseEmail(existing.id)
+            if (isNowApproved && !wasApproved) {
+              await sendLoanApprovedEmail(existing.id)
             } else if (isNowClosed && !wasClosed) {
               await sendLoanFundedEmail(existing.id)
             } else if (deal.pipeline_stage) {

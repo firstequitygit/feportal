@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealStage } from '@/lib/pipedrive'
-import { sendClearedToCloseEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 import { PIPEDRIVE_STAGE_MAP, PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
 
@@ -107,11 +107,12 @@ export async function PATCH(req: NextRequest) {
     })
   } catch (err) { console.error('Event log error:', err) }
 
-  // Notify borrower + LO + LP. Cleared-to-Close and Closed have specialized
-  // celebratory emails; everything else gets the generic stage-update email.
+  // Notify borrower + LO + LP. Submitted (loan approved) and Closed have
+  // specialized celebratory emails; everything else gets the generic
+  // stage-update email.
   try {
-    if (stage === 'Cleared to Close' && previousStage !== 'Cleared to Close') {
-      await sendClearedToCloseEmail(loanId)
+    if (stage === 'Submitted' && previousStage !== 'Submitted') {
+      await sendLoanApprovedEmail(loanId)
     } else if (stage === 'Closed' && previousStage !== 'Closed') {
       await sendLoanFundedEmail(loanId)
     } else {

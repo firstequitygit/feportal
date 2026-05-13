@@ -30,7 +30,7 @@ const LOAN_TYPE_OPTION_MAP: Record<string, number> = Object.entries(PIPEDRIVE_LO
     return acc
   }, {} as Record<string, number>)
 
-const LOAN_TYPES: LoanType[] = ['Bridge', 'Fix & Flip', 'New Construction', 'DSCR']
+const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
@@ -44,7 +44,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // ===== loans table (synced to Pipedrive) =====
   loan_number:      { type: 'text',   pdKey: PIPEDRIVE_FIELDS.loanNumber },
   loan_type:        { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.loanType, optionMap: LOAN_TYPE_OPTION_MAP, validValues: LOAN_TYPES },
-  loan_amount:      { type: 'number', pdKey: PIPEDRIVE_FIELDS.loanAmount },
+  loan_amount:      { type: 'number', pdKey: 'value' }, // Pipedrive default deal value field
   interest_rate:    { type: 'number', pdKey: PIPEDRIVE_FIELDS.interestRate },
   ltv:              { type: 'number', pdKey: PIPEDRIVE_FIELDS.ltv },
   arv:              { type: 'number', pdKey: PIPEDRIVE_FIELDS.arv },

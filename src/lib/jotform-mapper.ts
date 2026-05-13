@@ -190,10 +190,9 @@ function resolveLoanType(label: string | null): { name: LoanType | null; optionI
   if (!label) return { name: null, optionId: null }
   const lower = label.toLowerCase()
   let name: LoanType | null = null
-  if (lower.includes('dscr')) name = 'DSCR'
-  else if (lower.includes('bridge')) name = 'Bridge'
+  if (lower.includes('dscr') || lower.includes('rental')) name = 'Rental (DSCR)'
   else if (lower.includes('ground up') || lower.includes('construction')) name = 'New Construction'
-  else if (lower.includes('flip')) name = 'Fix & Flip'
+  else if (lower.includes('flip') || lower.includes('bridge')) name = 'Fix & Flip (Bridge)'
 
   if (!name) return { name: null, optionId: null }
   const optionId = Object.entries(PIPEDRIVE_LOAN_TYPE_MAP)
@@ -354,8 +353,9 @@ export function mapJotForm(raw: RawRequest, submissionId: string | null): Mapped
   const dealTitle = subjectAddr?.street ?? `Application — ${fullName}`
 
   // ===== Build Pipedrive deal custom fields =====
+  // requestedLoanAmount is set on pipedriveDeal.value below, not as a
+  // custom field — FE uses Pipedrive's default deal value field for it.
   const dealCustomFields: Record<string, string | number | null> = {}
-  if (requestedLoanAmount !== null) dealCustomFields[PIPEDRIVE_FIELDS.loanAmount] = requestedLoanAmount
   if (loanType.optionId !== null)   dealCustomFields[PIPEDRIVE_FIELDS.loanType] = loanType.optionId
   if (loanTypeIIRaw)                dealCustomFields[PIPEDRIVE_FIELDS.loanTypeII] = loanTypeIIRaw
   if (arv !== null)                 dealCustomFields[PIPEDRIVE_FIELDS.arv] = arv

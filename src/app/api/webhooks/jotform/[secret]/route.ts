@@ -7,7 +7,6 @@ import {
   resolvePersonOptionId,
 } from '@/lib/pipedrive'
 import { mapJotForm } from '@/lib/jotform-mapper'
-import { PIPEDRIVE_PERSON_FIELDS } from '@/lib/types'
 
 /**
  * JotForm webhook → portal intake.
@@ -137,40 +136,16 @@ export async function POST(
     }
   }
 
-  // ===== Resolve Pipedrive Person enum option IDs =====
-  let usCitizenOptionId: number | null = null
-  let maritalStatusOptionId: number | null = null
-  try {
-    if (mapped.pipedrivePerson.usCitizenLabel) {
-      usCitizenOptionId = await resolvePersonOptionId(
-        PIPEDRIVE_PERSON_FIELDS.usCitizen,
-        mapped.pipedrivePerson.usCitizenLabel,
-      )
-    }
-    if (mapped.pipedrivePerson.maritalStatusLabel) {
-      maritalStatusOptionId = await resolvePersonOptionId(
-        PIPEDRIVE_PERSON_FIELDS.maritalStatus,
-        mapped.pipedrivePerson.maritalStatusLabel,
-      )
-    }
-  } catch (err) {
-    console.warn('[jotform] option resolution failed (continuing without):', err)
-  }
-
   // ===== Create Pipedrive Person =====
+  // FE policy: SSN, DOB, citizenship, and marital status are stored
+  // in Supabase only (borrowers + loan_details). Pipedrive gets just
+  // the basic contact info.
   let personId: number
   try {
-    const personCustomFields: Record<string, string | number | null> = {}
-    if (mapped.pipedrivePerson.ssn)        personCustomFields[PIPEDRIVE_PERSON_FIELDS.ssn] = mapped.pipedrivePerson.ssn
-    if (mapped.pipedrivePerson.birthDate)  personCustomFields[PIPEDRIVE_PERSON_FIELDS.birthDate] = mapped.pipedrivePerson.birthDate
-    if (usCitizenOptionId !== null)        personCustomFields[PIPEDRIVE_PERSON_FIELDS.usCitizen] = usCitizenOptionId
-    if (maritalStatusOptionId !== null)    personCustomFields[PIPEDRIVE_PERSON_FIELDS.maritalStatus] = maritalStatusOptionId
-
     personId = await createPerson({
       name: mapped.pipedrivePerson.name,
       email: mapped.pipedrivePerson.email ?? undefined,
       phone: mapped.pipedrivePerson.phone ?? undefined,
-      customFields: personCustomFields,
     })
   } catch (err) {
     console.error('[jotform] Pipedrive person create failed:', err)

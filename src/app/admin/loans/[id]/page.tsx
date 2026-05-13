@@ -14,7 +14,7 @@ import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/bo
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { LoanType } from '@/lib/types'
 
-const LOAN_TYPES: LoanType[] = ['Bridge', 'Fix & Flip', 'New Construction', 'DSCR']
+const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { PortalShell } from '@/components/portal-shell'
 import { AdminConditionsManager } from '@/components/admin-conditions-manager'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'

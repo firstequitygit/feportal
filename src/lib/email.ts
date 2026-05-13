@@ -20,7 +20,7 @@ function shortStage(s: string | null): string {
 /**
  * Generic stage-change notification sent to borrower + LO + LP for any
  * pipeline stage transition that isn't covered by the specialized
- * Cleared to Close / Loan Funded emails. Each recipient gets their
+ * Loan Approved / Loan Funded emails. Each recipient gets their
  * own message so the To: header is personalized.
  */
 export async function sendStageUpdateEmail(
@@ -152,7 +152,7 @@ export async function sendLoanFundedEmail(loanId: string) {
   ))
 }
 
-export async function sendClearedToCloseEmail(loanId: string) {
+export async function sendLoanApprovedEmail(loanId: string) {
   const adminClient = createAdminClient()
 
   const { data: loan } = await adminClient
@@ -172,21 +172,21 @@ export async function sendClearedToCloseEmail(loanId: string) {
   ))
   if (recipients.length === 0) return
 
-  const subject = `🎉 Cleared to Close — ${loan.property_address ?? 'property'}`
+  const subject = `🎉 Loan Approved — ${loan.property_address ?? 'property'}`
   const html = `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; color: white; font-size: 22px;">Cleared to Close!</h1>
+          <h1 style="margin: 0; color: white; font-size: 22px;">Loan Approved!</h1>
         </div>
         <div style="background-color: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
           <p style="font-size: 15px; margin-top: 0;">Hi ${borrower?.full_name ?? 'there'},</p>
           <p style="font-size: 15px;">
             Great news — your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
-            <strong style="color: #1F5D8F;">Cleared to Close!</strong>
+            <strong style="color: #1F5D8F;">Loan Approved!</strong>
           </p>
           <p style="font-size: 15px;">
-            This means your loan has been fully approved and is ready to move forward to closing.
-            Our team will be in touch shortly with next steps and closing details.
+            Your loan has been approved by underwriting and submitted to committee for final
+            clear-to-close. Our team will be in touch shortly with next steps and closing details.
           </p>
           <p style="font-size: 15px;">
             You can log in to the portal at any time to review your loan details and any remaining items.
@@ -214,6 +214,6 @@ export async function sendClearedToCloseEmail(loanId: string) {
       to: email,
       subject,
       html,
-    }).catch(err => console.error(`Cleared to Close email to ${email} failed:`, err))
+    }).catch(err => console.error(`Loan Approved email to ${email} failed:`, err))
   ))
 }
