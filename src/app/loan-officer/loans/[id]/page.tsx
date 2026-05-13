@@ -21,6 +21,7 @@ import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-car
 import { UnclaimButton } from '@/components/unclaim-button'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
+import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { LoanType } from '@/lib/types'
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
@@ -329,7 +330,15 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
                     <div className="flex items-start gap-3 min-w-0">
                       <span className="text-lg mt-0.5">📄</span>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{doc.file_name}</p>
+                        {doc.signedUrl ? (
+                          <DocumentPreviewLink
+                            url={doc.signedUrl}
+                            fileName={doc.file_name}
+                            className="text-sm font-medium text-gray-900 truncate text-left hover:text-primary underline underline-offset-2 block max-w-full"
+                          />
+                        ) : (
+                          <p className="text-sm font-medium text-gray-900 truncate">{doc.file_name}</p>
+                        )}
                         {doc.condition_id && conditionMap[doc.condition_id] && (
                           <p className="text-xs text-gray-500 mt-0.5">Condition: {conditionMap[doc.condition_id]}</p>
                         )}
@@ -339,16 +348,6 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
                         </p>
                       </div>
                     </div>
-                    {doc.signedUrl && (
-                      <a
-                        href={doc.signedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:opacity-80 whitespace-nowrap font-medium"
-                      >
-                        Download
-                      </a>
-                    )}
                   </div>
                 ))}
               </div>

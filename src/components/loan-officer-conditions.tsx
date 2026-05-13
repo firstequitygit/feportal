@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type Condition, type Document, type ConditionStatus, type AssignedTo, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 import { BulkActionBar, BulkActionButton } from '@/components/bulk-action-bar'
+import { DocumentPreviewLink } from '@/components/document-preview-link'
 
 interface Props {
   loanId: string
@@ -203,10 +204,7 @@ function ConditionRow({
               <div key={doc.id} className="flex items-center gap-2 text-xs">
                 <span>📄</span>
                 {url ? (
-                  <a href={url} target="_blank" rel="noopener noreferrer"
-                    className="text-primary hover:opacity-80 font-medium underline underline-offset-2">
-                    {doc.file_name}
-                  </a>
+                  <DocumentPreviewLink url={url} fileName={doc.file_name} />
                 ) : (
                   <span className="text-gray-600">{doc.file_name}</span>
                 )}

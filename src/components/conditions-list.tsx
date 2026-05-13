@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FileText } from 'lucide-react'
 import { type Condition, type Document, type ConditionStatus, CONDITION_CATEGORIES } from '@/lib/types'
+import { DocumentPreviewLink } from '@/components/document-preview-link'
 
 interface Props {
   loanId: string
@@ -293,14 +294,11 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
                             <div key={doc.id} className="flex items-center gap-2 text-xs">
                               <FileText className="w-3.5 h-3.5 text-gray-400" />
                               {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:opacity-80 truncate underline underline-offset-2"
-                                >
-                                  {doc.file_name}
-                                </a>
+                                <DocumentPreviewLink
+                                  url={url}
+                                  fileName={doc.file_name}
+                                  className="text-primary hover:opacity-80 truncate underline underline-offset-2 text-left"
+                                />
                               ) : (
                                 <span className="text-gray-600 truncate">{doc.file_name}</span>
                               )}

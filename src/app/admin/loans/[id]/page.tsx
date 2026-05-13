@@ -23,6 +23,7 @@ import { AdminLoanProcessorAssign } from '@/components/admin-loan-processor-assi
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
+import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { formatDate } from '@/lib/format-date'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
@@ -274,7 +275,15 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-gray-400 shrink-0">📄</span>
                       <div className="min-w-0">
-                        <p className="text-sm text-gray-900 truncate">{doc.file_name}</p>
+                        {doc.signedUrl ? (
+                          <DocumentPreviewLink
+                            url={doc.signedUrl}
+                            fileName={doc.file_name}
+                            className="text-sm text-gray-900 truncate text-left hover:text-primary underline underline-offset-2 block max-w-full"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-900 truncate">{doc.file_name}</p>
+                        )}
                         {doc.condition_id && conditionMap[doc.condition_id] && (
                           <p className="text-xs text-gray-400 truncate">
                             {conditionMap[doc.condition_id]}
@@ -293,18 +302,6 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
                           month: 'short', day: 'numeric', year: 'numeric',
                         })}
                       </span>
-                      {doc.signedUrl ? (
-                        <a
-                          href={doc.signedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:opacity-80 font-medium"
-                        >
-                          Download
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400">Unavailable</span>
-                      )}
                     </div>
                   </div>
                 ))}
