@@ -24,7 +24,7 @@ export default async function LoanProcessorLoansPage() {
   if (!lp) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
-  const archivedSet = new Set((archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id))
+  const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
   const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
     adminClient
@@ -36,6 +36,7 @@ export default async function LoanProcessorLoansPage() {
       .from('loans')
       .select('*, borrowers(full_name, email), loan_officers(full_name)')
       .is('loan_processor_id', null)
+      .neq('pipeline_stage', 'Closed')
       .order('created_at', { ascending: false }),
   ])
 

@@ -20,7 +20,7 @@ export default async function UnderwriterInbox() {
   if (!uw) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
-  const archivedSet = new Set((archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id))
+  const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
   const { data: loans } = await adminClient
     .from('loans')

@@ -24,7 +24,7 @@ export default async function ArchivedLoansPage() {
   const adminClient = createAdminClient()
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
-  const idList = (archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id)
+  const idList = (archivedIds ?? []) as string[]
 
   const { data: loans } = idList.length > 0
     ? await adminClient

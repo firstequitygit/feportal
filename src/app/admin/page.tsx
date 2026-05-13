@@ -59,7 +59,7 @@ export default async function AdminPage() {
   }
 
   // Build archived set via RPC (bypasses schema cache)
-  const archivedSet = new Set((archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id))
+  const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
   const loansWithMeta: LoanWithMeta[] = (loans ?? []).map(loan => ({
     ...loan,
