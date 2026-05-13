@@ -32,10 +32,12 @@ export default async function AdminPage() {
     adminClient
       .from('loans')
       .select('*, borrowers (full_name, email)')
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(5000),  // PostgREST default is 1000; raise to fit FE's full book
     adminClient
       .from('conditions')
-      .select('loan_id, status'),
+      .select('loan_id, status')
+      .limit(10000),
     adminClient
       .from('borrowers')
       .select('*', { count: 'exact', head: true }),

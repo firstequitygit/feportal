@@ -32,6 +32,7 @@ export default async function ArchivedLoansPage() {
         .select('*, borrowers(full_name, email)')
         .in('id', idList)
         .order('created_at', { ascending: false })
+        .limit(5000)  // PostgREST default is 1000; raise to fit FE's full archive
     : { data: [] }
 
   return (
