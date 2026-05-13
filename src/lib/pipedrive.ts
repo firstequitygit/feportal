@@ -18,6 +18,28 @@ async function pipedriveGet(path: string) {
   return res.json()
 }
 
+// Paginated fetch — Pipedrive caps each page at 500 and signals more via
+// additional_data.pagination.more_items_in_collection. Loop until done.
+async function pipedriveGetAllPages(path: string): Promise<unknown[]> {
+  const all: unknown[] = []
+  let start = 0
+  while (true) {
+    const separator = path.includes('?') ? '&' : '?'
+    const url = `${BASE_URL}${path}${separator}api_token=${TOKEN}&limit=500&start=${start}`
+    const res = await fetch(url, { next: { revalidate: 0 } })
+    if (!res.ok) throw new Error(`Pipedrive API error: ${res.status}`)
+    const json = await res.json()
+    const page = json.data as unknown[] | null
+    if (!page || page.length === 0) break
+    all.push(...page)
+    const more = json.additional_data?.pagination?.more_items_in_collection
+    const next = json.additional_data?.pagination?.next_start
+    if (!more || typeof next !== 'number') break
+    start = next
+  }
+  return all
+}
+
 export interface PipedriveDeal {
   id: number
   title: string
@@ -127,10 +149,17 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
   }
 }
 
+// Fetches every active and won deal from FE's Deals Pipeline (id 2),
+// paginated across as many pages as Pipedrive returns. Skips status=lost
+// and status=deleted — those are dead deals that shouldn't appear in the
+// portal as "active" loans.
 export async function fetchAllDeals(): Promise<NormalizedDeal[]> {
-  const data = await pipedriveGet('/deals?status=all')
-  if (!data.success || !data.data) return []
-  return (data.data as PipedriveDeal[]).map(normalizeDeal)
+  const [open, won] = await Promise.all([
+    pipedriveGetAllPages('/deals?status=open&pipeline_id=2'),
+    pipedriveGetAllPages('/deals?status=won&pipeline_id=2'),
+  ])
+  const deals = [...open, ...won] as PipedriveDeal[]
+  return deals.map(normalizeDeal)
 }
 
 export async function fetchDeal(dealId: number): Promise<NormalizedDeal | null> {
