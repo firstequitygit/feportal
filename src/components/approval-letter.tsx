@@ -138,7 +138,7 @@ export function ApprovalLetter({ loan, borrower, loanOfficer, conditions, backHr
 
           {/* Letterhead */}
           <div className="flex items-end justify-between gap-6 pb-6 border-b-2 border-gray-800">
-            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-8 w-auto" priority />
+            <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="h-16 w-auto" priority />
             <div className="text-right text-xs text-gray-700 leading-relaxed">
               <p>{COMPANY_ADDRESS}</p>
               <p>{COMPANY_WEBSITE}</p>
