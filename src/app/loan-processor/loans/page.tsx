@@ -39,6 +39,7 @@ export default async function LoanProcessorLoansPage() {
       .select('*, borrowers(full_name, email), loan_officers(full_name)')
       .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
       .neq('pipeline_stage', 'Closed')
+      .neq('pipeline_stage', 'New Application')
       .eq('archived', false)
       .order('created_at', { ascending: false }),
   ])

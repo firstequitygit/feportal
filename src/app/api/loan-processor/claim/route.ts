@@ -23,11 +23,14 @@ export async function POST(req: NextRequest) {
   // already filled or if this LP is already assigned.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, loan_processor_id, loan_processor_id_2, property_address')
+    .select('id, loan_processor_id, loan_processor_id_2, pipeline_stage, property_address')
     .eq('id', loanId)
     .single()
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
+  if (loan.pipeline_stage === 'New Application') {
+    return NextResponse.json({ error: 'Loan processors can only claim loans after the New Application stage' }, { status: 403 })
+  }
   if (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id) {
     return NextResponse.json({ error: 'You are already assigned to this loan' }, { status: 409 })
   }
