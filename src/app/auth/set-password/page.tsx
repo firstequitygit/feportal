@@ -111,7 +111,7 @@ export default function SetPasswordPage() {
             <div className="text-center space-y-2">
               <p className="text-gray-700 font-medium">This link has expired or is no longer valid.</p>
               <p className="text-sm text-gray-500">
-                Please contact <a href="mailto:ascovill@fefunding.com" className="text-primary hover:opacity-80">ascovill@fefunding.com</a> to request a new invitation.
+                Please contact <a href="mailto:info@fefunding.com" className="text-primary hover:opacity-80">info@fefunding.com</a> to request a new invitation.
               </p>
             </div>
           ) : (
