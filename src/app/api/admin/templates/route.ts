@@ -12,15 +12,17 @@ async function verifyAdmin() {
 }
 
 const VALID_CATEGORIES = ['initial', 'underwriting', 'pre_close', 'pre_funding']
+const VALID_ASSIGNEES = ['borrower', 'loan_officer', 'loan_processor', 'underwriter']
 
 // POST — create a template
 export async function POST(request: Request) {
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { title, description, loan_type, category } = await request.json()
+  const { title, description, loan_type, category, assigned_to } = await request.json()
   if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const safeCategory = VALID_CATEGORIES.includes(category) ? category : null
+  const safeAssignee = VALID_ASSIGNEES.includes(assigned_to) ? assigned_to : 'borrower'
 
   const { data, error } = await createAdminClient()
     .from('condition_templates')
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
       description: description?.trim() || null,
       loan_type: loan_type || null,
       category: safeCategory,
+      assigned_to: safeAssignee,
     })
     .select()
     .single()
@@ -41,10 +44,11 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { id, title, description, loan_type, category } = await request.json()
+  const { id, title, description, loan_type, category, assigned_to } = await request.json()
   if (!id || !title?.trim()) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
   const safeCategory = VALID_CATEGORIES.includes(category) ? category : null
+  const safeAssignee = VALID_ASSIGNEES.includes(assigned_to) ? assigned_to : 'borrower'
 
   const { error } = await createAdminClient()
     .from('condition_templates')
@@ -53,6 +57,7 @@ export async function PATCH(request: Request) {
       description: description?.trim() || null,
       loan_type: loan_type || null,
       category: safeCategory,
+      assigned_to: safeAssignee,
     })
     .eq('id', id)
 

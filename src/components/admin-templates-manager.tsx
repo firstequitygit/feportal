@@ -4,9 +4,19 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { type ConditionTemplate, type LoanType, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
+import { type ConditionTemplate, type LoanType, type ConditionCategory, type AssignedTo, CONDITION_CATEGORIES } from '@/lib/types'
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
+
+const ASSIGNEE_OPTIONS: { value: AssignedTo; label: string }[] = [
+  { value: 'borrower',        label: 'Borrower' },
+  { value: 'loan_officer',    label: 'Loan Officer' },
+  { value: 'loan_processor',  label: 'Loan Processor' },
+  { value: 'underwriter',     label: 'Underwriter' },
+]
+const ASSIGNEE_LABEL: Record<AssignedTo, string> = Object.fromEntries(
+  ASSIGNEE_OPTIONS.map(o => [o.value, o.label])
+) as Record<AssignedTo, string>
 
 interface Props {
   initialTemplates: ConditionTemplate[]
@@ -22,6 +32,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
   const [newDescription, setNewDescription] = useState('')
   const [newLoanType, setNewLoanType] = useState<LoanType | ''>('')
   const [newCategory, setNewCategory] = useState<ConditionCategory | ''>('')
+  const [newAssignedTo, setNewAssignedTo] = useState<AssignedTo>('borrower')
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -29,6 +40,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
   const [editDescription, setEditDescription] = useState('')
   const [editLoanType, setEditLoanType] = useState<LoanType | ''>('')
   const [editCategory, setEditCategory] = useState<ConditionCategory | ''>('')
+  const [editAssignedTo, setEditAssignedTo] = useState<AssignedTo>('borrower')
 
   async function handleAdd() {
     if (!newTitle.trim()) return
@@ -41,6 +53,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
         description: newDescription,
         loan_type: newLoanType || null,
         category: newCategory || null,
+        assigned_to: newAssignedTo,
       }),
     })
     const data = await res.json()
@@ -50,6 +63,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
       setNewDescription('')
       setNewLoanType('')
       setNewCategory('')
+      setNewAssignedTo('borrower')
     }
     setSaving(false)
   }
@@ -60,6 +74,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
     setEditDescription(t.description ?? '')
     setEditLoanType(t.loan_type ?? '')
     setEditCategory(t.category ?? '')
+    setEditAssignedTo(t.assigned_to ?? 'borrower')
   }
 
   async function handleSaveEdit(id: string) {
@@ -73,6 +88,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
         description: editDescription,
         loan_type: editLoanType || null,
         category: editCategory || null,
+        assigned_to: editAssignedTo,
       }),
     })
     const data = await res.json()
@@ -84,6 +100,7 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
             description: editDescription || null,
             loan_type: (editLoanType || null) as LoanType | null,
             category: (editCategory || null) as ConditionCategory | null,
+            assigned_to: editAssignedTo,
           }
         : t
       ))
@@ -134,6 +151,13 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
             <option value="">Uncategorized</option>
             {CONDITION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
+          <select
+            value={editAssignedTo}
+            onChange={e => setEditAssignedTo(e.target.value as AssignedTo)}
+            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
+          >
+            {ASSIGNEE_OPTIONS.map(o => <option key={o.value} value={o.value}>Assigned to: {o.label}</option>)}
+          </select>
           <div className="flex gap-2">
             <Button size="sm" onClick={() => handleSaveEdit(t.id)} disabled={saving || !editTitle.trim()}>Save</Button>
             <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
@@ -151,6 +175,9 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.category ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
               {categoryLabel ?? 'Uncategorized'}
+            </span>
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">
+              {ASSIGNEE_LABEL[t.assigned_to] ?? 'Borrower'}
             </span>
           </div>
         </div>
@@ -193,6 +220,13 @@ export function AdminTemplatesManager({ initialTemplates, apiPath = '/api/admin/
           >
             <option value="">Uncategorized</option>
             {CONDITION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+          <select
+            value={newAssignedTo}
+            onChange={e => setNewAssignedTo(e.target.value as AssignedTo)}
+            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {ASSIGNEE_OPTIONS.map(o => <option key={o.value} value={o.value}>Assigned to: {o.label}</option>)}
           </select>
           <Button size="sm" onClick={handleAdd} disabled={saving || !newTitle.trim()}>
             Add Template
