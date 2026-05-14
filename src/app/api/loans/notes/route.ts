@@ -46,13 +46,13 @@ async function verifyLoanAccess(loanId: string, ctx: StaffContext): Promise<bool
   const adminClient = createAdminClient()
   const { data: loan } = await adminClient
     .from('loans')
-    .select('loan_officer_id, loan_processor_id, underwriter_id')
+    .select('loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id')
     .eq('id', loanId)
     .single()
   if (!loan) return false
   return Boolean(
     (ctx.loId && loan.loan_officer_id === ctx.loId) ||
-    (ctx.lpId && loan.loan_processor_id === ctx.lpId) ||
+    (ctx.lpId && (loan.loan_processor_id === ctx.lpId || loan.loan_processor_id_2 === ctx.lpId)) ||
     (ctx.uwId && loan.underwriter_id === ctx.uwId),
   )
 }

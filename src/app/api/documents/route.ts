@@ -24,7 +24,7 @@ export async function DELETE(req: NextRequest) {
   // Check if the authenticated user is the LO, LP, or UW on this loan
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, loan_officer_id, loan_processor_id, underwriter_id')
+    .select('id, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id')
     .eq('id', doc.loan_id)
     .single()
 
@@ -39,7 +39,7 @@ export async function DELETE(req: NextRequest) {
 
   const authorized =
     (lo && loan.loan_officer_id === lo.id) ||
-    (lp && loan.loan_processor_id === lp.id) ||
+    (lp && (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
     (uw && loan.underwriter_id === uw.id)
 
   if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

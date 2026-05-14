@@ -38,14 +38,14 @@ export async function PATCH(req: NextRequest) {
   if (!admin) {
     const { data: loan } = await adminClient
       .from('loans')
-      .select('id, loan_officer_id, loan_processor_id, underwriter_id')
+      .select('id, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id')
       .eq('id', condition.loan_id)
       .single()
     if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const hasAccess =
       (lo && loan.loan_officer_id === lo.id) ||
-      (lp && loan.loan_processor_id === lp.id) ||
+      (lp && (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
       (uw && loan.underwriter_id === uw.id)
 
     if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

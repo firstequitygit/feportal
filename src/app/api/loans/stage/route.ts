@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, pipedrive_deal_id, pipeline_stage, closed_at, loan_officer_id, loan_processor_id, underwriter_id, property_address')
+    .select('id, pipedrive_deal_id, pipeline_stage, closed_at, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id, property_address')
     .eq('id', loanId)
     .single()
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest) {
   if (!admin) {
     const hasAccess =
       (lo && loan.loan_officer_id === lo.id) ||
-      (lp && loan.loan_processor_id === lp.id) ||
+      (lp && (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
       (uw && loan.underwriter_id === uw.id)
     if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
