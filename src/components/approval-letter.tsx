@@ -7,10 +7,10 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { type Condition, CONDITION_CATEGORIES } from '@/lib/types'
 import { formatDate } from '@/lib/format-date'
 
-const COMPANY_ADDRESS = '1330 Laurel Ave., Suite 101, Sea Girt, NJ 08750'
+const COMPANY_ADDRESS = '1330 Laurel Avenue, Suite 101, Sea Girt, NJ 08750'
 const COMPANY_WEBSITE = 'https://www.fefunding.com/'
-const COMPANY_EMAIL = 'ascovill@fefunding.com'
-const COMPANY_PHONE = '732-820-9886'
+const COMPANY_EMAIL = 'info@fefunding.com'
+const COMPANY_PHONE = '732-359-7800'
 
 const DEFAULT_INTRO =
   'We are pleased to inform you that your loan application has been conditionally approved. ' +
