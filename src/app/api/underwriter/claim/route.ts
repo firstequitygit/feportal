@@ -17,10 +17,13 @@ export async function POST(req: NextRequest) {
   if (!loanId) return NextResponse.json({ error: 'Missing loanId' }, { status: 400 })
 
   const { data: loan } = await adminClient
-    .from('loans').select('id, underwriter_id, property_address').eq('id', loanId).single()
+    .from('loans').select('id, underwriter_id, pipeline_stage, property_address').eq('id', loanId).single()
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
   if (loan.underwriter_id) return NextResponse.json({ error: 'This loan has already been claimed' }, { status: 409 })
+  if (loan.pipeline_stage === 'New Application') {
+    return NextResponse.json({ error: 'Underwriters can only claim loans after the New Application stage' }, { status: 403 })
+  }
 
   const { error } = await adminClient
     .from('loans').update({ underwriter_id: uw.id }).eq('id', loanId)

@@ -35,6 +35,7 @@ export default async function UnderwriterLoansPage() {
       .select('*, borrowers(full_name, email), loan_officers(full_name), loan_processors!loan_processor_id(full_name)')
       .is('underwriter_id', null)
       .neq('pipeline_stage', 'Closed')
+      .neq('pipeline_stage', 'New Application')
       .order('created_at', { ascending: false }),
   ])
 
