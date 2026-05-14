@@ -52,17 +52,19 @@ export default async function LoanProcessorLoansPage() {
 
   const [outstandingRes, eventsRes] = await Promise.all([
     loanIds.length > 0
-      ? adminClient.from('conditions').select('loan_id, assigned_to').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received')
+      ? adminClient.from('conditions').select('loan_id, assigned_to, status').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received')
       : Promise.resolve({ data: [] }),
     loanIds.length > 0
       ? adminClient.from('loan_events').select('loan_id, created_at').in('loan_id', loanIds).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
   ])
 
+  // For LP, Received items are no longer actionable (UW needs to verify) — bucket as team, not "you".
   const outstandingMap: Record<string, OutstandingCounts> = {}
   for (const c of outstandingRes.data ?? []) {
     const counts = outstandingMap[c.loan_id] ?? { you: 0, borrower: 0, team: 0, total: 0 }
-    if (c.assigned_to === 'loan_processor')    counts.you++
+    const isActionableForLp = c.assigned_to === 'loan_processor' && (c.status === 'Outstanding' || c.status === 'Rejected')
+    if (isActionableForLp)                     counts.you++
     else if (c.assigned_to === 'borrower')     counts.borrower++
     else                                        counts.team++
     counts.total++
