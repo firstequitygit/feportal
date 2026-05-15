@@ -23,23 +23,39 @@ export default async function ArchivedLoansPage() {
 
   const adminClient = createAdminClient()
 
-  const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
-  const idList = (archivedIds ?? []) as string[]
-
-  const { data: loans } = idList.length > 0
-    ? await adminClient
-        .from('loans')
-        .select('*, borrowers(full_name, email)')
-        .in('id', idList)
-        .order('created_at', { ascending: false })
-        .limit(5000)  // PostgREST default is 1000; raise to fit FE's full archive
-    : { data: [] }
+  // Fetch archived loans directly via the column, paginated. (Previously
+  // fetched IDs via get_archived_loan_ids then used .in('id', ids) — that URL
+  // gets too long with 1000+ UUIDs and PostgREST returns 400. .limit(5000)
+  // doesn't help either because PostgREST's server-side max-rows cap is 1000.)
+  type ArchivedLoan = {
+    id: string
+    property_address: string | null
+    loan_type: string | null
+    loan_amount: number | null
+    borrowers: { full_name: string | null; email: string | null } | null
+  }
+  const loans: ArchivedLoan[] = []
+  let from = 0
+  let totalArchived: number | null = null
+  while (true) {
+    const { data, count, error } = await adminClient
+      .from('loans')
+      .select('id, property_address, loan_type, loan_amount, borrowers(full_name, email)', { count: 'exact' })
+      .eq('archived', true)
+      .order('created_at', { ascending: false })
+      .range(from, from + 999)
+    if (error || !data) break
+    if (totalArchived === null) totalArchived = count
+    loans.push(...(data as unknown as ArchivedLoan[]))
+    if (data.length < 1000) break
+    from += 1000
+  }
 
   return (
     <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-7xl">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           Archived Loans
-          <span className="ml-2 text-base font-normal text-gray-400">{idList.length} loan{idList.length !== 1 ? 's' : ''}</span>
+          <span className="ml-2 text-base font-normal text-gray-400">{totalArchived ?? loans?.length ?? 0} loan{(totalArchived ?? loans?.length ?? 0) !== 1 ? 's' : ''}</span>
         </h2>
 
         <Card>

@@ -126,10 +126,10 @@ export function PortalShell({
         <div className="ml-auto pr-5">
           <Link href={dashboardHref} className="flex items-center gap-2.5">
             <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">DESCO Financial</p>
+              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
               <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
             </div>
-            <Image src="/logo-symbol.png" alt="Desco Financial" width={32} height={32} className="h-8 w-auto" />
+            <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
           </Link>
         </div>
       </header>
