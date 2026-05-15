@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyContactAccess } from '@/lib/contact-access'
 
 // Step 1: Returns a signed upload URL so the browser can upload directly to Supabase
 // (bypasses Vercel's 4.5 MB body size limit)
@@ -9,31 +10,17 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: borrower } = await supabase
-    .from('borrowers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!borrower) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { loanId, conditionId, fileName, conditionTitle, propertyAddress } = await req.json()
 
   if (!loanId || !conditionId || !fileName) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
+  // Accept either the borrower OR the broker on this loan
+  const access = await verifyContactAccess(user.id, loanId)
+  if (!access) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
+
   const adminClient = createAdminClient()
-
-  // Verify borrower owns the loan
-  const { data: loan } = await adminClient
-    .from('loans')
-    .select('id')
-    .eq('id', loanId)
-    .eq('borrower_id', borrower.id)
-    .single()
-
-  if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
 
   // Verify condition belongs to loan
   const { data: condition } = await adminClient

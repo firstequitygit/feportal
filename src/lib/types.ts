@@ -67,10 +67,21 @@ export interface Borrower {
   created_at: string
 }
 
+export interface Broker {
+  id: string
+  auth_user_id: string | null
+  email: string
+  full_name: string | null
+  company_name: string | null
+  phone: string | null
+  created_at: string
+}
+
 export interface Loan {
   id: string
   pipedrive_deal_id: number
   borrower_id: string | null
+  broker_id: string | null             // brokered loans: broker is the portal contact
   loan_officer_id: string | null
   loan_processor_id: string | null
   loan_processor_id_2: string | null   // FE supports up to 2 LPs per loan

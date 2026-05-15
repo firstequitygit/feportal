@@ -10,6 +10,7 @@ import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
+import { BrokerAssign } from '@/components/broker-assign'
 import { type Condition, type Document } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
@@ -52,7 +53,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
   // Verify this loan is assigned to this LO
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+    .select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
     .eq('id', id)
     .eq('loan_officer_id', lo.id)
     .single()
@@ -65,6 +66,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
     { data: notes },
     { data: events },
     { data: allBorrowers },
+    { data: allBrokers },
     { data: loanDetails },
     { data: loanDemographics },
   ] = await Promise.all([
@@ -73,6 +75,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
     adminClient.from('loan_notes').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
+    adminClient.from('brokers').select('id, full_name, email, company_name').order('full_name'),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
   ])
@@ -180,8 +183,14 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
             </CardContent>
           </Card>
 
-          {/* Borrower + Loan Processor + Underwriter stacked */}
+          {/* Broker + Borrower + Loan Processor + Underwriter stacked */}
           <div className="space-y-4">
+            <BrokerAssign
+              loanId={id}
+              currentBrokerId={loan.broker_id ?? null}
+              allBrokers={(allBrokers ?? []) as { id: string; full_name: string | null; email: string; company_name: string | null }[]}
+            />
+
             <AdminBorrowerAssign
               loanId={id}
               currentBorrowerId={loan.borrower_id ?? null}

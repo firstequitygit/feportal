@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyContactAccess } from '@/lib/contact-access'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
@@ -10,21 +11,29 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: borrower } = await supabase
-    .from('borrowers')
-    .select('id, full_name, email')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!borrower) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { loanId, conditionId, fileName, fileSize, path } = await req.json()
 
   if (!loanId || !conditionId || !fileName || !path) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
+  // Accept either the borrower OR the broker on this loan
+  const access = await verifyContactAccess(user.id, loanId)
+  if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const adminClient = createAdminClient()
+
+  // Pull the uploader's display name + email for the staff notification
+  let uploaderName = 'A contact'
+  if (access.role === 'broker' && access.brokerId) {
+    const { data: b } = await adminClient.from('brokers')
+      .select('full_name, email, company_name').eq('id', access.brokerId).single()
+    if (b) uploaderName = `${b.full_name ?? b.email}${b.company_name ? ` (${b.company_name})` : ''} [Broker]`
+  } else if (access.borrowerId) {
+    const { data: b } = await adminClient.from('borrowers')
+      .select('full_name, email').eq('id', access.borrowerId).single()
+    if (b) uploaderName = b.full_name ?? b.email ?? 'A borrower'
+  }
 
   // Get loan and condition details for the notification
   const [{ data: loan }, { data: condition }] = await Promise.all([
@@ -86,7 +95,7 @@ export async function POST(req: NextRequest) {
   // Send email notification
   try {
     await sendNotification({
-      borrowerName: borrower.full_name ?? borrower.email ?? 'A borrower',
+      borrowerName: uploaderName,
       propertyAddress: loan?.property_address ?? 'Unknown property',
       conditionTitle: condition?.title ?? 'Unknown condition',
       fileName,

@@ -75,6 +75,20 @@ export default async function DashboardPage() {
 
   if (underwriter) redirect('/underwriter')
 
+  // If broker, send to broker portal. Self-heal the auth_user_id link by email
+  // if it wasn't set (defensive — the invite flow always sets it now).
+  let { data: broker } = await adminClient
+    .from('brokers').select('id').eq('auth_user_id', user.id).maybeSingle()
+  if (!broker && user.email) {
+    const { data: byEmail } = await adminClient
+      .from('brokers').select('id').eq('email', user.email).maybeSingle()
+    if (byEmail) {
+      await adminClient.from('brokers').update({ auth_user_id: user.id }).eq('id', byEmail.id)
+      broker = byEmail
+    }
+  }
+  if (broker) redirect('/broker')
+
   // Get borrower record. Use the admin client to avoid any RLS surprises;
   // this code already verified the user above so privilege escalation isn't
   // a concern. We also self-heal if the borrower row exists by email but

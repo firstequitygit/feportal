@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getLoanContact } from '@/lib/loan-contact'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
@@ -57,7 +58,6 @@ export async function POST(req: NextRequest) {
 
   // Notify the assigned party
   try {
-    const borrower = (loan.borrowers as unknown as { full_name: string | null; email: string } | null)
     const loanOfficer = (loan.loan_officers as unknown as { full_name: string | null; email: string | null } | null)
     const loanProcessor = (loan.loan_processors as unknown as { full_name: string | null; email: string | null } | null)
     const loanProcessor2 = ((loan as unknown as { loan_processor_2: { full_name: string | null; email: string | null } | null }).loan_processor_2)
@@ -65,12 +65,16 @@ export async function POST(req: NextRequest) {
     const addr = loan.property_address ?? 'a loan'
     const conditionHtml = `<tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${title}</strong></td></tr>${description ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Details</td><td>${description}</td></tr>` : ''}`
 
-    if (assigned_to === 'borrower' && borrower?.email) {
-      await getTransporter().sendMail({
-        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: borrower.email,
-        subject: `New condition added — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${borrower.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to your loan file for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View My Loan</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
-      })
+    if (assigned_to === 'borrower') {
+      // Routes to the broker if one is assigned, else the borrower
+      const contact = await getLoanContact(loanId)
+      if (contact) {
+        await getTransporter().sendMail({
+          from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: contact.email,
+          subject: `New condition added — ${addr}`,
+          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${contact.name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to ${contact.kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${contact.portalUrl}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">${contact.kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+        })
+      }
     } else if (assigned_to === 'loan_officer' && loanOfficer?.email) {
       await getTransporter().sendMail({
         from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: loanOfficer.email,

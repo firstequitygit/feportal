@@ -111,6 +111,26 @@ alter table borrowers add column if not exists prior_address_state    text;
 alter table borrowers add column if not exists prior_address_zip      text;
 
 -- ============================================================
+-- BROKERS
+-- Loans can be brokered — the broker is the portal-facing contact
+-- (has their own login, gets all the emails) while the borrower
+-- record stays for record-keeping. One broker can be on many loans.
+-- ============================================================
+
+create table if not exists brokers (
+  id uuid primary key default uuid_generate_v4(),
+  auth_user_id uuid references auth.users(id) on delete cascade,
+  email text unique not null,
+  full_name text,
+  company_name text,
+  phone text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists idx_brokers_auth_user_id on brokers(auth_user_id);
+create index if not exists idx_brokers_email        on brokers(email);
+
+-- ============================================================
 -- LOANS
 -- Synced from Pipedrive deals. Pipedrive is source of truth.
 -- ============================================================
@@ -119,6 +139,7 @@ create table if not exists loans (
   id uuid primary key default uuid_generate_v4(),
   pipedrive_deal_id integer unique not null,
   borrower_id uuid references borrowers(id) on delete set null,
+  broker_id   uuid references brokers(id)   on delete set null,  -- brokered loans: broker is the contact
   loan_officer_id     uuid references loan_officers(id)   on delete set null,
   loan_processor_id   uuid references loan_processors(id) on delete set null,
   loan_processor_id_2 uuid references loan_processors(id) on delete set null,  -- FE supports up to 2 LPs per loan
@@ -169,6 +190,7 @@ create table if not exists loans (
 alter table loans add column if not exists loan_officer_id        uuid references loan_officers(id)   on delete set null;
 alter table loans add column if not exists loan_processor_id      uuid references loan_processors(id) on delete set null;
 alter table loans add column if not exists loan_processor_id_2    uuid references loan_processors(id) on delete set null;
+alter table loans add column if not exists broker_id              uuid references brokers(id)         on delete set null;
 alter table loans add column if not exists underwriter_id         uuid references underwriters(id)    on delete set null;
 alter table loans add column if not exists loan_number            text;
 alter table loans add column if not exists rate_locked_days       text;

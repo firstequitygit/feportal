@@ -7,13 +7,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SyncButton } from '@/components/sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
+import { InviteBroker } from '@/components/invite-broker'
 import {
   LayoutDashboard, LogOut, Menu, X,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
   Inbox, Building2, BarChart3,
 } from 'lucide-react'
 
-type Variant = 'default' | 'admin' | 'borrower' | 'loan-officer' | 'loan-processor' | 'underwriter'
+type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
 
 interface NavItem {
   href: string
@@ -191,8 +192,11 @@ export function PortalShell({
           <div className="px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col items-start gap-2">
             <SyncButton />
             {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" />}
+            {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" />}
             {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" />}
+            {variant === 'loan-officer' && <InviteBroker apiEndpoint="/api/loan-officer/invite-broker" />}
             {variant === 'loan-processor' && <InviteBorrower apiEndpoint="/api/loan-processor/invite" />}
+            {variant === 'loan-processor' && <InviteBroker apiEndpoint="/api/loan-processor/invite-broker" />}
           </div>
         )}
 

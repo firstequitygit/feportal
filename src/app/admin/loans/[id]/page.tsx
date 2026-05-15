@@ -18,6 +18,7 @@ const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Con
 import { PortalShell } from '@/components/portal-shell'
 import { AdminConditionsManager } from '@/components/admin-conditions-manager'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
+import { BrokerAssign } from '@/components/broker-assign'
 import { AdminLoanOfficerAssign } from '@/components/admin-loan-officer-assign'
 import { AdminLoanProcessorAssign } from '@/components/admin-loan-processor-assign'
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
@@ -71,10 +72,11 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     { data: allLoanOfficers },
     { data: allLoanProcessors },
     { data: allUnderwriters },
+    { data: allBrokers },
     { data: loanDetails },
     { data: loanDemographics },
   ] = await Promise.all([
-    adminClient.from('loans').select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
+    adminClient.from('loans').select('*, borrowers(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('condition_templates').select('*').order('title'),
     adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
@@ -85,6 +87,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     adminClient.from('loan_officers').select('id, full_name, email, phone, title').order('full_name'),
     adminClient.from('loan_processors').select('id, full_name, email, phone, title').order('full_name'),
     adminClient.from('underwriters').select('id, full_name, email, phone, title').order('full_name'),
+    adminClient.from('brokers').select('id, full_name, email, company_name').order('full_name'),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
   ])
@@ -202,6 +205,12 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
 
           {/* Assignments — stacked vertically */}
           <div className="space-y-4">
+            <BrokerAssign
+              loanId={id}
+              currentBrokerId={loan.brokers?.id ?? null}
+              allBrokers={(allBrokers ?? []) as { id: string; full_name: string | null; email: string; company_name: string | null }[]}
+            />
+
             <AdminBorrowerAssign
               loanId={id}
               currentBorrowerId={loan.borrowers?.id ?? null}
