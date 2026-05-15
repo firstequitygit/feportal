@@ -2,23 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-// Use the base supabase-js client here (not the SSR client) because
-// admin-generated invite links use hash-based tokens that only the
-// base client handles automatically
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export default function WelcomePage() {
   const router = useRouter()
+  const supabase = createClient()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -28,34 +21,56 @@ export default function WelcomePage() {
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
-    // The base client auto-detects #access_token in the URL hash and fires
-    // PASSWORD_RECOVERY or SIGNED_IN when it processes the invite token
+    let cancelled = false
+
+    function markReady(user: { user_metadata?: { full_name?: string } } | null | undefined) {
+      if (cancelled) return
+      setReady(true)
+      setName(user?.user_metadata?.full_name ?? '')
+    }
+
+    async function init() {
+      // 1. The Supabase client may have already auto-processed the hash on init
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) { markReady(user); return }
+
+      // 2. PKCE flow — Supabase appended ?code= to the URL
+      const code = new URLSearchParams(window.location.search).get('code')
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error) { markReady(data.user); return }
+      }
+
+      // 3. Implicit flow — tokens are in the URL hash (#access_token=...)
+      const hash = window.location.hash
+      if (hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.replace('#', ''))
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          if (!error) { markReady(data.user); return }
+        }
+      }
+    }
+
+    init()
+
+    // Belt and suspenders: if any auth event fires during/after init, accept it
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (
-        event === 'PASSWORD_RECOVERY' ||
-        event === 'SIGNED_IN' ||
-        event === 'TOKEN_REFRESHED'
-      ) {
-        setReady(true)
-        setName(session?.user?.user_metadata?.full_name ?? '')
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        markReady(session?.user)
       }
     })
 
-    // Also check for an existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true)
-        setName(session.user?.user_metadata?.full_name ?? '')
-      }
-    })
-
-    const timeout = setTimeout(() => setTimedOut(true), 5000)
+    const timeout = setTimeout(() => { if (!cancelled) setTimedOut(true) }, 8000)
 
     return () => {
+      cancelled = true
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [])
+  }, [supabase])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
