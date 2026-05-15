@@ -75,7 +75,8 @@ export interface NormalizedDeal {
   rate_lock_expiration_date: string | null
   interest_only: string | null
   loan_type_ii: string | null
-  closed_at: string | null         // Pipedrive won_time, normalized to ISO
+  closed_at: string | null               // Pipedrive won_time, normalized to ISO (only when status=won)
+  estimated_closing_date: string | null  // Pipedrive "Closing Date" custom field — scheduled/expected close
 }
 
 function getField(deal: PipedriveDeal, key: string): unknown {
@@ -162,6 +163,9 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
       deal.status === 'won' && typeof deal.won_time === 'string' && deal.won_time
         ? new Date(deal.won_time.replace(' ', 'T') + 'Z').toISOString()
         : null,
+    // Pipedrive custom field "Closing Date" — the scheduled/expected close
+    // used by FE's monthly closings report. Comes through as "YYYY-MM-DD".
+    estimated_closing_date: toString(getField(deal, f.closingDate)),
   }
 }
 

@@ -171,6 +171,7 @@ export const PIPEDRIVE_FIELDS = {
   interestOnly:       'f0b4e7a479c1aa69c7d39b8a19925fd154920fc3', // enum Yes/No
   loanTypeII:         '6780eb1a6f081cabfd6248c03dd13152804233f5', // "Loan Purpose" (Purchase / Refi / etc.)
   propertyAddress:    '774f8922280288f08c94df16bf643d40a5da53f6', // structured address field
+  closingDate:        'e150d1a8987dfe88c808d7c2121b9fe02f8a65fe', // "Closing Date" — scheduled/expected close, drives the Closings report
 } as const
 
 // Pipedrive "Loan Program" option ID → portal LoanType

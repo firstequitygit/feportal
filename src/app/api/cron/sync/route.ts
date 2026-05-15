@@ -34,7 +34,8 @@ export async function GET(request: Request) {
         origination_date:   deal.origination_date,
         maturity_date:      deal.maturity_date,
         entity_name:        deal.entity_name,
-        closed_at:          deal.closed_at,    // Pipedrive won_time for won deals
+        closed_at:               deal.closed_at,                // Pipedrive won_time for won deals
+        estimated_closing_date:  deal.estimated_closing_date,   // Pipedrive "Closing Date" custom field
         last_synced_at:     new Date().toISOString(),
       }
       if (deal.pipedrive_status === 'lost') payload.archived = true

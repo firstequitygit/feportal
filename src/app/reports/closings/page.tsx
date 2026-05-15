@@ -26,11 +26,20 @@ interface LoanRow {
   property_address: string | null
   loan_amount: number | null
   closed_at: string | null
+  estimated_closing_date: string | null
   pipeline_stage: string | null
   loan_officer_id: string | null
   archived: boolean | null
   borrowers: { full_name: string | null } | null
   loan_officers: { full_name: string | null } | null
+}
+
+// Bucket date: prefer the scheduled "Closing Date" from Pipedrive, fall back
+// to actual won_time. This matches the loan-officer's "closings by month"
+// view in Pipedrive, which uses Closing Date — a loan funded May 1 but
+// scheduled to close April 30 counts as April.
+function bucketIso(l: LoanRow): string | null {
+  return l.estimated_closing_date ?? l.closed_at
 }
 
 const WINDOW_OPTIONS = new Set(['12', '24', '36', 'all'])
@@ -58,18 +67,24 @@ export default async function ClosingsByMonthPage({
     windowLabel = `Last ${months} months`
   }
 
-  // All loans with a closed_at AND that reached the Closed stage. The stage
-  // filter excludes deals that Pipedrive shows as Lost — those never reach
-  // the Closed stage even when they happen to have a lingering won_time.
-  // Archived loans are still included (the auto-archive cron flips archived
-  // to true 30 days after close — those are still real historical closings).
+  // All loans that reached the Closed stage AND were won. The pipeline_stage
+  // filter excludes Pipedrive Lost deals (they don't advance to Closed). We
+  // still require closed_at IS NOT NULL as the "the deal actually funded"
+  // guarantee — but bucketing happens by estimated_closing_date (the Pipedrive
+  // "Closing Date" custom field, i.e. the scheduled/expected close) so a loan
+  // scheduled to close April 30 but funded May 1 counts as April. Archived
+  // loans are still included (auto-archived 30d after close = real history).
+  // Window filter applies to whichever date drives the bucket (max of the two).
   let q = adminClient
     .from('loans')
-    .select('id, property_address, loan_amount, closed_at, pipeline_stage, loan_officer_id, archived, borrowers(full_name), loan_officers(full_name)')
+    .select('id, property_address, loan_amount, closed_at, estimated_closing_date, pipeline_stage, loan_officer_id, archived, borrowers(full_name), loan_officers(full_name)')
     .eq('pipeline_stage', 'Closed')
     .not('closed_at', 'is', null)
     .order('closed_at', { ascending: false })
-  if (windowStartIso) q = q.gte('closed_at', windowStartIso)
+  // Window filter: keep rows whose estimated_closing_date OR closed_at is in window
+  if (windowStartIso) {
+    q = q.or(`estimated_closing_date.gte.${windowStartIso.slice(0,10)},closed_at.gte.${windowStartIso}`)
+  }
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }
@@ -108,9 +123,16 @@ export default async function ClosingsByMonthPage({
     }
   }
 
+  // Filter to loans that have a bucket date AND fall in the window
+  // (after the scheduled-date switch, a Pipedrive-Lost-time row could slip in
+  // via the OR filter above with only closed_at in range — drop those that
+  // don't actually bucket into the visible window).
+  const windowStartMs = windowStartIso ? new Date(windowStartIso).getTime() : -Infinity
   for (const l of loanRows) {
-    if (!l.closed_at) continue
-    const d = new Date(l.closed_at)
+    const iso = bucketIso(l)
+    if (!iso) continue
+    if (new Date(iso).getTime() < windowStartMs) continue
+    const d = new Date(iso)
     const b = ensureBucket(d.getFullYear(), d.getMonth())
     b.count += 1
     b.volume += l.loan_amount ?? 0
@@ -124,20 +146,23 @@ export default async function ClosingsByMonthPage({
   )
   const bucketsDesc = [...bucketsAsc].reverse()
   for (const b of bucketsAsc) {
-    b.loans.sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))
+    b.loans.sort((a, b) => (bucketIso(b) ?? '').localeCompare(bucketIso(a) ?? ''))
   }
 
-  const totalCount = loanRows.length
-  const totalVolume = loanRows.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
+  const totalCount = bucketsAsc.reduce((s, b) => s + b.count, 0)
+  const totalVolume = bucketsAsc.reduce((s, b) => s + b.volume, 0)
   const maxVolume = Math.max(1, ...bucketsAsc.map(b => b.volume))
 
-  // CSV: one row per loan, plus a totals row at the end.
-  const csvHeaders = ['Month', 'Close Date', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount', 'Archived']
+  // CSV: one row per loan, plus a totals row at the end. Close Date is the
+  // scheduled "Closing Date" from Pipedrive (the same date the report buckets
+  // by); Funded On is the actual won_time so it's still visible.
+  const csvHeaders = ['Month', 'Close Date', 'Funded On', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount', 'Archived']
   const csvRows: (string | number)[][] = []
   for (const b of bucketsDesc) {
     for (const l of b.loans) {
       csvRows.push([
         b.label,
+        bucketIso(l)?.slice(0, 10) ?? '',
         l.closed_at?.slice(0, 10) ?? '',
         l.property_address ?? '',
         l.borrowers?.full_name ?? '',
@@ -147,7 +172,7 @@ export default async function ClosingsByMonthPage({
       ])
     }
   }
-  csvRows.push(['Total', '', '', '', `${totalCount} loans`, Math.round(totalVolume), ''])
+  csvRows.push(['Total', '', '', '', '', '', `${totalCount} loans`, Math.round(totalVolume)])
 
   return (
     <PortalShell
@@ -253,7 +278,7 @@ export default async function ClosingsByMonthPage({
                   <tbody>
                     {b.loans.map(l => (
                       <tr key={l.id} className="border-b border-gray-100 last:border-b-0">
-                        <td className="px-4 py-2 text-gray-700 whitespace-nowrap">{formatDate(l.closed_at)}</td>
+                        <td className="px-4 py-2 text-gray-700 whitespace-nowrap">{formatDate(bucketIso(l))}</td>
                         <td className="px-4 py-2 font-medium text-gray-900">
                           <Link href={loanDetailHref(ctx.role, l.id)} className="hover:text-primary">
                             {l.property_address ?? '—'}
