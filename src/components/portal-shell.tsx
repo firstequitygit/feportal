@@ -115,7 +115,7 @@ export function PortalShell({
       )}
 
       {/* Top bar — full width, logo top-right */}
-      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10" style={{ backgroundColor: '#FFF6EF', borderBottom: '1px solid #e8ddd6' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10 bg-white border-b border-gray-200">
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(true)}
