@@ -26,11 +26,6 @@ function lastNDaysIso(n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-interface CloseEvent {
-  loan_id: string
-  entered_at: string
-}
-
 export default async function ProductionReportPage({
   searchParams,
 }: {
@@ -43,34 +38,7 @@ export default async function ProductionReportPage({
 
   const adminClient = createAdminClient()
 
-  // 1. Find all 'Closed' stage entries in the date range from loan_stage_history.
-  //    Fall back to origination_date if loan_stage_history has no row for that loan.
-  const { data: closedEvents } = await adminClient
-    .from('loan_stage_history')
-    .select('loan_id, entered_at')
-    .eq('stage', 'Closed')
-    .gte('entered_at', `${from}T00:00:00Z`)
-    .lte('entered_at', `${to}T23:59:59Z`)
-
-  const closedLoanIdsFromHistory = new Set(
-    ((closedEvents ?? []) as CloseEvent[]).map(e => e.loan_id),
-  )
-
-  // 2. Also pull loans whose origination_date falls in range as a fallback for loans
-  //    that closed before we started tracking stage history.
-  const { data: originatedLoans } = await adminClient
-    .from('loans')
-    .select('id')
-    .gte('origination_date', from)
-    .lte('origination_date', to)
-    .eq('pipeline_stage', 'Closed')
-
-  const closedLoanIds = new Set<string>([
-    ...closedLoanIdsFromHistory,
-    ...((originatedLoans ?? []) as { id: string }[]).map(l => l.id),
-  ])
-
-  // 3. Pull full loan records for those IDs (scoped to current user's role)
+  // Closed loans = pipeline_stage 'Closed' with origination_date in the chosen range.
   type LoanRow = {
     id: string
     loan_amount: number | null
@@ -79,18 +47,17 @@ export default async function ProductionReportPage({
     pipeline_stage: string | null
   }
 
-  let detail: LoanRow[] = []
-  if (closedLoanIds.size > 0) {
-    let q = adminClient
-      .from('loans')
-      .select('id, loan_amount, loan_officer_id, pipeline_stage, loan_officers(full_name)')
-      .in('id', Array.from(closedLoanIds))
-    if (ctx.loanScopeColumn && ctx.loanScopeId) {
-      q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
-    }
-    const { data } = await q
-    detail = (data ?? []) as unknown as LoanRow[]
+  let q = adminClient
+    .from('loans')
+    .select('id, loan_amount, loan_officer_id, pipeline_stage, loan_officers(full_name)')
+    .eq('pipeline_stage', 'Closed')
+    .gte('origination_date', from)
+    .lte('origination_date', to)
+  if (ctx.loanScopeColumn && ctx.loanScopeId) {
+    q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }
+  const { data: detailRaw } = await q
+  const detail: LoanRow[] = (detailRaw ?? []) as unknown as LoanRow[]
 
   // Aggregate by loan officer
   const byLo = new Map<string, { loId: string | null; name: string; count: number; volume: number }>()

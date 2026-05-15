@@ -14,11 +14,6 @@ function monthLabel(year: number, monthIdx: number): string {
   return new Date(year, monthIdx, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-interface CloseEvent {
-  loan_id: string
-  entered_at: string
-}
-
 interface LoanRow {
   id: string
   loan_amount: number | null
@@ -39,25 +34,7 @@ export default async function ClosingsByMonthPage() {
   const windowStartIso = windowStart.toISOString().slice(0, 10)
   const todayIso = now.toISOString().slice(0, 10)
 
-  // Find all 'Closed' transitions in the window
-  const { data: closeEvents } = await adminClient
-    .from('loan_stage_history')
-    .select('loan_id, entered_at')
-    .eq('stage', 'Closed')
-    .gte('entered_at', `${windowStartIso}T00:00:00Z`)
-    .lte('entered_at', `${todayIso}T23:59:59Z`)
-
-  const closedDateByLoan = new Map<string, string>()
-  for (const e of ((closeEvents ?? []) as CloseEvent[])) {
-    // If a loan has multiple Closed transitions (unusual), keep the most recent
-    const prior = closedDateByLoan.get(e.loan_id)
-    if (!prior || new Date(e.entered_at) > new Date(prior)) {
-      closedDateByLoan.set(e.loan_id, e.entered_at)
-    }
-  }
-
-  // Also include loans currently in 'Closed' stage whose origination_date falls in window
-  // (fallback for loans closed before stage history started)
+  // Closed loans = pipeline_stage 'Closed' with origination_date inside the window.
   let q = adminClient
     .from('loans')
     .select('id, loan_amount, origination_date, pipeline_stage, loan_officer_id')
@@ -67,29 +44,10 @@ export default async function ClosingsByMonthPage() {
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }
-  const { data: originatedClosed } = await q
-  for (const l of ((originatedClosed ?? []) as LoanRow[])) {
-    if (!closedDateByLoan.has(l.id) && l.origination_date) {
-      closedDateByLoan.set(l.id, l.origination_date)
-    }
-  }
+  const { data: loanData } = await q
+  const loanRows: LoanRow[] = (loanData ?? []) as LoanRow[]
 
-  // Pull loan amounts + apply role scoping for the union of loan IDs
-  const allLoanIds = Array.from(closedDateByLoan.keys())
-  let loanRows: LoanRow[] = []
-  if (allLoanIds.length > 0) {
-    let lq = adminClient
-      .from('loans')
-      .select('id, loan_amount, origination_date, pipeline_stage, loan_officer_id')
-      .in('id', allLoanIds)
-    if (ctx.loanScopeColumn && ctx.loanScopeId) {
-      lq = lq.eq(ctx.loanScopeColumn, ctx.loanScopeId)
-    }
-    const { data } = await lq
-    loanRows = (data ?? []) as LoanRow[]
-  }
-
-  // Bucket by month
+  // Bucket by month using origination_date
   type Bucket = { year: number; monthIdx: number; label: string; count: number; volume: number }
   const buckets: Bucket[] = []
   for (let i = 0; i < 12; i++) {
@@ -103,10 +61,10 @@ export default async function ClosingsByMonthPage() {
     })
   }
   for (const l of loanRows) {
-    const closedAt = closedDateByLoan.get(l.id)
-    if (!closedAt) continue
-    const d = new Date(closedAt)
-    const b = buckets.find(b => b.year === d.getFullYear() && b.monthIdx === d.getMonth())
+    if (!l.origination_date) continue
+    // Parse YYYY-MM-DD as local date to avoid UTC drift on dates near midnight
+    const [y, m] = l.origination_date.split('-').map(Number)
+    const b = buckets.find(b => b.year === y && b.monthIdx === m - 1)
     if (!b) continue
     b.count += 1
     b.volume += l.loan_amount ?? 0
