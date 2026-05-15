@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import nodemailer from 'nodemailer'
 
 export async function POST(request: Request) {
   // Verify the requester is an admin
@@ -85,9 +86,56 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: linkError.message }, { status: 500 })
   }
 
+  const inviteLink = linkData.properties.action_link
+  const firstName = (fullName ?? '').trim().split(/\s+/)[0] ?? ''
+  const greetingName = firstName ? firstName : (fullName ?? '').trim() || 'there'
+
+  // Send the invite email. If SMTP fails, still return success with the link
+  // so the admin can copy/paste as a fallback rather than blocking the flow.
+  let emailSent = false
+  let emailError: string | null = null
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    })
+    await transporter.sendMail({
+      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: `You've been invited to the First Equity Funding Online Portal`,
+      html: `
+        <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greetingName},</p>
+        <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+          You've been invited to the <strong>First Equity Funding Online Portal</strong>, where you can track
+          your loan, upload required documents, and message your team.
+        </p>
+        <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+          Click the button below to create a password and access your portal.
+        </p>
+        <p style="margin-top: 24px;">
+          <a href="${inviteLink}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
+            Set Up My Account
+          </a>
+        </p>
+        <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">
+          This link expires in 24 hours and can only be used once. If you didn't expect this invitation,
+          you can ignore this email.
+        </p>
+        <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999;">First Equity Funding Online Portal</p>
+      `,
+    })
+    emailSent = true
+  } catch (err) {
+    emailError = err instanceof Error ? err.message : 'Unknown email error'
+    console.error('Invite email error:', emailError)
+  }
+
   return NextResponse.json({
     success: true,
     borrowerId,
-    inviteLink: linkData.properties.action_link,
+    emailSent,
+    emailError,
+    // Returned so the admin UI can offer a "copy link" fallback if email fails.
+    inviteLink,
   })
 }

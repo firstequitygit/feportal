@@ -11,7 +11,11 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [result, setResult] = useState<{
+    emailSent: boolean
+    inviteLink: string
+    emailError: string | null
+  } | null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -19,7 +23,7 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
     e.preventDefault()
     setError('')
     setLoading(true)
-    setInviteLink(null)
+    setResult(null)
 
     const res = await fetch(apiEndpoint, {
       method: 'POST',
@@ -35,13 +39,17 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
       return
     }
 
-    setInviteLink(data.inviteLink)
+    setResult({
+      emailSent: Boolean(data.emailSent),
+      inviteLink: data.inviteLink,
+      emailError: data.emailError ?? null,
+    })
     setLoading(false)
   }
 
   async function handleCopy() {
-    if (!inviteLink) return
-    await navigator.clipboard.writeText(inviteLink)
+    if (!result?.inviteLink) return
+    await navigator.clipboard.writeText(result.inviteLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -50,7 +58,7 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
     setOpen(false)
     setEmail('')
     setFullName('')
-    setInviteLink(null)
+    setResult(null)
     setError('')
   }
 
@@ -68,23 +76,45 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
         <CardTitle className="text-base">Invite Borrower</CardTitle>
       </CardHeader>
       <CardContent>
-        {inviteLink ? (
+        {result ? (
           <div className="space-y-3">
-            <p className="text-sm text-green-600 font-medium">✓ Invite link generated</p>
-            <p className="text-sm text-gray-500">
-              Copy this link and send it to <strong>{fullName || email}</strong>.
-              It expires in 24 hours and can only be used once.
-            </p>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={inviteLink}
-                className="flex-1 text-xs border rounded px-2 py-1.5 bg-gray-50 truncate"
-              />
-              <Button size="sm" onClick={handleCopy}>
-                {copied ? 'Copied!' : 'Copy'}
-              </Button>
-            </div>
+            {result.emailSent ? (
+              <>
+                <p className="text-sm text-green-600 font-medium">✓ Invite email sent to {email}</p>
+                <p className="text-sm text-gray-500">
+                  {fullName || 'The borrower'} will receive a message with a button to set up their account.
+                  The link expires in 24 hours and can only be used once.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-amber-600 font-medium">
+                  ⚠ Couldn&apos;t send the email automatically
+                </p>
+                <p className="text-sm text-gray-500">
+                  Copy the link below and send it to <strong>{fullName || email}</strong> manually.
+                  It expires in 24 hours and can only be used once.
+                </p>
+                {result.emailError && (
+                  <p className="text-xs text-gray-400">Error: {result.emailError}</p>
+                )}
+              </>
+            )}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                {result.emailSent ? 'Need to copy the link manually instead?' : 'Show invite link'}
+              </summary>
+              <div className="mt-2 flex gap-2">
+                <input
+                  readOnly
+                  value={result.inviteLink}
+                  className="flex-1 text-xs border rounded px-2 py-1.5 bg-gray-50 truncate"
+                />
+                <Button size="sm" onClick={handleCopy}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </Button>
+              </div>
+            </details>
             <p className="text-xs text-gray-400">
               After they set their password, assign their loan in the admin panel.
             </p>
@@ -120,7 +150,7 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
             )}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? 'Generating...' : 'Generate invite link'}
+                {loading ? 'Sending...' : 'Send invite email'}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={handleReset}>
                 Cancel
