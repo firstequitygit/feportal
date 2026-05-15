@@ -21,6 +21,7 @@ import { UnclaimButton } from '@/components/unclaim-button'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { DocumentsList } from '@/components/documents-list'
 import { LoanType } from '@/lib/types'
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
@@ -273,33 +274,18 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
               </>
             }
           >
-              <div className="divide-y">
-                {docsWithUrls.map(doc => (
-                  <div key={doc.id} className="py-3 flex items-center justify-between gap-4">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span className="text-lg mt-0.5">📄</span>
-                      <div className="min-w-0">
-                        {doc.signedUrl ? (
-                          <DocumentPreviewLink
-                            url={doc.signedUrl}
-                            fileName={doc.file_name}
-                            className="text-sm font-medium text-gray-900 truncate text-left hover:text-primary underline underline-offset-2 block max-w-full"
-                          />
-                        ) : (
-                          <p className="text-sm font-medium text-gray-900 truncate">{doc.file_name}</p>
-                        )}
-                        {doc.condition_id && conditionMap[doc.condition_id] && (
-                          <p className="text-xs text-gray-500 mt-0.5">Condition: {conditionMap[doc.condition_id]}</p>
-                        )}
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB · ` : ''}
-                          {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <DocumentsList
+                documents={docsWithUrls.map(d => ({
+                  id: d.id,
+                  file_name: d.file_name,
+                  file_size: d.file_size,
+                  created_at: d.created_at,
+                  condition_id: d.condition_id,
+                  signedUrl: d.signedUrl,
+                }))}
+                conditionMap={conditionMap}
+                zipFilenamePrefix={loan.property_address ?? `loan-${id}`}
+              />
           </CollapsibleCard>
           </div>
         )}

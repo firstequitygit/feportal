@@ -24,6 +24,7 @@ import { AdminLoanNotes } from '@/components/admin-loan-notes'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { DocumentsList } from '@/components/documents-list'
 import { formatDate } from '@/lib/format-date'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
@@ -266,47 +267,18 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             </>
           }
         >
-            {docsWithUrls.length === 0 ? (
-              <p className="text-sm text-gray-500">No documents uploaded yet.</p>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {docsWithUrls.map(doc => (
-                  <div key={doc.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-gray-400 shrink-0">📄</span>
-                      <div className="min-w-0">
-                        {doc.signedUrl ? (
-                          <DocumentPreviewLink
-                            url={doc.signedUrl}
-                            fileName={doc.file_name}
-                            className="text-sm text-gray-900 truncate text-left hover:text-primary underline underline-offset-2 block max-w-full"
-                          />
-                        ) : (
-                          <p className="text-sm text-gray-900 truncate">{doc.file_name}</p>
-                        )}
-                        {doc.condition_id && conditionMap[doc.condition_id] && (
-                          <p className="text-xs text-gray-400 truncate">
-                            {conditionMap[doc.condition_id]}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                      {doc.file_size && (
-                        <span className="text-xs text-gray-400 hidden sm:block">
-                          {formatFileSize(doc.file_size)}
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-400">
-                        {new Date(doc.created_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <DocumentsList
+              documents={docsWithUrls.map(d => ({
+                id: d.id,
+                file_name: d.file_name,
+                file_size: d.file_size,
+                created_at: d.created_at,
+                condition_id: d.condition_id,
+                signedUrl: d.signedUrl,
+              }))}
+              conditionMap={conditionMap}
+              zipFilenamePrefix={loan.property_address ?? `loan-${id}`}
+            />
         </CollapsibleCard>
         </div>
 
