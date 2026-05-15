@@ -11,7 +11,7 @@ import { InviteBroker } from '@/components/invite-broker'
 import {
   LayoutDashboard, LogOut, Menu, X,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -37,6 +37,8 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/loan-officers',    label: 'Loan Officers',       icon: Users },
   { href: '/admin/loan-processors',  label: 'Loan Processors',     icon: UserCog },
   { href: '/admin/underwriters',     label: 'Underwriters',        icon: ShieldCheck },
+  { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
+  { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
