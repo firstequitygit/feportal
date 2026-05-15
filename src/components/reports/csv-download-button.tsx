@@ -9,13 +9,15 @@ interface Props {
   headers: string[]
   /** Rows aligned to headers. Each cell can be string | number | null. */
   rows: Array<Array<string | number | null | undefined>>
+  /** Optional button label override. Defaults to "Download CSV". */
+  label?: string
 }
 
 /**
  * One-click CSV export button. No server roundtrip — builds the file in-browser
  * from data the parent already has on hand.
  */
-export function CsvDownloadButton({ fileName, headers, rows }: Props) {
+export function CsvDownloadButton({ fileName, headers, rows, label = 'Download CSV' }: Props) {
   function escape(cell: string | number | null | undefined): string {
     if (cell === null || cell === undefined) return ''
     const s = String(cell)
@@ -48,7 +50,7 @@ export function CsvDownloadButton({ fileName, headers, rows }: Props) {
       disabled={rows.length === 0}
     >
       <Download className="w-3.5 h-3.5" />
-      Download CSV
+      {label}
     </button>
   )
 }

@@ -153,14 +153,20 @@ export default async function ClosingsByMonthPage({
   const totalVolume = bucketsAsc.reduce((s, b) => s + b.volume, 0)
   const maxVolume = Math.max(1, ...bucketsAsc.map(b => b.volume))
 
-  // CSV: one row per loan, plus a totals row at the end. Close Date is the
-  // scheduled "Closing Date" from Pipedrive (the same date the report buckets
-  // by); Funded On is the actual won_time so it's still visible.
-  const csvHeaders = ['Month', 'Close Date', 'Funded On', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount', 'Archived']
-  const csvRows: (string | number)[][] = []
+  // Two CSVs:
+  //   summary  — one row per month with count + volume (mirrors the top table)
+  //   detail   — one row per loan (mirrors the per-month detail card).
+  //              Close Date is the bucket-driving "Closing Date" from
+  //              Pipedrive; Funded On is the actual won_time.
+  const summaryHeaders = ['Month', 'Closed Loans', 'Total Volume']
+  const summaryRows: (string | number)[][] = bucketsAsc.map(b => [b.label, b.count, Math.round(b.volume)])
+  summaryRows.push(['Total', totalCount, Math.round(totalVolume)])
+
+  const detailHeaders = ['Month', 'Close Date', 'Funded On', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount', 'Archived']
+  const detailRows: (string | number)[][] = []
   for (const b of bucketsDesc) {
     for (const l of b.loans) {
-      csvRows.push([
+      detailRows.push([
         b.label,
         bucketIso(l)?.slice(0, 10) ?? '',
         l.closed_at?.slice(0, 10) ?? '',
@@ -172,7 +178,7 @@ export default async function ClosingsByMonthPage({
       ])
     }
   }
-  csvRows.push(['Total', '', '', '', '', '', `${totalCount} loans`, Math.round(totalVolume)])
+  detailRows.push(['Total', '', '', '', '', '', `${totalCount} loans`, Math.round(totalVolume)])
 
   return (
     <PortalShell
@@ -194,7 +200,12 @@ export default async function ClosingsByMonthPage({
             {ctx.role !== 'admin' && ' · scoped to your loans'}
           </p>
         </div>
-        <CsvDownloadButton fileName="closings-by-month" headers={csvHeaders} rows={csvRows} />
+        <CsvDownloadButton
+          fileName="closings-by-month-summary"
+          label="Download Summary"
+          headers={summaryHeaders}
+          rows={summaryRows}
+        />
       </div>
 
       <ClosingsWindowFilter current={monthsKey} />
@@ -241,8 +252,14 @@ export default async function ClosingsByMonthPage({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-base">Loans by Month</CardTitle>
+          <CsvDownloadButton
+            fileName="closings-by-month-detail"
+            label="Download Detail"
+            headers={detailHeaders}
+            rows={detailRows}
+          />
         </CardHeader>
         <CardContent className="space-y-3">
           {bucketsDesc.filter(b => b.count > 0).length === 0 ? (
