@@ -75,6 +75,7 @@ export interface NormalizedDeal {
   rate_lock_expiration_date: string | null
   interest_only: string | null
   loan_type_ii: string | null
+  closed_at: string | null         // Pipedrive won_time, normalized to ISO
 }
 
 function getField(deal: PipedriveDeal, key: string): unknown {
@@ -152,6 +153,11 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     rate_lock_expiration_date: toString(getField(deal, f.rateLockExpiration)),
     interest_only:             toString(getField(deal, f.interestOnly)),
     loan_type_ii:              toString(getField(deal, f.loanTypeII)),
+    // Pipedrive won_time is "YYYY-MM-DD HH:MM:SS" UTC; normalize to ISO.
+    // Only populated when the deal is won — for open/lost deals, leave null.
+    closed_at: typeof deal.won_time === 'string' && deal.won_time
+      ? new Date(deal.won_time.replace(' ', 'T') + 'Z').toISOString()
+      : null,
   }
 }
 

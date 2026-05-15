@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getReportContext, roleLabel, loanDetailHref } from '@/lib/reports/auth'
 import { CsvDownloadButton } from '@/components/reports/csv-download-button'
+import { ClosingsWindowFilter } from '@/components/reports/closings-window-filter'
 import { ArrowLeft } from 'lucide-react'
 
 function formatCurrency(val: number): string {
@@ -16,95 +17,132 @@ function monthLabel(year: number, monthIdx: number): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 interface LoanRow {
   id: string
   property_address: string | null
   loan_amount: number | null
-  origination_date: string | null
+  closed_at: string | null
   pipeline_stage: string | null
   loan_officer_id: string | null
+  archived: boolean | null
   borrowers: { full_name: string | null } | null
   loan_officers: { full_name: string | null } | null
 }
 
-export default async function ClosingsByMonthPage() {
+const WINDOW_OPTIONS = new Set(['12', '24', '36', 'all'])
+
+export default async function ClosingsByMonthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ months?: string }>
+}) {
   const ctx = await getReportContext()
   const adminClient = createAdminClient()
 
-  // Trailing 12 months window — first of the month 11 months ago through today
+  // Window: 'all' or trailing N months. Default 24.
+  const { months: monthsParam } = await searchParams
+  const monthsKey = WINDOW_OPTIONS.has(monthsParam ?? '') ? (monthsParam as string) : '24'
   const now = new Date()
-  const startYear = now.getFullYear()
-  const startMonth = now.getMonth() - 11
-  const windowStart = new Date(startYear, startMonth, 1)
-  const windowStartIso = windowStart.toISOString().slice(0, 10)
-  const todayIso = now.toISOString().slice(0, 10)
+  const nowMonthFirst = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  // Closed loans = pipeline_stage 'Closed' with origination_date inside the window.
+  let windowStartIso: string | null = null
+  let windowLabel = 'All time'
+  if (monthsKey !== 'all') {
+    const months = parseInt(monthsKey, 10)
+    const windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
+    windowStartIso = windowStart.toISOString()
+    windowLabel = `Last ${months} months`
+  }
+
+  // All loans with a closed_at — explicitly include archived loans too.
   let q = adminClient
     .from('loans')
-    .select('id, property_address, loan_amount, origination_date, pipeline_stage, loan_officer_id, borrowers(full_name), loan_officers(full_name)')
-    .eq('pipeline_stage', 'Closed')
-    .gte('origination_date', windowStartIso)
-    .lte('origination_date', todayIso)
+    .select('id, property_address, loan_amount, closed_at, pipeline_stage, loan_officer_id, archived, borrowers(full_name), loan_officers(full_name)')
+    .not('closed_at', 'is', null)
+    .order('closed_at', { ascending: false })
+  if (windowStartIso) q = q.gte('closed_at', windowStartIso)
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }
-  const { data: loanData } = await q
-  const loanRows: LoanRow[] = (loanData ?? []) as unknown as LoanRow[]
 
-  // Bucket by month using origination_date
-  type Bucket = { year: number; monthIdx: number; label: string; count: number; volume: number; loans: LoanRow[] }
-  const buckets: Bucket[] = []
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(startYear, startMonth + i, 1)
-    buckets.push({
-      year: d.getFullYear(),
-      monthIdx: d.getMonth(),
-      label: monthLabel(d.getFullYear(), d.getMonth()),
-      count: 0,
-      volume: 0,
-      loans: [],
-    })
+  // Paginate to avoid PostgREST's 1000-row cap. Closings span 2017+ in FE.
+  const loanRows: LoanRow[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await q.range(from, from + 999)
+    if (error || !data) break
+    loanRows.push(...(data as unknown as LoanRow[]))
+    if (data.length < 1000) break
+    from += 1000
   }
+
+  // Bucket by month using closed_at. Months are derived from data when 'all',
+  // otherwise we generate the full trailing-N-months range so zero months show.
+  type Bucket = { year: number; monthIdx: number; label: string; count: number; volume: number; loans: LoanRow[] }
+  const bucketMap = new Map<string, Bucket>()
+  function bucketKey(y: number, m: number) { return `${y}-${m}` }
+  function ensureBucket(y: number, m: number): Bucket {
+    const k = bucketKey(y, m)
+    let b = bucketMap.get(k)
+    if (!b) {
+      b = { year: y, monthIdx: m, label: monthLabel(y, m), count: 0, volume: 0, loans: [] }
+      bucketMap.set(k, b)
+    }
+    return b
+  }
+
+  if (monthsKey !== 'all') {
+    const months = parseInt(monthsKey, 10)
+    for (let i = 0; i < months; i++) {
+      const d = new Date(nowMonthFirst.getFullYear(), nowMonthFirst.getMonth() - (months - 1) + i, 1)
+      ensureBucket(d.getFullYear(), d.getMonth())
+    }
+  }
+
   for (const l of loanRows) {
-    if (!l.origination_date) continue
-    // Parse YYYY-MM-DD as local date to avoid UTC drift on dates near midnight
-    const [y, m] = l.origination_date.split('-').map(Number)
-    const b = buckets.find(b => b.year === y && b.monthIdx === m - 1)
-    if (!b) continue
+    if (!l.closed_at) continue
+    const d = new Date(l.closed_at)
+    const b = ensureBucket(d.getFullYear(), d.getMonth())
     b.count += 1
     b.volume += l.loan_amount ?? 0
     b.loans.push(l)
   }
-  // Sort loans within each month by close date (newest first)
-  for (const b of buckets) {
-    b.loans.sort((a, b) => (b.origination_date ?? '').localeCompare(a.origination_date ?? ''))
+
+  // Sort: oldest-first for the summary table (chronological volume trend),
+  // newest-first for the per-month detail (most relevant first).
+  const bucketsAsc = [...bucketMap.values()].sort((a, b) =>
+    a.year === b.year ? a.monthIdx - b.monthIdx : a.year - b.year
+  )
+  const bucketsDesc = [...bucketsAsc].reverse()
+  for (const b of bucketsAsc) {
+    b.loans.sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))
   }
 
-  const totalCount = buckets.reduce((s, b) => s + b.count, 0)
-  const totalVolume = buckets.reduce((s, b) => s + b.volume, 0)
-  const maxVolume = Math.max(1, ...buckets.map(b => b.volume))
+  const totalCount = loanRows.length
+  const totalVolume = loanRows.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
+  const maxVolume = Math.max(1, ...bucketsAsc.map(b => b.volume))
 
   // CSV: one row per loan, plus a totals row at the end.
-  const csvHeaders = ['Month', 'Close Date', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount']
+  const csvHeaders = ['Month', 'Close Date', 'Property', 'Borrower', 'Loan Officer', 'Loan Amount', 'Archived']
   const csvRows: (string | number)[][] = []
-  for (const b of buckets) {
+  for (const b of bucketsDesc) {
     for (const l of b.loans) {
       csvRows.push([
         b.label,
-        l.origination_date ?? '',
+        l.closed_at?.slice(0, 10) ?? '',
         l.property_address ?? '',
         l.borrowers?.full_name ?? '',
         l.loan_officers?.full_name ?? '',
         l.loan_amount ?? 0,
+        l.archived ? 'yes' : 'no',
       ])
     }
   }
-  csvRows.push(['Total', '', '', '', `${totalCount} loans`, Math.round(totalVolume)])
+  csvRows.push(['Total', '', '', '', `${totalCount} loans`, Math.round(totalVolume), ''])
 
   return (
     <PortalShell
@@ -122,12 +160,14 @@ export default async function ClosingsByMonthPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Closings by Month</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Trailing 12 months · {totalCount} closed loan{totalCount === 1 ? '' : 's'} · {formatCurrency(totalVolume)} total volume
+            {windowLabel} · {totalCount} closed loan{totalCount === 1 ? '' : 's'} · {formatCurrency(totalVolume)} total volume
             {ctx.role !== 'admin' && ' · scoped to your loans'}
           </p>
         </div>
         <CsvDownloadButton fileName="closings-by-month" headers={csvHeaders} rows={csvRows} />
       </div>
+
+      <ClosingsWindowFilter current={monthsKey} />
 
       <Card className="mb-6">
         <CardHeader>
@@ -144,7 +184,7 @@ export default async function ClosingsByMonthPage() {
               </tr>
             </thead>
             <tbody>
-              {buckets.map(b => (
+              {bucketsAsc.map(b => (
                 <tr key={b.label} className="border-b border-gray-100 last:border-b-0">
                   <td className="py-2.5 font-medium text-gray-900">{b.label}</td>
                   <td className="py-2.5 text-right tabular-nums">{b.count}</td>
@@ -175,12 +215,17 @@ export default async function ClosingsByMonthPage() {
           <CardTitle className="text-base">Loans by Month</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {buckets.filter(b => b.count > 0).length === 0 ? (
-            <p className="text-sm text-gray-500 italic py-4 text-center">No closed loans in the trailing 12 months.</p>
+          {bucketsDesc.filter(b => b.count > 0).length === 0 ? (
+            <p className="text-sm text-gray-500 italic py-4 text-center">No closed loans in this window.</p>
           ) : (
-            // Show most recent month first
-            [...buckets].reverse().filter(b => b.count > 0).map(b => (
-              <details key={b.label} open className="border border-gray-200 rounded-lg overflow-hidden group">
+            // Most recent month first. Default-open the first 6 months;
+            // older months are collapsed by default so the page isn't a wall.
+            bucketsDesc.filter(b => b.count > 0).map((b, idx) => (
+              <details
+                key={b.label}
+                {...(idx < 6 ? { open: true } : {})}
+                className="border border-gray-200 rounded-lg overflow-hidden group"
+              >
                 <summary className="cursor-pointer list-none px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between gap-4">
                   <div className="flex items-baseline gap-3">
                     <span className="font-semibold text-gray-900">{b.label}</span>
@@ -203,11 +248,14 @@ export default async function ClosingsByMonthPage() {
                   <tbody>
                     {b.loans.map(l => (
                       <tr key={l.id} className="border-b border-gray-100 last:border-b-0">
-                        <td className="px-4 py-2 text-gray-700 whitespace-nowrap">{formatDate(l.origination_date)}</td>
+                        <td className="px-4 py-2 text-gray-700 whitespace-nowrap">{formatDate(l.closed_at)}</td>
                         <td className="px-4 py-2 font-medium text-gray-900">
                           <Link href={loanDetailHref(ctx.role, l.id)} className="hover:text-primary">
                             {l.property_address ?? '—'}
                           </Link>
+                          {l.archived && (
+                            <span className="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Archived</span>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-gray-700">{l.borrowers?.full_name ?? '—'}</td>
                         <td className="px-4 py-2 text-gray-700">{l.loan_officers?.full_name ?? '—'}</td>
