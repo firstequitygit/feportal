@@ -36,6 +36,7 @@ export default async function UnderwriterLoansPage() {
       .is('underwriter_id', null)
       .neq('pipeline_stage', 'Closed')
       .neq('pipeline_stage', 'New Application')
+      .eq('archived', false)
       .order('created_at', { ascending: false }),
   ])
 
