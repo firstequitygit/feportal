@@ -58,10 +58,15 @@ export default async function ClosingsByMonthPage({
     windowLabel = `Last ${months} months`
   }
 
-  // All loans with a closed_at — explicitly include archived loans too.
+  // All loans with a closed_at AND that reached the Closed stage. The stage
+  // filter excludes deals that Pipedrive shows as Lost — those never reach
+  // the Closed stage even when they happen to have a lingering won_time.
+  // Archived loans are still included (the auto-archive cron flips archived
+  // to true 30 days after close — those are still real historical closings).
   let q = adminClient
     .from('loans')
     .select('id, property_address, loan_amount, closed_at, pipeline_stage, loan_officer_id, archived, borrowers(full_name), loan_officers(full_name)')
+    .eq('pipeline_stage', 'Closed')
     .not('closed_at', 'is', null)
     .order('closed_at', { ascending: false })
   if (windowStartIso) q = q.gte('closed_at', windowStartIso)

@@ -154,10 +154,14 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     interest_only:             toString(getField(deal, f.interestOnly)),
     loan_type_ii:              toString(getField(deal, f.loanTypeII)),
     // Pipedrive won_time is "YYYY-MM-DD HH:MM:SS" UTC; normalize to ISO.
-    // Only populated when the deal is won — for open/lost deals, leave null.
-    closed_at: typeof deal.won_time === 'string' && deal.won_time
-      ? new Date(deal.won_time.replace(' ', 'T') + 'Z').toISOString()
-      : null,
+    // Only populate closed_at when the deal's current status is 'won'.
+    // Pipedrive keeps won_time on deals later reopened/marked lost, so
+    // checking status is required — otherwise lost deals leak into the
+    // Closings report.
+    closed_at:
+      deal.status === 'won' && typeof deal.won_time === 'string' && deal.won_time
+        ? new Date(deal.won_time.replace(' ', 'T') + 'Z').toISOString()
+        : null,
   }
 }
 
