@@ -10,7 +10,7 @@ import { InviteBorrower } from '@/components/invite-borrower'
 import {
   LayoutDashboard, LogOut, Menu, X,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2,
+  Inbox, Building2, BarChart3,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -37,6 +37,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/loan-processors',  label: 'Loan Processors',     icon: UserCog },
   { href: '/admin/underwriters',     label: 'Underwriters',        icon: ShieldCheck },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
+  { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
 ]
 
@@ -44,6 +45,7 @@ const LO_NAV: NavItem[] = [
   { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
   { href: '/loan-officer/loans',      label: 'Loans',          icon: Building2 },
   { href: '/loan-officer/conditions', label: 'Conditions',     icon: FileCheck },
+  { href: '/reports',                 label: 'Reports',        icon: BarChart3 },
   { href: '/loan-officer/archived',   label: 'Archived Loans', icon: Archive },
 ]
 
@@ -52,6 +54,7 @@ const LP_NAV: NavItem[] = [
   { href: '/loan-processor/loans',      label: 'Loans',               icon: Building2 },
   { href: '/loan-processor/conditions', label: 'Conditions',          icon: FileCheck },
   { href: '/loan-processor/templates',  label: 'Condition Templates', icon: ClipboardList },
+  { href: '/reports',                   label: 'Reports',             icon: BarChart3 },
   { href: '/loan-processor/archived',   label: 'Archived Loans',      icon: Archive },
 ]
 
@@ -59,6 +62,7 @@ const UW_NAV: NavItem[] = [
   { href: '/underwriter/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/underwriter/loans',      label: 'Loans',               icon: Building2 },
   { href: '/underwriter/templates',  label: 'Condition Templates', icon: ClipboardList },
+  { href: '/reports',                label: 'Reports',             icon: BarChart3 },
 ]
 
 function navIsActive(item: NavItem, pathname: string): boolean {
@@ -108,7 +112,7 @@ export function PortalShell({
       )}
 
       {/* Top bar — full width, logo top-right */}
-      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10" style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10" style={{ backgroundColor: '#FFF6EF', borderBottom: '1px solid #e8ddd6' }}>
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(true)}
@@ -122,10 +126,10 @@ export function PortalShell({
         <div className="ml-auto pr-5">
           <Link href={dashboardHref} className="flex items-center gap-2.5">
             <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
+              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">DESCO Financial</p>
               <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
             </div>
-            <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
+            <Image src="/logo-symbol.png" alt="Desco Financial" width={32} height={32} className="h-8 w-auto" />
           </Link>
         </div>
       </header>
