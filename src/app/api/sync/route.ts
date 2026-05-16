@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
+import { findOrLinkBorrower } from '@/lib/borrower-sync'
 
 export async function POST() {
   // Only authenticated staff (admin/LO/LP/UW) can trigger a sync
@@ -56,6 +57,7 @@ export async function POST() {
     let errors = 0
     const errorMessages: string[] = []
 
+    let borrowersLinked = 0
     for (const deal of deals) {
       const existing = currentStageMap[deal.pipedrive_deal_id]
       const previousStage = existing?.stage ?? null
@@ -65,38 +67,54 @@ export async function POST() {
       const isNowClosed = deal.pipeline_stage === 'Closed'
       const stageChanged = !!existing && deal.pipeline_stage !== null && previousStage !== deal.pipeline_stage
 
-      // archived rule (per FE policy):
-      //   pipedrive_status=open → archived=false (active, claimable)
-      //   anything else (won/lost) → archived=true (out of the active flow)
-      const archivedField = { archived: deal.pipedrive_status !== 'open' }
+      // Resolve / create the borrower row from Pipedrive Person data.
+      let borrowerId: string | null = null
+      if (deal.pipedrive_person_id) {
+        borrowerId = await findOrLinkBorrower(supabase, {
+          pipedrive_person_id: deal.pipedrive_person_id,
+          full_name: deal.borrower_name,
+          email:     deal.borrower_email,
+          phone:     deal.borrower_phone,
+        })
+        if (borrowerId) borrowersLinked++
+      }
+
+      // archived rule (matches cron sync): only lost deals get archived
+      // automatically. Won deals stay until the 30-day post-Closed cron
+      // promotes them. Open deals stay claimable.
+      const archivedField: Record<string, unknown> = {}
+      if (deal.pipedrive_status === 'lost') archivedField.archived = true
+
+      const payload: Record<string, unknown> = {
+        pipedrive_deal_id:         deal.pipedrive_deal_id,
+        property_address:          deal.property_address,
+        pipeline_stage:            deal.pipeline_stage,
+        loan_type:                 deal.loan_type,
+        loan_amount:               deal.loan_amount,
+        interest_rate:             deal.interest_rate,
+        ltv:                       deal.ltv,
+        arv:                       deal.arv,
+        rehab_budget:              deal.rehab_budget,
+        term_months:               deal.term_months ? Math.round(deal.term_months) : null,
+        origination_date:          deal.origination_date,
+        maturity_date:             deal.maturity_date,
+        entity_name:               deal.entity_name,
+        loan_number:               deal.loan_number,
+        rate_locked_days:          deal.rate_locked_days,
+        rate_lock_expiration_date: deal.rate_lock_expiration_date,
+        interest_only:             deal.interest_only,
+        loan_type_ii:              deal.loan_type_ii,
+        closed_at:                 deal.closed_at,
+        estimated_closing_date:    deal.estimated_closing_date,
+        last_synced_at:            new Date().toISOString(),
+        ...archivedField,
+      }
+      // Don't clobber an admin-assigned borrower when Pipedrive has no person.
+      if (borrowerId) payload.borrower_id = borrowerId
 
       const { error } = await supabase
         .from('loans')
-        .upsert(
-          {
-            pipedrive_deal_id:         deal.pipedrive_deal_id,
-            property_address:          deal.property_address,
-            pipeline_stage:            deal.pipeline_stage,
-            loan_type:                 deal.loan_type,
-            loan_amount:               deal.loan_amount,
-            interest_rate:             deal.interest_rate,
-            ltv:                       deal.ltv,
-            arv:                       deal.arv,
-            rehab_budget:              deal.rehab_budget,
-            term_months:               deal.term_months ? Math.round(deal.term_months) : null,
-            origination_date:          deal.origination_date,
-            maturity_date:             deal.maturity_date,
-            entity_name:               deal.entity_name,
-            loan_number:               deal.loan_number,
-            rate_locked_days:          deal.rate_locked_days,
-            rate_lock_expiration_date: deal.rate_lock_expiration_date,
-            interest_only:             deal.interest_only,
-            loan_type_ii:              deal.loan_type_ii,
-            last_synced_at:            new Date().toISOString(),
-            ...archivedField,
-          },
-          { onConflict: 'pipedrive_deal_id' }
-        )
+        .upsert(payload, { onConflict: 'pipedrive_deal_id' })
 
       if (error) {
         errorMessages.push(`Deal ${deal.pipedrive_deal_id}: ${error.message}`)
@@ -132,6 +150,7 @@ export async function POST() {
       success: true,
       synced,
       errors,
+      borrowersLinked,
       total: deals.length,
       errorMessages,
     })

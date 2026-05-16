@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
+import { findOrLinkBorrower } from '@/lib/borrower-sync'
 
-// Called automatically by Vercel every hour
-// Also protected by CRON_SECRET so only Vercel can trigger it
+// Called automatically by Vercel cron.
+// Also protected by CRON_SECRET so only Vercel can trigger it.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -16,10 +17,25 @@ export async function GET(request: Request) {
 
     let synced = 0
     let errors = 0
+    let borrowersLinked = 0
 
     for (const deal of deals) {
+      // Resolve the borrower row from Pipedrive Person data. Loans where
+      // Pipedrive has no person, or no person email, end up with borrower_id
+      // null — admin can still assign manually via the loan detail page.
+      let borrowerId: string | null = null
+      if (deal.pipedrive_person_id) {
+        borrowerId = await findOrLinkBorrower(supabase, {
+          pipedrive_person_id: deal.pipedrive_person_id,
+          full_name: deal.borrower_name,
+          email:     deal.borrower_email,
+          phone:     deal.borrower_phone,
+        })
+        if (borrowerId) borrowersLinked++
+      }
+
       // Lost deals are non-claimable historical records — set archived=true.
-      // Open / won are left alone (won is handled by the 30-day auto-archive cron once stage flips to Closed).
+      // Open / won are left alone (won goes through the 30-day auto-archive cron once stage flips to Closed).
       const payload: Record<string, unknown> = {
         pipedrive_deal_id:  deal.pipedrive_deal_id,
         property_address:   deal.property_address,
@@ -39,6 +55,10 @@ export async function GET(request: Request) {
         last_synced_at:     new Date().toISOString(),
       }
       if (deal.pipedrive_status === 'lost') payload.archived = true
+      // Only write borrower_id when we actually resolved one. Skipping the
+      // key (vs. writing null) avoids clobbering an admin-assigned borrower
+      // on loans where Pipedrive has no person data.
+      if (borrowerId) payload.borrower_id = borrowerId
 
       const { error } = await supabase
         .from('loans')
@@ -48,8 +68,8 @@ export async function GET(request: Request) {
       else synced++
     }
 
-    console.log(`Cron sync complete: ${synced} synced, ${errors} errors`)
-    return NextResponse.json({ success: true, synced, errors, total: deals.length })
+    console.log(`Cron sync complete: ${synced} synced, ${errors} errors, ${borrowersLinked} borrowers linked`)
+    return NextResponse.json({ success: true, synced, errors, borrowersLinked, total: deals.length })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('Cron sync error:', message)

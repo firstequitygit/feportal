@@ -47,7 +47,12 @@ export interface PipedriveDeal {
   value?: number | null  // Pipedrive's default deal value field — FE uses this for loan amount
   status?: 'open' | 'won' | 'lost' | 'deleted' | string
   pipeline_id?: number
-  person_id?: { name: string; value: number } | null
+  person_id?: {
+    name: string
+    value: number
+    email?: { label?: string; value: string; primary?: boolean }[]
+    phone?: { label?: string; value: string; primary?: boolean }[]
+  } | null
   custom_fields?: Record<string, unknown>  // Automated Webhooks nest custom fields here
   [key: string]: unknown
 }
@@ -60,6 +65,8 @@ export interface NormalizedDeal {
   pipeline_stage: PipelineStage | null
   pipedrive_person_id: number | null
   borrower_name: string | null
+  borrower_email: string | null
+  borrower_phone: string | null
   loan_amount: number | null
   loan_type: LoanType | null
   interest_rate: number | null
@@ -139,6 +146,18 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     pipeline_stage:     PIPEDRIVE_STAGE_MAP[deal.stage_id] ?? null,
     pipedrive_person_id: deal.person_id?.value ?? null,
     borrower_name:      deal.person_id?.name ?? null,
+    // Pipedrive deals embed person email/phone inline (no extra API call).
+    // Take the primary entry if marked, else the first one.
+    borrower_email: (() => {
+      const emails = deal.person_id?.email ?? []
+      const primary = emails.find(e => e.primary)
+      return (primary?.value ?? emails[0]?.value ?? null) || null
+    })(),
+    borrower_phone: (() => {
+      const phones = deal.person_id?.phone ?? []
+      const primary = phones.find(p => p.primary)
+      return (primary?.value ?? phones[0]?.value ?? null) || null
+    })(),
     loan_amount:        toNumber(deal.value), // FE: default deal value field, not a custom field
     loan_type:          loanType,
     interest_rate:      toNumber(getField(deal, f.interestRate)),
