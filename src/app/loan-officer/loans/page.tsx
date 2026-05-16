@@ -31,6 +31,7 @@ export default async function LoanOfficerLoansPage() {
       .from('loans')
       .select('*, borrowers(full_name, email)')
       .eq('loan_officer_id', lo.id)
+      .eq('archived', false)
       .order('created_at', { ascending: false }),
     adminClient
       .from('loans')

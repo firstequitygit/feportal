@@ -49,6 +49,7 @@ export default async function AgingReportPage({
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_amount, loan_officer_id, created_at, loan_officers(full_name)')
     .neq('pipeline_stage', 'Closed')
+    .eq('archived', false)
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }

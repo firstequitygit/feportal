@@ -26,6 +26,7 @@ export default async function UnderwriterInbox() {
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_number')
     .eq('underwriter_id', uw.id)
+    .eq('archived', false)
 
   const activeLoans = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)

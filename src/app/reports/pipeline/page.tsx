@@ -19,7 +19,7 @@ export default async function PipelineReportPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set((archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id))
 
-  let query = adminClient.from('loans').select('*')
+  let query = adminClient.from('loans').select('*').eq('archived', false)
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     query = query.eq(ctx.loanScopeColumn, ctx.loanScopeId)
   }

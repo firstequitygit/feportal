@@ -29,6 +29,7 @@ export default async function UnderwriterLoansPage() {
       .from('loans')
       .select('*, borrowers(full_name, email)')
       .eq('underwriter_id', uw.id)
+      .eq('archived', false)
       .order('created_at', { ascending: false }),
     adminClient
       .from('loans')

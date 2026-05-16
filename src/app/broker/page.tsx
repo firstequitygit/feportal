@@ -42,6 +42,7 @@ export default async function BrokerDashboardPage() {
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, borrowers(full_name)')
     .eq('broker_id', broker.id)
+    .eq('archived', false)
     .order('created_at', { ascending: false })
 
   const active = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')

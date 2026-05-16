@@ -26,6 +26,7 @@ export default async function LoanOfficerInbox() {
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_number')
     .eq('loan_officer_id', lo.id)
+    .eq('archived', false)
 
   const activeLoans = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)

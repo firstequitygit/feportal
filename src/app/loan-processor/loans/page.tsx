@@ -32,6 +32,7 @@ export default async function LoanProcessorLoansPage() {
       .from('loans')
       .select('*, borrowers(full_name, email)')
       .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+      .eq('archived', false)
       .order('created_at', { ascending: false }),
     // Available to claim: at least one slot is open
     adminClient
