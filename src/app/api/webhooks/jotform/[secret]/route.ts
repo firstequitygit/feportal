@@ -268,7 +268,6 @@ export async function POST(
           rate_locked_days:          normalized.rate_locked_days,
           rate_lock_expiration_date: normalized.rate_lock_expiration_date,
           interest_only:             normalized.interest_only,
-          loan_type_ii:              normalized.loan_type_ii,
           borrower_id:               borrowerId,
           loan_officer_id:           loanOfficerId,
           last_synced_at:            new Date().toISOString(),

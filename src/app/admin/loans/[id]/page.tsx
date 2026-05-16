@@ -157,9 +157,6 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               <FieldRow label="Loan Type">
                 <EditableLoanField loanId={id} field="loan_type" type="enum" options={LOAN_TYPES} currentValue={loan.loan_type} display={loan.loan_type ?? '—'} />
               </FieldRow>
-              <FieldRow label="Loan Type II">
-                <span className="font-medium">{loan.loan_type_ii ?? '—'}</span>
-              </FieldRow>
               <FieldRow label="Loan Amount">
                 <EditableLoanField loanId={id} field="loan_amount" type="currency" currentValue={loan.loan_amount} display={formatCurrency(loan.loan_amount)} placeholder="500000" />
               </FieldRow>

@@ -137,7 +137,7 @@ export default async function DashboardPage() {
   const totalOutstanding = (outstandingConditions ?? []).length
 
   // Pull loan_type_one (from JotForm intake) keyed by loan id so we can
-  // surface it in place of the Pipedrive-side loan_type_ii on the card.
+  // surface the loan-purpose label on the borrower's dashboard card.
   const { data: loanDetailsRows } = loanIds.length > 0
     ? await adminClient.from('loan_details').select('loan_id, loan_type_one').in('loan_id', loanIds)
     : { data: [] }

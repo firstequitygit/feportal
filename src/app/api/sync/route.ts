@@ -103,7 +103,6 @@ export async function POST() {
         rate_locked_days:          deal.rate_locked_days,
         rate_lock_expiration_date: deal.rate_lock_expiration_date,
         interest_only:             deal.interest_only,
-        loan_type_ii:              deal.loan_type_ii,
         closed_at:                 deal.closed_at,
         estimated_closing_date:    deal.estimated_closing_date,
         last_synced_at:            new Date().toISOString(),

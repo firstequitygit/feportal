@@ -114,7 +114,6 @@ export default async function BrokerLoanPage({ params }: { params: Promise<{ id:
             {[
               { label: 'Loan Number',          value: loan.loan_number ?? '—' },
               { label: 'Loan Type',            value: loan.loan_type ?? '—' },
-              { label: 'Loan Type II',         value: loan.loan_type_ii ?? '—' },
               { label: 'Loan Amount',          value: formatCurrency(loan.loan_amount) },
               { label: 'Interest Rate',        value: formatPercent(loan.interest_rate) },
               { label: 'Interest Only',        value: loan.interest_only ?? '—' },

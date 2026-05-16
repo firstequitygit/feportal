@@ -143,10 +143,6 @@ function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
               <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.rate_locked_days ?? '—'}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Loan Type II</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.loan_type_ii ?? '—'}</p>
-            </div>
-            <div>
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Term</p>
               <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.term_months ? `${loan.term_months} mo` : '—'}</p>
             </div>
