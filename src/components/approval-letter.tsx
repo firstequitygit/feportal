@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { type Condition, CONDITION_CATEGORIES } from '@/lib/types'
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 
 const COMPANY_ADDRESS = '1330 Laurel Avenue, Suite 101, Sea Girt, NJ 08750'
 const COMPANY_WEBSITE = 'https://www.fefunding.com/'
@@ -76,7 +77,7 @@ export function ApprovalLetter({ loan, borrower, loanOfficer, conditions, backHr
     { label: 'Property', value: loan.property_address ?? '—' },
     { label: 'Loan Type', value: loan.loan_type ?? '—' },
     { label: 'Loan Amount', value: formatCurrency(loan.loan_amount) },
-    { label: 'Interest Rate', value: loan.interest_rate !== null ? `${loan.interest_rate}%` : '—' },
+    { label: 'Interest Rate', value: formatInterestRate(loan.interest_rate) },
     { label: 'Term', value: loan.term_months ? `${loan.term_months} months` : '—' },
     { label: 'LTV', value: loan.ltv !== null ? `${loan.ltv}%` : '—' },
   ]

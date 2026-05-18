@@ -27,6 +27,7 @@ import { EditableClosingDate } from '@/components/editable-closing-date'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { DocumentsList } from '@/components/documents-list'
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
 import Link from 'next/link'
@@ -161,7 +162,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
                 <EditableLoanField loanId={id} field="loan_amount" type="currency" currentValue={loan.loan_amount} display={formatCurrency(loan.loan_amount)} placeholder="500000" />
               </FieldRow>
               <FieldRow label="Interest Rate">
-                <EditableLoanField loanId={id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={loan.interest_rate ? `${loan.interest_rate}%` : '—'} placeholder="6.5" step="0.001" />
+                <EditableLoanField loanId={id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={formatInterestRate(loan.interest_rate)} placeholder="6.5" step="0.001" />
               </FieldRow>
               <FieldRow label="Interest Only">
                 <span className="font-medium">{loan.interest_only ?? '—'}</span>

@@ -8,6 +8,7 @@ import { Building2, FileCheck, AlertCircle, ChevronRight } from 'lucide-react'
 import { type Loan, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { PortalShell } from '@/components/portal-shell'
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 
 function formatStage(stage: PipelineStage | string | null): string {
   if (!stage) return 'Unknown'
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
                       <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-3 text-sm">
                         <div>
                           <p className="text-gray-500 text-xs">Interest Rate</p>
-                          <p className="font-medium">{loan.interest_rate ? `${loan.interest_rate}%` : '—'}</p>
+                          <p className="font-medium">{formatInterestRate(loan.interest_rate)}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 text-xs">Rate Locked / Days</p>

@@ -28,6 +28,7 @@ import { LoanType } from '@/lib/types'
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -151,7 +152,7 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
                 <EditableLoanField loanId={loan.id} field="loan_amount" type="currency" currentValue={loan.loan_amount} display={formatCurrency(loan.loan_amount)} placeholder="500000" />
               </FieldRow>
               <FieldRow label="Interest Rate">
-                <EditableLoanField loanId={loan.id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={loan.interest_rate ? `${loan.interest_rate}%` : '—'} placeholder="6.5" step="0.001" />
+                <EditableLoanField loanId={loan.id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={formatInterestRate(loan.interest_rate)} placeholder="6.5" step="0.001" />
               </FieldRow>
               <FieldRow label="LTV">
                 <EditableLoanField loanId={loan.id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />

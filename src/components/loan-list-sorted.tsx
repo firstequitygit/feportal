@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, MapPin, FileX, LayoutList, LayoutGrid } from
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type PipelineStage, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 
@@ -136,7 +137,7 @@ function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
           <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-2">
             <div>
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Interest Rate</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.interest_rate ? `${loan.interest_rate}%` : '—'}</p>
+              <p className="font-semibold text-gray-800 text-sm mt-0.5">{formatInterestRate(loan.interest_rate)}</p>
             </div>
             <div>
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Rate Locked / Days</p>

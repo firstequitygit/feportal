@@ -10,6 +10,7 @@ import { PortalShell } from '@/components/portal-shell'
 import { ConditionsList } from '@/components/conditions-list'
 import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
+import { formatInterestRate } from '@/lib/format-interest-rate'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -123,7 +124,7 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
                 { label: 'Loan Number',          value: loan.loan_number ?? '—' },
                 { label: 'Loan Type',            value: loan.loan_type ?? '—' },
                 { label: 'Loan Amount',          value: formatCurrency(loan.loan_amount) },
-                { label: 'Interest Rate',        value: formatPercent(loan.interest_rate) },
+                { label: 'Interest Rate',        value: formatInterestRate(loan.interest_rate) },
                 { label: 'Interest Only',        value: loan.interest_only ?? '—' },
                 { label: 'Rate Locked / Days',   value: loan.rate_locked_days ?? '—' },
                 { label: 'Rate Lock Expiration', value: formatDate(loan.rate_lock_expiration_date) },
