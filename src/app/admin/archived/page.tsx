@@ -52,7 +52,7 @@ export default async function ArchivedLoansPage() {
   }
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name ?? admin.email ?? null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-7xl">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           Archived Loans
           <span className="ml-2 text-base font-normal text-gray-400">{totalArchived ?? loans?.length ?? 0} loan{(totalArchived ?? loans?.length ?? 0) !== 1 ? 's' : ''}</span>

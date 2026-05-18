@@ -113,7 +113,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-5xl">
+    <PortalShell userName={admin.full_name ?? admin.email ?? null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-5xl">
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/admin" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Overview
