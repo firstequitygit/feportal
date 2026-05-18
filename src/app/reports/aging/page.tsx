@@ -105,6 +105,7 @@ export default async function AgingReportPage({
       userRole={roleLabel(ctx.role)}
       dashboardHref={ctx.dashboardHref}
       variant={ctx.shellVariant}
+      isSuperAdmin={ctx.isSuperAdmin}
     >
       <Link href="/reports" className="flex items-center gap-1.5 text-sm text-primary hover:opacity-80 mb-4">
         <ArrowLeft className="w-4 h-4" />

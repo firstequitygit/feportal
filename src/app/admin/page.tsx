@@ -86,6 +86,7 @@ export default async function AdminPage() {
       userRole="Administrator"
       dashboardHref="/admin"
       variant="admin"
+      isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-7xl"
     >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>

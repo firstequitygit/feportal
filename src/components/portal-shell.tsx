@@ -29,6 +29,8 @@ interface Props {
   dashboardHref: string
   variant?: Variant
   maxWidth?: string
+  /** Admin only: when true, surface the super-admin-only nav items (Admins). */
+  isSuperAdmin?: boolean
   children: React.ReactNode
 }
 
@@ -43,6 +45,9 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
 ]
+
+// Super-admin-only extra nav, slotted after Brokers in ADMIN_NAV.
+const SUPER_ADMIN_EXTRA: NavItem = { href: '/admin/admins', label: 'Admins', icon: ShieldCheck }
 
 const LO_NAV: NavItem[] = [
   { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
@@ -79,6 +84,7 @@ export function PortalShell({
   dashboardHref,
   variant = 'default',
   maxWidth = 'max-w-5xl',
+  isSuperAdmin = false,
   children,
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -95,9 +101,17 @@ export function PortalShell({
     router.refresh()
   }
 
-  // Build nav items based on variant
+  // Build nav items based on variant.
+  // Super-admins get an extra "Admins" entry between Underwriters and Borrowers.
+  function adminNav(): NavItem[] {
+    if (!isSuperAdmin) return ADMIN_NAV
+    const idx = ADMIN_NAV.findIndex(n => n.href === '/admin/underwriters')
+    const next = [...ADMIN_NAV]
+    next.splice(idx + 1, 0, SUPER_ADMIN_EXTRA)
+    return next
+  }
   const navItems: NavItem[] =
-    variant === 'admin'          ? ADMIN_NAV :
+    variant === 'admin'          ? adminNav() :
     variant === 'loan-officer'   ? LO_NAV :
     variant === 'loan-processor' ? LP_NAV :
     variant === 'underwriter'    ? UW_NAV :

@@ -12,7 +12,7 @@ export default async function AdminTemplatesPage() {
   if (!user) redirect('/login')
 
   const { data: admin } = await supabase
-    .from('admin_users').select('id').eq('auth_user_id', user.id).single()
+    .from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/dashboard')
 
   const { data: templates } = await createAdminClient()
@@ -22,7 +22,7 @@ export default async function AdminTemplatesPage() {
     .order('title')
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-3xl">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-3xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Condition Templates</h2>
       <AdminTemplatesManager initialTemplates={(templates ?? []) as ConditionTemplate[]} />
     </PortalShell>

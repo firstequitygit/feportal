@@ -46,6 +46,7 @@ export default async function ReportsLandingPage() {
       userRole={roleLabel(ctx.role)}
       dashboardHref={ctx.dashboardHref}
       variant={ctx.shellVariant}
+      isSuperAdmin={ctx.isSuperAdmin}
     >
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Reports</h2>

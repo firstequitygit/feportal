@@ -31,6 +31,8 @@ export interface ReportContext {
   loanScopeColumn: 'loan_officer_id' | 'loan_processor_id' | 'underwriter_id' | null
   /** Value to filter loanScopeColumn against. Null for admin. */
   loanScopeId: string | null
+  /** Admins only — when true, surface super-admin-only sidebar entries. */
+  isSuperAdmin: boolean
 }
 
 export async function getReportContext(): Promise<ReportContext> {
@@ -46,7 +48,7 @@ export async function getReportContext(): Promise<ReportContext> {
     { data: lp },
     { data: uw },
   ] = await Promise.all([
-    adminClient.from('admin_users').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
+    adminClient.from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).maybeSingle(),
     adminClient.from('loan_officers').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
     adminClient.from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
     adminClient.from('underwriters').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
@@ -62,6 +64,7 @@ export async function getReportContext(): Promise<ReportContext> {
       shellVariant: 'admin',
       loanScopeColumn: null,
       loanScopeId: null,
+      isSuperAdmin: adminUser.is_super ?? false,
     }
   }
   if (lo) {
@@ -72,6 +75,7 @@ export async function getReportContext(): Promise<ReportContext> {
       shellVariant: 'loan-officer',
       loanScopeColumn: 'loan_officer_id',
       loanScopeId: lo.id,
+      isSuperAdmin: false,
     }
   }
   if (lp) {
@@ -82,6 +86,7 @@ export async function getReportContext(): Promise<ReportContext> {
       shellVariant: 'loan-processor',
       loanScopeColumn: 'loan_processor_id',
       loanScopeId: lp.id,
+      isSuperAdmin: false,
     }
   }
   if (uw) {
@@ -92,6 +97,7 @@ export async function getReportContext(): Promise<ReportContext> {
       shellVariant: 'underwriter',
       loanScopeColumn: 'underwriter_id',
       loanScopeId: uw.id,
+      isSuperAdmin: false,
     }
   }
 
