@@ -55,7 +55,9 @@ export async function getReportContext(): Promise<ReportContext> {
   if (adminUser) {
     return {
       role: 'admin',
-      userName: adminUser.full_name ?? null,
+      // Admins show "Administrator" on every page — match the rest of /admin/*
+      // which passes userName={null} to PortalShell so the role label is used.
+      userName: null,
       dashboardHref: '/admin',
       shellVariant: 'admin',
       loanScopeColumn: null,
