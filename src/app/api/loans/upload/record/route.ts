@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
+import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
@@ -92,17 +93,23 @@ export async function POST(req: NextRequest) {
     console.error('File download for attachment error:', err)
   }
 
-  // Send email notification
+  // Notify the primary LP + LO assigned to this loan
   try {
-    await sendNotification({
-      borrowerName: uploaderName,
-      propertyAddress: loan?.property_address ?? 'Unknown property',
-      conditionTitle: condition?.title ?? 'Unknown condition',
-      fileName,
-      fileBuffer,
-      actionToken,
-    })
-    console.log('Email notification sent for:', fileName)
+    const recipients = await getStaffRecipientsForLoan(loanId)
+    if (recipients.emails.length > 0) {
+      await sendNotification({
+        toEmails: recipients.emails,
+        borrowerName: uploaderName,
+        propertyAddress: loan?.property_address ?? recipients.property_address ?? 'Unknown property',
+        conditionTitle: condition?.title ?? 'Unknown condition',
+        fileName,
+        fileBuffer,
+        actionToken,
+      })
+      console.log(`Upload notification sent to ${recipients.emails.join(', ')} for: ${fileName}`)
+    } else {
+      console.warn(`No staff recipients for loan ${loanId} — upload notification skipped.`)
+    }
   } catch (err) {
     console.error('Email notification error:', err)
   }
@@ -124,6 +131,7 @@ function actionButton(label: string, action: string, token: string, bgColor: str
 }
 
 async function sendNotification({
+  toEmails,
   borrowerName,
   propertyAddress,
   conditionTitle,
@@ -131,6 +139,7 @@ async function sendNotification({
   fileBuffer,
   actionToken,
 }: {
+  toEmails: string[]
   borrowerName: string
   propertyAddress: string
   conditionTitle: string
@@ -169,7 +178,7 @@ async function sendNotification({
 
   await transporter.sendMail({
     from: `First Equity Funding <${user}>`,
-    to: 'fefprocessing@gmail.com',
+    to: toEmails.join(', '),
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
@@ -182,7 +191,7 @@ async function sendNotification({
       </table>
       ${actionButtons}
       <p style="font-family: Arial, sans-serif; font-size: 13px; color: #888; margin-top: 24px;">
-        Or log in to the <a href="${BASE_URL}/loan-processor" style="color: #1F5D8F;">processor portal</a> to review.
+        Or <a href="${BASE_URL}/dashboard" style="color: #1F5D8F;">log in to the portal</a> to review.
       </p>
     `,
     attachments: fileBuffer

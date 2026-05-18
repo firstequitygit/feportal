@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
+import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { PORTAL_URL } from '@/lib/portal-url'
+import nodemailer from 'nodemailer'
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
@@ -58,6 +61,42 @@ export async function PATCH(req: NextRequest) {
       description: `${responderRole} ${responderName} responded to "${condition.title}": ${response.trim()}`,
     })
   } catch (err) { console.error('Event log error:', err) }
+
+  // Notify the primary LP + LO on the loan (matches the document-upload flow)
+  try {
+    const recipients = await getStaffRecipientsForLoan(condition.loan_id)
+    const gmailUser = process.env.GMAIL_USER
+    const gmailPass = process.env.GMAIL_APP_PASSWORD
+    if (recipients.emails.length > 0 && gmailUser && gmailPass) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: gmailUser, pass: gmailPass },
+      })
+      const addr = recipients.property_address ?? 'a loan'
+      const responderLabel = responderName ? `${responderRole} ${responderName}` : responderRole
+      await transporter.sendMail({
+        from: `First Equity Funding <${gmailUser}>`,
+        to: recipients.emails.join(', '),
+        subject: `Condition response — ${addr}`,
+        html: `
+          <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+            <strong>${responderLabel}</strong> submitted a response on the First Equity Funding Online Portal.
+          </p>
+          <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+            <tr><td style="padding: 4px 16px 4px 0; color: #666;">Property</td><td><strong>${addr}</strong></td></tr>
+            <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${condition.title}</strong></td></tr>
+            <tr><td style="padding: 4px 16px 4px 0; color: #666; vertical-align: top;">Response</td><td>${response.trim()}</td></tr>
+          </table>
+          <p style="font-family: Arial, sans-serif; font-size: 13px; color: #888; margin-top: 24px;">
+            <a href="${PORTAL_URL}/dashboard" style="color: #1F5D8F;">Log in to the portal</a> to review.
+          </p>
+        `,
+      })
+      console.log(`Response notification sent to ${recipients.emails.join(', ')}`)
+    }
+  } catch (err) {
+    console.error('Response notification error:', err)
+  }
 
   return NextResponse.json({ success: true })
 }
