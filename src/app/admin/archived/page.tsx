@@ -40,7 +40,7 @@ export default async function ArchivedLoansPage() {
   while (true) {
     const { data, count, error } = await adminClient
       .from('loans')
-      .select('id, property_address, loan_type, loan_amount, borrowers(full_name, email)', { count: 'exact' })
+      .select('id, property_address, loan_type, loan_amount, borrowers!borrower_id(full_name, email)', { count: 'exact' })
       .eq('archived', true)
       .order('created_at', { ascending: false })
       .range(from, from + 999)

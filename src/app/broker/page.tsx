@@ -40,7 +40,7 @@ export default async function BrokerDashboardPage() {
 
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, borrowers(full_name)')
+    .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, borrowers!borrower_id(full_name)')
     .eq('broker_id', broker.id)
     .eq('archived', false)
     .order('created_at', { ascending: false })

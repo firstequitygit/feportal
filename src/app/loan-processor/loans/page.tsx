@@ -30,14 +30,14 @@ export default async function LoanProcessorLoansPage() {
     // My loans: I'm in either slot 1 or slot 2
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email)')
+      .select('*, borrowers!borrower_id(full_name, email)')
       .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
       .eq('archived', false)
       .order('created_at', { ascending: false }),
     // Available to claim: at least one slot is open
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email), loan_officers(full_name)')
+      .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
       .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
       .neq('pipeline_stage', 'Closed')
       .neq('pipeline_stage', 'New Application')

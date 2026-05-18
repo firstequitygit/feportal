@@ -29,13 +29,13 @@ export default async function LoanOfficerLoansPage() {
   const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email)')
+      .select('*, borrowers!borrower_id(full_name, email)')
       .eq('loan_officer_id', lo.id)
       .eq('archived', false)
       .order('created_at', { ascending: false }),
     adminClient
       .from('loans')
-      .select('*, borrowers(full_name, email), loan_processors!loan_processor_id(full_name)')
+      .select('*, borrowers!borrower_id(full_name, email), loan_processors!loan_processor_id(full_name)')
       .is('loan_officer_id', null)
       .neq('pipeline_stage', 'Closed')
       .eq('archived', false)

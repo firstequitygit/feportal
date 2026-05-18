@@ -39,7 +39,7 @@ export default async function ApprovalLetterPage({ params }: { params: Promise<{
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(full_name, email, entity_name), loan_officers(full_name, email, phone, title)')
+    .select('*, borrowers!borrower_id(full_name, email, entity_name), loan_officers(full_name, email, phone, title)')
     .eq('id', id)
     .single()
 

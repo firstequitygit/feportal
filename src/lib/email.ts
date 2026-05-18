@@ -32,7 +32,7 @@ export async function sendStageUpdateEmail(
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
@@ -92,7 +92,7 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
 
@@ -159,7 +159,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
 

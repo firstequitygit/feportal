@@ -77,7 +77,7 @@ export default async function ClosingsByMonthPage({
   // Window filter applies to whichever date drives the bucket (max of the two).
   let q = adminClient
     .from('loans')
-    .select('id, property_address, loan_amount, closed_at, estimated_closing_date, pipeline_stage, loan_officer_id, archived, borrowers(full_name), loan_officers(full_name)')
+    .select('id, property_address, loan_amount, closed_at, estimated_closing_date, pipeline_stage, loan_officer_id, archived, borrowers!borrower_id(full_name), loan_officers(full_name)')
     .eq('pipeline_stage', 'Closed')
     .not('closed_at', 'is', null)
     .order('closed_at', { ascending: false })

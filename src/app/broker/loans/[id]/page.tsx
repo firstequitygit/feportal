@@ -36,7 +36,7 @@ export default async function BrokerLoanPage({ params }: { params: Promise<{ id:
   // Loan must belong to this broker
   const { data: loan } = await adminClient
     .from('loans')
-    .select('*, borrowers(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
+    .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
     .eq('id', id)
     .eq('broker_id', broker.id)
     .single()

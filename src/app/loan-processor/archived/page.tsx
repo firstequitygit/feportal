@@ -31,7 +31,7 @@ export default async function LoanProcessorArchivedPage() {
   const { data: loans } = idList.length > 0
     ? await adminClient
         .from('loans')
-        .select('*, borrowers(full_name, email)')
+        .select('*, borrowers!borrower_id(full_name, email)')
         .in('id', idList)
         .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
         .order('created_at', { ascending: false })

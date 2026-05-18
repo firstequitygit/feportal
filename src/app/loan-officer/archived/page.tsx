@@ -31,7 +31,7 @@ export default async function LoanOfficerArchivedPage() {
   const { data: loans } = idList.length > 0
     ? await adminClient
         .from('loans')
-        .select('*, borrowers(full_name, email)')
+        .select('*, borrowers!borrower_id(full_name, email)')
         .in('id', idList)
         .eq('loan_officer_id', lo.id)
         .order('created_at', { ascending: false })
