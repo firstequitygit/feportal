@@ -35,7 +35,7 @@ export default async function AdminPage() {
     // dedicated /admin/archived page.
     adminClient
       .from('loans')
-      .select('*, borrowers (full_name, email)')
+      .select('*, borrowers!borrower_id(full_name, email)')
       .eq('archived', false)
       .order('created_at', { ascending: false }),
     adminClient
