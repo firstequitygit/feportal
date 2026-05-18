@@ -12,7 +12,7 @@ export default async function LoanProcessorsPage() {
   if (!user) redirect('/login')
 
   const { data: admin } = await supabase
-    .from('admin_users').select('id, full_name, email').eq('auth_user_id', user.id).single()
+    .from('admin_users').select('id').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/dashboard')
 
   const { data: loanProcessors } = await createAdminClient()
@@ -21,7 +21,7 @@ export default async function LoanProcessorsPage() {
     .order('full_name')
 
   return (
-    <PortalShell userName={admin.full_name ?? admin.email ?? null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-2xl">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" maxWidth="max-w-2xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Loan Processors</h2>
       <AdminLoanProcessorsManager initialLoanProcessors={(loanProcessors ?? []) as LoanProcessor[]} />
     </PortalShell>

@@ -82,7 +82,7 @@ export default async function AdminPage() {
 
   return (
     <PortalShell
-      userName={admin.full_name ?? admin.email ?? null}
+      userName={null}
       userRole="Administrator"
       dashboardHref="/admin"
       variant="admin"
