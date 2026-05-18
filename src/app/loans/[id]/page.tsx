@@ -37,11 +37,12 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
 
   if (!borrower) redirect('/login')
 
+  // Borrower may be any of the four borrower slots on the loan
   const { data: loan } = await supabase
     .from('loans')
     .select('*')
     .eq('id', id)
-    .eq('borrower_id', borrower.id)
+    .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
     .single()
 
   if (!loan) notFound()

@@ -10,6 +10,7 @@ import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
+import { CoBorrowersAssign } from '@/components/co-borrowers-assign'
 import { BrokerAssign } from '@/components/broker-assign'
 import { type Condition, type Document } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
@@ -197,6 +198,17 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
               currentBorrowerId={loan.borrower_id ?? null}
               currentBorrowerName={borrower?.full_name ?? null}
               allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+            />
+
+            <CoBorrowersAssign
+              loanId={id}
+              currentSlots={{
+                slot2: loan.borrower_id_2 ?? null,
+                slot3: loan.borrower_id_3 ?? null,
+                slot4: loan.borrower_id_4 ?? null,
+              }}
+              allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+              primaryBorrowerId={loan.borrower_id ?? null}
             />
 
             <Card>

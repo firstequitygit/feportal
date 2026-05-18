@@ -18,6 +18,7 @@ const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Con
 import { PortalShell } from '@/components/portal-shell'
 import { AdminConditionsManager } from '@/components/admin-conditions-manager'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
+import { CoBorrowersAssign } from '@/components/co-borrowers-assign'
 import { BrokerAssign } from '@/components/broker-assign'
 import { AdminLoanOfficerAssign } from '@/components/admin-loan-officer-assign'
 import { AdminLoanProcessorAssign } from '@/components/admin-loan-processor-assign'
@@ -214,6 +215,17 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               currentBorrowerId={loan.borrowers?.id ?? null}
               currentBorrowerName={loan.borrowers?.full_name ?? null}
               allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+            />
+
+            <CoBorrowersAssign
+              loanId={id}
+              currentSlots={{
+                slot2: loan.borrower_id_2 ?? null,
+                slot3: loan.borrower_id_3 ?? null,
+                slot4: loan.borrower_id_4 ?? null,
+              }}
+              allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+              primaryBorrowerId={loan.borrowers?.id ?? null}
             />
 
             <AdminLoanOfficerAssign

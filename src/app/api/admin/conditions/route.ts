@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getLoanContact } from '@/lib/loan-contact'
+import { getLoanContacts } from '@/lib/loan-contact'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
@@ -106,24 +106,28 @@ export async function POST(request: Request) {
         html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
       })))
     } else if (assigned_to === 'borrower') {
-      // Routes to the broker if one is assigned, else the borrower
-      const contact = await getLoanContact(loanId)
-      if (contact) {
+      // Routes to the broker if one is assigned, else every borrower slot
+      // on the loan (primary + co-borrowers).
+      const contacts = await getLoanContacts(loanId)
+      if (contacts.length > 0) {
+        const greeting = contacts.length === 1 ? (contacts[0].name ?? 'there') : 'there'
+        const kind = contacts[0].kind
+        const portalUrl = contacts[0].portalUrl
         await getTransporter().sendMail({
           from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-          to: contact.email,
+          to: contacts.map(c => c.email).join(', '),
           subject: `New condition added — ${loan?.property_address ?? 'a loan'}`,
           html: `
-            <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${contact.name ?? 'there'},</p>
+            <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greeting},</p>
             <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-              A new condition has been added to ${contact.kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${loan?.property_address ?? 'a property'}</strong>.
+              A new condition has been added to ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${loan?.property_address ?? 'a property'}</strong>.
             </p>
             <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
               <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
               ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
             </table>
             <p style="margin-top: 16px;">
-              <a href="${contact.portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">${contact.kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a>
+              <a href="${portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a>
             </p>
             <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
           `,
@@ -213,15 +217,18 @@ async function sendBorrowerStatusNotification({
   rejectionReason?: string | null
 }) {
   const loan = await getLoanWithContacts(adminClient, condition.loan_id)
-  // Routes to the broker if one is assigned, else the borrower
-  const contact = await getLoanContact(condition.loan_id)
-  if (!contact) return
+  // Routes to the broker if one is assigned, else every borrower slot
+  const contacts = await getLoanContacts(condition.loan_id)
+  if (contacts.length === 0) return
+  const greeting = contacts.length === 1 ? (contacts[0].name ?? 'there') : 'there'
+  const kind = contacts[0].kind
+  const portalUrl = contacts[0].portalUrl
 
   const statusMessages: Record<string, string> = {
-    Received:  contact.kind === 'broker' ? 'The document has been received and is under review.' : 'Your document has been received and is under review.',
+    Received:  kind === 'broker' ? 'The document has been received and is under review.' : 'Your document has been received and is under review.',
     Satisfied: 'This condition has been satisfied. No further action is needed.',
     Waived:    'This condition has been waived. No further action is needed.',
-    Rejected:  contact.kind === 'broker' ? 'The document was not accepted. Please review the reason below and re-upload.' : 'Your document was not accepted. Please review the reason below and re-upload.',
+    Rejected:  kind === 'broker' ? 'The document was not accepted. Please review the reason below and re-upload.' : 'Your document was not accepted. Please review the reason below and re-upload.',
   }
   const statusColors: Record<string, string> = {
     Received:  '#d97706',
@@ -235,12 +242,12 @@ async function sendBorrowerStatusNotification({
 
   await getTransporter().sendMail({
     from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-    to: contact.email,
+    to: contacts.map(c => c.email).join(', '),
     subject: `Condition update — ${loan?.property_address ?? 'a loan'}`,
     html: `
-      <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${contact.name ?? 'there'},</p>
+      <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greeting},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-        A condition on ${contact.kind === 'broker' ? 'a loan' : 'your loan'} for <strong>${loan?.property_address ?? 'a property'}</strong> has been updated.
+        A condition on ${kind === 'broker' ? 'a loan' : 'your loan'} for <strong>${loan?.property_address ?? 'a property'}</strong> has been updated.
       </p>
       <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${condition.title}</strong></td></tr>
@@ -249,7 +256,7 @@ async function sendBorrowerStatusNotification({
       </table>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-top: 16px;">${message}</p>
       <p style="margin-top: 16px;">
-        <a href="${contact.portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">${contact.kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a>
+        <a href="${portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a>
       </p>
       <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
     `,

@@ -119,10 +119,12 @@ export default async function DashboardPage() {
 
   if (!borrower) redirect('/login')
 
+  // Match the borrower in any of the four slots so co-borrowers see the
+  // loan in their dashboard too.
   const { data: loans } = await adminClient
     .from('loans')
     .select('*')
-    .eq('borrower_id', borrower.id)
+    .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
     .order('created_at', { ascending: false })
 
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed')

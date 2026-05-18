@@ -17,8 +17,13 @@ export async function POST(req: NextRequest) {
 
   if (!admin && !lo && !lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, borrowerId } = await req.json()
+  const { loanId, borrowerId, slot } = await req.json()
   if (!loanId) return NextResponse.json({ error: 'Missing loanId' }, { status: 400 })
+
+  // Slot picks which borrower column to set. Default = 1 (primary, legacy).
+  // 2/3/4 are co-borrower slots.
+  const slotNumber = (slot === 2 || slot === 3 || slot === 4) ? slot : 1
+  const slotColumn = slotNumber === 1 ? 'borrower_id' : `borrower_id_${slotNumber}`
 
   // Non-admins must be assigned to this loan
   if (!admin) {
@@ -45,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await adminClient
     .from('loans')
-    .update({ borrower_id: borrowerId || null })
+    .update({ [slotColumn]: borrowerId || null })
     .eq('id', loanId)
 
   if (error) {
@@ -60,13 +65,14 @@ export async function POST(req: NextRequest) {
       (lp?.full_name as string | undefined) ??
       (admin ? 'Admin' : null)
 
+    const slotLabel = slotNumber === 1 ? 'Borrower' : `Co-borrower #${slotNumber - 1}`
     let description: string
     if (borrowerId) {
       const { data: b } = await adminClient
         .from('borrowers').select('full_name, email').eq('id', borrowerId).single()
-      description = `Borrower set to ${b?.full_name ?? b?.email ?? borrowerId}${editorName ? ` by ${editorName}` : ''}`
+      description = `${slotLabel} set to ${b?.full_name ?? b?.email ?? borrowerId}${editorName ? ` by ${editorName}` : ''}`
     } else {
-      description = `Borrower unassigned${editorName ? ` by ${editorName}` : ''}`
+      description = `${slotLabel} unassigned${editorName ? ` by ${editorName}` : ''}`
     }
     await adminClient.from('loan_events').insert({
       loan_id: loanId,

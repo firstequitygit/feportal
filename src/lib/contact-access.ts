@@ -26,10 +26,10 @@ export async function verifyContactAccess(
 ): Promise<ContactAccess | null> {
   const adminClient = createAdminClient()
 
-  // Pull the loan first so we have both borrower_id and broker_id
+  // Pull the loan first so we have all borrower slots and the broker
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, borrower_id, broker_id')
+    .select('id, borrower_id, borrower_id_2, borrower_id_3, borrower_id_4, broker_id')
     .eq('id', loanId)
     .maybeSingle()
   if (!loan) return null
@@ -42,12 +42,15 @@ export async function verifyContactAccess(
       return { loanId, borrowerId: loan.borrower_id, brokerId: loan.broker_id, role: 'broker' }
     }
   }
-  // Then borrower
-  if (loan.borrower_id) {
+  // Then any of the four borrower slots
+  const borrowerSlots = [loan.borrower_id, loan.borrower_id_2, loan.borrower_id_3, loan.borrower_id_4]
+    .filter((x): x is string => !!x)
+  if (borrowerSlots.length > 0) {
     const { data: borrower } = await adminClient
       .from('borrowers').select('id').eq('auth_user_id', userId).maybeSingle()
-    if (borrower && borrower.id === loan.borrower_id) {
-      return { loanId, borrowerId: loan.borrower_id, brokerId: loan.broker_id, role: 'borrower' }
+    if (borrower && borrowerSlots.includes(borrower.id)) {
+      // borrowerId returned is the matching slot's borrower (which IS the user)
+      return { loanId, borrowerId: borrower.id, brokerId: loan.broker_id, role: 'borrower' }
     }
   }
   return null

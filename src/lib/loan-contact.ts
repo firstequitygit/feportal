@@ -1,7 +1,13 @@
-// Returns the loan's primary outside contact for notifications:
-// the broker when one is assigned, otherwise the borrower. Used by the
-// staff condition routes so adding a broker to a loan automatically
-// redirects all borrower-facing emails to the broker.
+// Returns the loan's outside contacts for notifications.
+//
+// Rules:
+//  - If a broker is assigned, the broker is the single contact and the
+//    borrowers receive nothing (existing brokered-loan rule).
+//  - Otherwise, all four borrower slots get notified — primary + co-borrowers.
+//
+// Used by the staff condition routes so adding a broker to a loan
+// automatically redirects all borrower-facing emails to the broker, and
+// adding a co-borrower to a loan automatically loops them in on emails.
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PORTAL_URL } from '@/lib/portal-url'
@@ -15,41 +21,62 @@ export interface LoanContact {
   kind: 'borrower' | 'broker'
 }
 
-/**
- * Returns the outside contact for the loan, or null if neither exists or
- * has an email. Broker takes priority — when a broker is on the loan we
- * never email the borrower.
- */
+/** Single primary contact — for legacy callers that only handle one. */
 export async function getLoanContact(loanId: string): Promise<LoanContact | null> {
+  const list = await getLoanContacts(loanId)
+  return list[0] ?? null
+}
+
+/**
+ * Returns every outside contact who should be emailed for this loan.
+ * Broker takes priority — when a broker is on the loan we return only
+ * the broker. Otherwise returns every non-null borrower slot that has
+ * an email on file, deduplicated.
+ */
+export async function getLoanContacts(loanId: string): Promise<LoanContact[]> {
   const adminClient = createAdminClient()
   const { data: loan } = await adminClient
     .from('loans')
     .select(`
-      broker:brokers(full_name, email),
-      borrower:borrowers!borrower_id(full_name, email)
+      borrower_id, borrower_id_2, borrower_id_3, borrower_id_4,
+      broker:brokers(full_name, email)
     `)
     .eq('id', loanId)
     .single()
-  if (!loan) return null
+  if (!loan) return []
 
   const broker = (loan.broker as unknown as { full_name: string | null; email: string | null } | null) ?? null
   if (broker?.email) {
-    return {
+    return [{
       name: broker.full_name,
       email: broker.email,
       portalUrl: `${PORTAL_URL}/broker`,
       kind: 'broker',
-    }
+    }]
   }
 
-  const borrower = (loan.borrower as unknown as { full_name: string | null; email: string | null } | null) ?? null
-  if (borrower?.email) {
-    return {
-      name: borrower.full_name,
-      email: borrower.email,
-      portalUrl: `${PORTAL_URL}`,
+  const ids = [loan.borrower_id, loan.borrower_id_2, loan.borrower_id_3, loan.borrower_id_4]
+    .filter((x): x is string => !!x)
+  if (ids.length === 0) return []
+
+  const { data: borrowers } = await adminClient
+    .from('borrowers')
+    .select('id, full_name, email')
+    .in('id', ids)
+
+  const seenEmails = new Set<string>()
+  const out: LoanContact[] = []
+  for (const b of borrowers ?? []) {
+    if (!b.email) continue
+    const k = b.email.toLowerCase()
+    if (seenEmails.has(k)) continue
+    seenEmails.add(k)
+    out.push({
+      name: b.full_name,
+      email: b.email,
+      portalUrl: PORTAL_URL,
       kind: 'borrower',
-    }
+    })
   }
-  return null
+  return out
 }

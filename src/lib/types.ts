@@ -80,7 +80,10 @@ export interface Broker {
 export interface Loan {
   id: string
   pipedrive_deal_id: number
-  borrower_id: string | null
+  borrower_id: string | null            // primary borrower (synced from Pipedrive Person)
+  borrower_id_2: string | null          // co-borrower (manually assigned)
+  borrower_id_3: string | null
+  borrower_id_4: string | null
   broker_id: string | null             // brokered loans: broker is the portal contact
   loan_officer_id: string | null
   loan_processor_id: string | null
