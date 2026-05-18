@@ -148,9 +148,10 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
 
         <LoanProgressTracker stage={loan.pipeline_stage} />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Loan Summary */}
-          <Card className="md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-start">
+          {/* Left column: Loan Summary + internal staff assignments */}
+          <div className="md:col-span-2 space-y-4">
+          <Card>
             <CardHeader><CardTitle className="text-base">Loan Summary</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <FieldRow label="Loan Number">
@@ -202,7 +203,27 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             </CardContent>
           </Card>
 
-          {/* Assignments — stacked vertically */}
+            <AdminLoanOfficerAssign
+              loanId={id}
+              currentLoanOfficerId={loan.loan_officers?.id ?? null}
+              allLoanOfficers={(allLoanOfficers ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
+            />
+
+            <AdminLoanProcessorAssign
+              loanId={id}
+              currentLoanProcessorId={loan.loan_processors?.id ?? null}
+              currentLoanProcessorId2={(loan as unknown as { loan_processor_2: { id: string } | null }).loan_processor_2?.id ?? null}
+              allLoanProcessors={(allLoanProcessors ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
+            />
+
+            <AdminUnderwriterAssign
+              loanId={id}
+              currentUnderwriterId={loan.underwriters?.id ?? null}
+              allUnderwriters={(allUnderwriters ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
+            />
+          </div>
+
+          {/* Right column: outside contacts (broker + borrowers) */}
           <div className="space-y-4">
             <BrokerAssign
               loanId={id}
@@ -226,25 +247,6 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               }}
               allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
               primaryBorrowerId={loan.borrowers?.id ?? null}
-            />
-
-            <AdminLoanOfficerAssign
-              loanId={id}
-              currentLoanOfficerId={loan.loan_officers?.id ?? null}
-              allLoanOfficers={(allLoanOfficers ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
-            />
-
-            <AdminLoanProcessorAssign
-              loanId={id}
-              currentLoanProcessorId={loan.loan_processors?.id ?? null}
-              currentLoanProcessorId2={(loan as unknown as { loan_processor_2: { id: string } | null }).loan_processor_2?.id ?? null}
-              allLoanProcessors={(allLoanProcessors ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
-            />
-
-            <AdminUnderwriterAssign
-              loanId={id}
-              currentUnderwriterId={loan.underwriters?.id ?? null}
-              allUnderwriters={(allUnderwriters ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
             />
           </div>
         </div>
