@@ -38,10 +38,11 @@ export default async function BrokerDashboardPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
+  // Match the broker in either slot (primary or co-broker / processor)
   const { data: loans } = await adminClient
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, borrowers!borrower_id(full_name)')
-    .eq('broker_id', broker.id)
+    .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
     .eq('archived', false)
     .order('created_at', { ascending: false })
 

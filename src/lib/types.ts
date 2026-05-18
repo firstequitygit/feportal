@@ -85,6 +85,7 @@ export interface Loan {
   borrower_id_3: string | null
   borrower_id_4: string | null
   broker_id: string | null             // brokered loans: broker is the portal contact
+  broker_id_2: string | null           // optional second broker (broker's processor / co-broker)
   loan_officer_id: string | null
   loan_processor_id: string | null
   loan_processor_id_2: string | null   // FE supports up to 2 LPs per loan

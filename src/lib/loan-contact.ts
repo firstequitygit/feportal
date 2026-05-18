@@ -37,41 +37,54 @@ export async function getLoanContacts(loanId: string): Promise<LoanContact[]> {
   const adminClient = createAdminClient()
   const { data: loan } = await adminClient
     .from('loans')
-    .select(`
-      borrower_id, borrower_id_2, borrower_id_3, borrower_id_4,
-      broker:brokers(full_name, email)
-    `)
+    .select('borrower_id, borrower_id_2, borrower_id_3, borrower_id_4, broker_id, broker_id_2')
     .eq('id', loanId)
     .single()
   if (!loan) return []
 
-  const broker = (loan.broker as unknown as { full_name: string | null; email: string | null } | null) ?? null
-  if (broker?.email) {
-    return [{
-      name: broker.full_name,
-      email: broker.email,
-      portalUrl: `${PORTAL_URL}/broker`,
-      kind: 'broker',
-    }]
+  const seenEmails = new Set<string>()
+  function pushUnique(out: LoanContact[], c: LoanContact) {
+    const k = c.email.toLowerCase()
+    if (seenEmails.has(k)) return
+    seenEmails.add(k)
+    out.push(c)
   }
 
-  const ids = [loan.borrower_id, loan.borrower_id_2, loan.borrower_id_3, loan.borrower_id_4]
+  // Brokers take priority — if any broker slot is filled, only brokers get
+  // emails (borrowers stay silent per the brokered-loan rule).
+  const brokerIds = [loan.broker_id, loan.broker_id_2].filter((x): x is string => !!x)
+  if (brokerIds.length > 0) {
+    const { data: brokers } = await adminClient
+      .from('brokers')
+      .select('id, full_name, email')
+      .in('id', brokerIds)
+    const out: LoanContact[] = []
+    for (const b of brokers ?? []) {
+      if (!b.email) continue
+      pushUnique(out, {
+        name: b.full_name,
+        email: b.email,
+        portalUrl: `${PORTAL_URL}/broker`,
+        kind: 'broker',
+      })
+    }
+    return out
+  }
+
+  // No broker — fan out to every borrower slot
+  const borrowerIds = [loan.borrower_id, loan.borrower_id_2, loan.borrower_id_3, loan.borrower_id_4]
     .filter((x): x is string => !!x)
-  if (ids.length === 0) return []
+  if (borrowerIds.length === 0) return []
 
   const { data: borrowers } = await adminClient
     .from('borrowers')
     .select('id, full_name, email')
-    .in('id', ids)
+    .in('id', borrowerIds)
 
-  const seenEmails = new Set<string>()
   const out: LoanContact[] = []
   for (const b of borrowers ?? []) {
     if (!b.email) continue
-    const k = b.email.toLowerCase()
-    if (seenEmails.has(k)) continue
-    seenEmails.add(k)
-    out.push({
+    pushUnique(out, {
       name: b.full_name,
       email: b.email,
       portalUrl: PORTAL_URL,

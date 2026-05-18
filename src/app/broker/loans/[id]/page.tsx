@@ -33,12 +33,12 @@ export default async function BrokerLoanPage({ params }: { params: Promise<{ id:
     .from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
   if (!broker) redirect('/login')
 
-  // Loan must belong to this broker
+  // Loan must have this broker in either slot
   const { data: loan } = await adminClient
     .from('loans')
     .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
     .eq('id', id)
-    .eq('broker_id', broker.id)
+    .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
     .single()
   if (!loan) notFound()
 

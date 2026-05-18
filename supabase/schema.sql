@@ -191,6 +191,7 @@ alter table loans add column if not exists loan_officer_id        uuid reference
 alter table loans add column if not exists loan_processor_id      uuid references loan_processors(id) on delete set null;
 alter table loans add column if not exists loan_processor_id_2    uuid references loan_processors(id) on delete set null;
 alter table loans add column if not exists broker_id              uuid references brokers(id)         on delete set null;
+alter table loans add column if not exists broker_id_2            uuid references brokers(id)         on delete set null;
 alter table loans add column if not exists borrower_id_2          uuid references borrowers(id)       on delete set null;
 alter table loans add column if not exists borrower_id_3          uuid references borrowers(id)       on delete set null;
 alter table loans add column if not exists borrower_id_4          uuid references borrowers(id)       on delete set null;

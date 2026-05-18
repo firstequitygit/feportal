@@ -18,8 +18,12 @@ export async function POST(req: NextRequest) {
   ])
   if (!admin && !lo && !lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, brokerId } = await req.json()
+  const { loanId, brokerId, slot } = await req.json()
   if (!loanId) return NextResponse.json({ error: 'Missing loanId' }, { status: 400 })
+
+  // Slot picks which broker column to set. Default = 1 (primary).
+  const slotNumber = slot === 2 ? 2 : 1
+  const slotColumn = slotNumber === 1 ? 'broker_id' : 'broker_id_2'
 
   // Non-admins must be assigned to this loan
   if (!admin) {
@@ -45,16 +49,17 @@ export async function POST(req: NextRequest) {
   }
 
   const { error } = await adminClient
-    .from('loans').update({ broker_id: brokerId || null }).eq('id', loanId)
+    .from('loans').update({ [slotColumn]: brokerId || null }).eq('id', loanId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const slotLabel = slotNumber === 1 ? 'Broker' : 'Co-broker'
   try {
     await adminClient.from('loan_events').insert({
       loan_id: loanId,
       event_type: brokerId ? 'broker_assigned' : 'broker_unassigned',
       description: brokerId
-        ? `Broker ${brokerName} assigned to this loan`
-        : `Broker unassigned from this loan`,
+        ? `${slotLabel} ${brokerName} assigned to this loan`
+        : `${slotLabel} unassigned from this loan`,
     })
   } catch (err) { console.error('Event log error:', err) }
 

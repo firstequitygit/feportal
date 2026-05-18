@@ -78,7 +78,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     { data: loanDetails },
     { data: loanDemographics },
   ] = await Promise.all([
-    adminClient.from('loans').select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
+    adminClient.from('loans').select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('condition_templates').select('*').order('title'),
     adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
@@ -227,7 +227,8 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
           <div className="space-y-4">
             <BrokerAssign
               loanId={id}
-              currentBrokerId={loan.brokers?.id ?? null}
+              currentBrokerId={loan.broker_id ?? null}
+              currentBrokerId2={loan.broker_id_2 ?? null}
               allBrokers={(allBrokers ?? []) as { id: string; full_name: string | null; email: string; company_name: string | null }[]}
             />
 
