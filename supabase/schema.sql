@@ -615,6 +615,11 @@ create trigger update_loan_demographics_updated_at
   before update on loan_demographics
   for each row execute function update_updated_at_column();
 
+drop trigger if exists update_loan_applications_updated_at on loan_applications;
+create trigger update_loan_applications_updated_at
+  before update on loan_applications
+  for each row execute function update_updated_at_column();
+
 -- ============================================================
 -- SEED: Default Condition Templates (only inserts if table empty)
 -- ============================================================
