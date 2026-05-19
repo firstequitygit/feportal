@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const TIMEOUT_MS = 30 * 60 * 1000       // 30 minutes
@@ -10,6 +10,8 @@ const EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'cl
 
 export function InactivityTimer() {
   const router = useRouter()
+  const pathname = usePathname()
+  const isPublicApply = pathname?.startsWith('/apply') ?? false
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showWarning, setShowWarning] = useState(false)
@@ -36,13 +38,14 @@ export function InactivityTimer() {
   }
 
   useEffect(() => {
+    if (isPublicApply) return
     resetTimer()
     EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
     return () => {
       clearTimers()
       EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
     }
-  }, [])
+  }, [isPublicApply])
 
   if (!showWarning) return null
 

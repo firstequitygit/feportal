@@ -9,7 +9,7 @@ export default async function ResumePage({ params }: { params: Promise<{ token: 
   const admin = createAdminClient()
   const { data: app } = await admin
     .from('loan_applications')
-    .select('data, current_step, status, resume_token')
+    .select('data, current_step, status')
     .eq('resume_token', token)
     .maybeSingle()
   if (!app) notFound()
@@ -25,7 +25,7 @@ export default async function ResumePage({ params }: { params: Promise<{ token: 
     <Wizard
       initialData={(app.data ?? {}) as Record<string, unknown>}
       initialStep={app.current_step ?? 1}
-      initialToken={app.resume_token}
+      initialToken={token}
     />
   )
 }
