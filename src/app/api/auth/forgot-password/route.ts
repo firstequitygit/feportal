@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mailFrom } from '@/lib/email'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
   })
 
   await transporter.sendMail({
-    from: mailFrom(),
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: email,
     subject: 'Reset your First Equity Funding Portal password',
     html: `

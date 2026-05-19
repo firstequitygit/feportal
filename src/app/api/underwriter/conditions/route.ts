@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mailFrom } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLoanContacts } from '@/lib/loan-contact'
@@ -75,20 +74,20 @@ export async function POST(req: NextRequest) {
         const kind = contacts[0].kind
         const portalUrl = contacts[0].portalUrl
         await getTransporter().sendMail({
-          from: mailFrom(), to: contacts.map(c => c.email).join(', '),
+          from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: contacts.map(c => c.email).join(', '),
           subject: `New condition added — ${addr}`,
           html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${greeting},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${portalUrl}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a></p>`,
         })
       }
     } else if (assigned_to === 'loan_officer' && loanOfficer?.email) {
       await getTransporter().sendMail({
-        from: mailFrom(), to: loanOfficer.email,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: loanOfficer.email,
         subject: `New condition assigned to you — ${addr}`,
         html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
       })
     } else if (assigned_to === 'loan_processor' && allLPs.length > 0) {
       await Promise.all(allLPs.map(lp => getTransporter().sendMail({
-        from: mailFrom(), to: lp.email!,
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`, to: lp.email!,
         subject: `New condition assigned to you — ${addr}`,
         html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${lp.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>`,
       })))

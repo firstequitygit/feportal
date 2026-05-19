@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { mailFrom } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLoanContacts } from '@/lib/loan-contact'
@@ -94,14 +93,14 @@ export async function POST(request: Request) {
 
     if (assigned_to === 'loan_officer' && lo?.email) {
       await getTransporter().sendMail({
-        from: mailFrom(),
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
         to: lo.email,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
       })
     } else if (assigned_to === 'loan_processor' && lps.length > 0) {
       await Promise.all(lps.map(processor => getTransporter().sendMail({
-        from: mailFrom(),
+        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
         to: processor.email!,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
@@ -115,7 +114,7 @@ export async function POST(request: Request) {
         const kind = contacts[0].kind
         const portalUrl = contacts[0].portalUrl
         await getTransporter().sendMail({
-          from: mailFrom(),
+          from: `First Equity Funding <${process.env.GMAIL_USER}>`,
           to: contacts.map(c => c.email).join(', '),
           subject: `New condition added — ${loan?.property_address ?? 'a loan'}`,
           html: `
@@ -242,7 +241,7 @@ async function sendBorrowerStatusNotification({
   const color = statusColors[status] ?? '#333'
 
   await getTransporter().sendMail({
-    from: mailFrom(),
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: contacts.map(c => c.email).join(', '),
     subject: `Condition update — ${loan?.property_address ?? 'a loan'}`,
     html: `
