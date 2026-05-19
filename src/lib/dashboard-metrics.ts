@@ -5,22 +5,31 @@
 // Used by the LO / LP / UW inbox pages, which are also each role's
 // landing page. Each role passes its own loan-ownership filter so the
 // numbers are scoped to "loans assigned to me".
+//
+// The two loan lists are intentionally split because closed loans
+// auto-archive 30 days after closing — counting only non-archived
+// loans would lose almost the entire "Closed (Last 12 Months)" bucket.
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>
 
-interface LoanRow {
+interface ActiveLoanRow {
   id: string
   pipeline_stage: string | null
   loan_amount: number | null
-  closed_at: string | null
+}
+
+interface ClosedLoanRow {
+  loan_amount: number | null
 }
 
 export interface DashboardMetricsInput {
-  /** All loans assigned to the staff member, non-archived. Pass the already-fetched
-   *  array if the caller has it; otherwise pass a fetcher that yields the array. */
-  loans: LoanRow[]
+  /** Non-archived loans assigned to the staff member. Drives pipeline + outstanding. */
+  activeLoans: ActiveLoanRow[]
+  /** Closed loans in the trailing 12 months — archived or not. Drives the
+   *  "Closed (Last 12 Months)" tile. */
+  closedLoansTrailing12: ClosedLoanRow[]
   /** Staff role used to count "outstanding for you" — which assignee value to match. */
   conditionAssignee: 'loan_officer' | 'loan_processor' | 'underwriter'
 }
@@ -34,27 +43,18 @@ export interface DashboardMetrics {
   outstandingForYou: number
 }
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
-
 export async function computeDashboardMetrics(
   supabase: SupabaseAdmin,
-  { loans, conditionAssignee }: DashboardMetricsInput,
+  { activeLoans, closedLoansTrailing12, conditionAssignee }: DashboardMetricsInput,
 ): Promise<DashboardMetrics> {
-  // Pipeline = non-closed loans (closed loans count toward the closed tile)
-  const pipeline = loans.filter(l => l.pipeline_stage !== 'Closed')
+  // Pipeline = active non-closed loans
+  const pipeline = activeLoans.filter(l => l.pipeline_stage !== 'Closed')
   const pipelineCount  = pipeline.length
   const pipelineVolume = pipeline.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
 
-  // Closed in the trailing 12 months. Uses closed_at (Pipedrive won_time)
-  // which we populate on every sync for status=won deals.
-  const cutoff = Date.now() - ONE_YEAR_MS
-  const closed = loans.filter(l =>
-    l.pipeline_stage === 'Closed' &&
-    l.closed_at &&
-    new Date(l.closed_at).getTime() >= cutoff
-  )
-  const closedCountTrailing12  = closed.length
-  const closedVolumeTrailing12 = closed.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
+  // Closed-in-last-12-months — caller already filtered the time window
+  const closedCountTrailing12  = closedLoansTrailing12.length
+  const closedVolumeTrailing12 = closedLoansTrailing12.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
 
   // Outstanding conditions across this staff member's pipeline loans.
   // "Outstanding for you" = condition assigned to this role AND status is

@@ -24,21 +24,30 @@ export default async function LoanOfficerInbox() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
-  // Pull every non-archived loan assigned to this LO (active + closed) so
-  // dashboard tiles can count both pipeline and trailing-12-month closings.
+  // Active loans (non-archived) — drives the inbox and pipeline tiles.
   const { data: loans } = await adminClient
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
 
-  const allLoans = (loans ?? []).filter(l => !archivedSet.has(l.id))
-  const activeLoans = allLoans.filter(l => l.pipeline_stage !== 'Closed')
+  // Closed-in-last-12-months — archived OR not (closed loans auto-archive
+  // 30 days post-close, so we have to look past the archived flag for this).
+  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: closedTrailing } = await adminClient
+    .from('loans')
+    .select('loan_amount')
+    .eq('loan_officer_id', lo.id)
+    .eq('pipeline_stage', 'Closed')
+    .gte('closed_at', oneYearAgoIso)
+
+  const activeLoans = (loans ?? []).filter(l => l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)
   const loanMap = new Map(activeLoans.map(l => [l.id, l]))
 
   const metrics = await computeDashboardMetrics(adminClient, {
-    loans: allLoans,
+    activeLoans: loans ?? [],
+    closedLoansTrailing12: closedTrailing ?? [],
     conditionAssignee: 'loan_officer',
   })
 
