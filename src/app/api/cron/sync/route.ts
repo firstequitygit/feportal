@@ -3,6 +3,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
 
+// App-created loans have pipedrive_deal_id = NULL and are NOT managed by
+// Pipedrive sync — never update or delete them here.
+// The upsert below is keyed on pipedrive_deal_id, so NULL rows are never
+// matched and are therefore safe without an additional filter.
+
 // Called automatically by Vercel cron.
 // Also protected by CRON_SECRET so only Vercel can trigger it.
 export async function GET(request: Request) {

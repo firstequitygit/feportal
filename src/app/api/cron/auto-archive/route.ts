@@ -17,10 +17,13 @@ export async function GET(request: Request) {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - DAYS)
 
+    // App-created loans have pipedrive_deal_id = NULL and are NOT managed by
+    // Pipedrive sync — never update or delete them here.
     // Find closed loans that passed the 30-day threshold and aren't archived yet
     const { data: loans, error: fetchError } = await adminClient
       .from('loans')
       .select('id, property_address, closed_at')
+      .not('pipedrive_deal_id', 'is', null)
       .eq('pipeline_stage', 'Closed')
       .lt('closed_at', cutoff.toISOString())
       .eq('archived', false)
