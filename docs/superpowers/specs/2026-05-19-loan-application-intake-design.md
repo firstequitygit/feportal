@@ -20,8 +20,8 @@ front door for loan applications.
 | Pipedrive coexistence | **Clean break** — Supabase becomes source of truth; Pipedrive sync left legacy, not removed in this build |
 | Payment processor | **Square** (Web Payments SDK + Customers/Cards API) |
 | Payment timing | **Card-on-file, charged later by staff** (no charge at submit) |
-| Fee logic | **$45 × borrower count**, capped at 4 borrowers / $180 |
-| Save & resume | **Full server-side**, tokenized resume link emailed |
+| Fee logic | **$45 × number of borrowers** (primary + co-borrowers; borrower count structurally capped at 4 → fee range $45–$180) |
+| Save & resume | **Full server-side**, tokenized resume link emailed; **drafts retained indefinitely (never auto-deleted)** |
 | Signature | **Typed name + checkbox attestation** (ESIGN/UETA valid) |
 | Form UX | **6-step wizard** with progress bar + autosave per step |
 | App↔portal data model | **Approach 1**: `loan_applications` is the draft/intake layer; on submit it spawns the canonical `borrowers`/`loans`/`loan_details`/`loan_demographics` rows the portal already reads |
@@ -36,7 +36,7 @@ front door for loan applications.
 
 ### 3.2 API endpoints (all public except the staff charge route)
 - `POST /api/apply/draft` — create draft, return `{ id, resume_token }`, email resume link.
-- `PATCH /api/apply/draft` — autosave `data` jsonb + `current_step` (auth by `resume_token` in body).
+- `PATCH /api/apply/draft` — autosave `data` jsonb + `current_step` (auth by `resume_token` in body). Drafts are never auto-deleted (no cleanup cron).
 - `POST /api/apply/payment` — exchange Square card token → create Square Customer + save Card on File → persist `square_customer_id`, `square_card_id`, `fee_amount_cents`.
 - `POST /api/apply/submit` — server-side re-validate → run `application-mapper.ts` → insert canonical rows in a transaction → mark draft `submitted` → audit + emails.
 - `POST /api/admin/loans/[id]/charge-fee` — **admin-only** (existing role-check pattern). Charges the saved Square card, records `fee_charged_at` + `loan_events` row.
@@ -49,7 +49,6 @@ front door for loan applications.
 | `current_step` | int | 1–6, for resume |
 | `resume_token` | uuid | indexed, unguessable; sole gate for draft access |
 | `resume_email` | text | where the resume link was sent |
-| `expires_at` | timestamptz | draft TTL = 30 days |
 | `data` | jsonb | entire form state incl. co-borrowers[] and units[] arrays |
 | `square_customer_id` | text | null until payment step completed |
 | `square_card_id` | text | null until payment step completed |
@@ -70,7 +69,7 @@ jsonb (SSN, DOB) is **never** written to Pipedrive or logs.
 Structural twin of `src/lib/jotform-mapper.ts` but Supabase-only. Input:
 `loan_applications.data`. Output rows:
 - **`borrowers`** — 1 primary + up to 3 co-borrowers (`auth_user_id` NULL until staff invites via existing `invite-borrower` flow).
-- **`loans`** — `borrower_id` / `borrower_id_2` / `_3` / `_4`, `pipeline_stage='New Application'`, `pipedrive_deal_id=NULL`, `loan_type` resolved from Loan Type dropdown, `loan_amount` = Requested Loan Amount, `property_address`, `entity_name`.
+- **`loans`** — `borrower_id` / `borrower_id_2` / `_3` / `_4`, `pipeline_stage='New Application'`, `pipedrive_deal_id=NULL`, `loan_amount` = Requested Loan Amount, `property_address`, `entity_name`, and `loan_type` mapped from the form's Loan Type display label to the existing `LoanType` enum / `loans.loan_type` CHECK values: **Fix & Flip/Renovation → `Fix & Flip (Bridge)`**, **DSCR Rental Loan → `Rental (DSCR)`**, **New Construction → `New Construction`**.
 - **`loan_details`** — the large field bag; reuse existing columns (mirror the column set written by `jotform-mapper.ts` `loanDetails`).
 - **`loan_demographics`** — HMDA ethnicity/race/sex per borrower.
 - Insert one `loan_events` audit row (`event_type`, `description`) per the codebase convention.
@@ -88,8 +87,9 @@ render only what this module reports visible. Refining rules later = editing
 this one table, not the step components.
 
 ### 4.1 v1 baseline rules
-- **Loan Type = Fix & Flip (Bridge) | New Construction** → show Renovation/Construction Budget, After Repaired Value, Exit Strategy; hide DSCR rent fields.
-- **Loan Type = Rental (DSCR)** → show rent fields (per-unit); hide renovation budget.
+- **Loan Type = Fix & Flip/Renovation | New Construction** → show Renovation/Construction Budget, After Repaired Value, Exit Strategy; hide DSCR rent fields.
+- **Loan Type = DSCR Rental Loan** → show rent fields (per-unit); hide renovation budget.
+- **Exit Strategy = Other (Explain Below)** → show an Exit Strategy explanation textarea.
 - **Purchase or Refi = Purchase** → show Purchase Price, Date Purchased. **= Refi** → show Is There Current Debt, Current Loan Balance, Has Debt Been Current Past 24 Months.
 - **Number of Units (1–4)** → render exactly that many Unit rent blocks (Currently Rented / Current Rent / Market Rent / Lease Type). DSCR or multifamily only.
 - **Lived at current address < 2 years** → show Prior Address (per borrower).
@@ -107,8 +107,30 @@ Nothing is hard-coded in a way that makes later tuning painful.
 ## 5. Field Inventory by Step
 
 Field set reconciled from the Cognito mockup PDF and the existing
-`jotform-mapper.ts` contract. Dropdown option lists are configurable in
-`application-fields.ts`; exact values finalized during implementation.
+`jotform-mapper.ts` contract. All dropdown option lists live in
+`application-fields.ts`.
+
+### 5.1 Option Lists
+
+**Confirmed (final):**
+- **Estimated Credit Score:** `> 780`, `760-779`, `740-759`, `720-739`, `700-719`, `680-699`, `660-679`, `640-659`, `620-639`, `600-619`, `< 599`
+- **Loan Type:** `Fix & Flip/Renovation`, `New Construction`, `DSCR Rental Loan`
+- **Property Type:** `Single Family`, `Condo`, `Multifamily (2-4 Units)`, `Multifamily (5+ Units)`, `Mixed Use`, `Other Commercial`
+- **Exit Strategy:** `Sell`, `Refinance`, `Other (Explain Below)` (Other → explanation textarea)
+- **Deal Source:** `Short Sale`, `Bank Owned (REO)`, `Sheriff Sale`, `MLS`, `Foreclosure Auction`, `Wholesaler`, `Direct from Seller`, `Other`
+
+**Defaulted (will use these unless changed during implementation):**
+- **Marital Status:** `Married`, `Single`, `Separated` (from current JotForm)
+- **Purchase or Refi:** `Purchase`, `Refinance`, `Cash-Out Refinance`
+- **Do you have a deal? / Is there a co-borrower? / Mortgage on primary? / Housing Status:** Yes/No (Housing Status: `Own`, `Rent`)
+- **Entity Type:** `LLC`, `Corporation`, `Limited Partnership`, `Other`
+- **HMDA Ethnicity / Race / Sex:** standard federal HMDA value sets
+
+**Open — needed from product owner before those fields are final** (fields render with a safe placeholder list until provided; flagged here, not blocking the plan):
+- **How did you hear about us?** (marketing referral source — distinct from Deal Source)
+- **Lease Type** (per rental unit)
+- **Fix & Flips / Fix & Holds Completed Last 3 Years** (range buckets)
+- **Other Real Estate Experience** (option list)
 
 ### Step 1 — Borrower Info
 Primary borrower: Name (First/Middle/Last)\*, Date of Birth\*, SSN\*, U.S.
@@ -176,7 +198,7 @@ authorization text.
 - Draft row created when applicant enters email in Step 1 (on blur).
 - Autosave: on every step advance + every ~20s of edits → `PATCH /api/apply/draft`.
 - Resume email: `sendApplicationResumeEmail(email, token, firstName)` added to `src/lib/email.ts`; link = `/apply/resume/{token}`.
-- Drafts expire after 30 days (`expires_at`); daily cleanup cron (reuse existing `CRON_SECRET` bearer pattern) deletes expired drafts. Add to `vercel.json`.
+- **Drafts are retained indefinitely — never auto-deleted.** No expiry, no cleanup cron. Resume links remain valid until the application is submitted (or a staff member manually removes it). PII in abandoned drafts persists by product decision; noted in §8 as an accepted retention trade-off.
 
 ## 7. Payment & Staff Charge
 - `NEXT_PUBLIC_SQUARE_APPLICATION_ID`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID`, `SQUARE_ENVIRONMENT` (sandbox|production) added to env.
@@ -187,6 +209,7 @@ authorization text.
 - Public `/api/apply/*` endpoints: rate-limiting + lightweight bot check.
 - Draft access gated solely by high-entropy `resume_token` (uuid v4).
 - PII (SSN, DOB) in `data` jsonb, Supabase only; service-role access; anon RLS deny; never logged, never sent to Pipedrive.
+- **Accepted retention trade-off:** drafts (incl. PII) are kept indefinitely per product decision. Mitigations: high-entropy resume tokens, RLS anon-deny, no PII in logs, service-role-only reads. Staff manual deletion is the only purge path; an admin "delete draft" affordance can be added post-v1 if desired.
 - Card data handled entirely by Square (PCI SAQ-A scope); our DB stores only Square IDs + fee.
 - **This change touches payments + PII**: requires a Phase-5 `security-review` and a real end-to-end Phase-6 verification before merge. Flag at the plan gate.
 
