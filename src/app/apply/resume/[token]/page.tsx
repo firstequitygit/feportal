@@ -2,6 +2,10 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Wizard } from '../../_components/wizard'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 export const metadata = { title: 'Resume Application' }
 
 export default async function ResumePage({ params }: { params: Promise<{ token: string }> }) {

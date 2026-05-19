@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { squareClient, feeCentsForBorrowerCount } from '@/lib/square'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
-import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     const sq = squareClient()
     const cust = await sq.customers.create({
-      idempotencyKey: randomUUID(),
+      idempotencyKey: `customer:${app.id}`,
       emailAddress: app.resume_email ?? undefined,
       note: `Loan application ${app.id}`,
     })
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (!customerId) throw new Error('No customer id')
 
     const card = await sq.cards.create({
-      idempotencyKey: randomUUID(),
+      idempotencyKey: `card:${app.id}`,
       sourceId: body.cardToken,
       card: { customerId },
     })

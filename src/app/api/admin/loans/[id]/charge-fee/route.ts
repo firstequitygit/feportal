@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { squareClient, SQUARE_LOCATION_ID } from '@/lib/square'
-import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 
@@ -12,8 +11,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const admin = createAdminClient()
-  const { data: isAdmin } = await admin.from('admin_users').select('id').eq('auth_user_id', user.id).single()
+  const { data: isAdmin } = await admin.from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
   if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!isAdmin.is_super) return NextResponse.json({ error: 'Super-admin required to charge cards' }, { status: 403 })
 
   const { data: app } = await admin
     .from('loan_applications')
@@ -30,7 +30,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     // Awaiting unwraps directly to CreatePaymentResponse, so pay.payment?.status is correct.
     // amountMoney.amount must be BigInt per v44 Money type.
     const pay = await sq.payments.create({
-      idempotencyKey: randomUUID(),
+      idempotencyKey: `charge:${app.id}`,
       sourceId: app.square_card_id,
       customerId: app.square_customer_id,
       locationId: SQUARE_LOCATION_ID(),
