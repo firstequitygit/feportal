@@ -51,16 +51,21 @@ export async function POST(req: NextRequest) {
   const borrowerIds: (string | null)[] = []
   for (const bw of m.borrowers) {
     if (!bw.email) { borrowerIds.push(null); continue }
+    const fullPayload: Record<string, unknown> = {
+      email: bw.email.toLowerCase(), full_name: bw.full_name, phone: bw.phone, entity_name: bw.entity_name,
+      current_address_street: bw.current_address_street, current_address_city: bw.current_address_city,
+      current_address_state: bw.current_address_state, current_address_zip: bw.current_address_zip,
+      at_current_address_2y: bw.at_current_address_2y,
+      prior_address_street: bw.prior_address_street, prior_address_city: bw.prior_address_city,
+      prior_address_state: bw.prior_address_state, prior_address_zip: bw.prior_address_zip,
+    }
+    const payload = Object.fromEntries(
+      Object.entries(fullPayload).filter(([k, v]) =>
+        k === 'email' || k === 'full_name' || (v !== null && v !== undefined)),
+    )
     const { data: brow, error: berr } = await admin
       .from('borrowers')
-      .upsert({
-        email: bw.email.toLowerCase(), full_name: bw.full_name, phone: bw.phone, entity_name: bw.entity_name,
-        current_address_street: bw.current_address_street, current_address_city: bw.current_address_city,
-        current_address_state: bw.current_address_state, current_address_zip: bw.current_address_zip,
-        at_current_address_2y: bw.at_current_address_2y,
-        prior_address_street: bw.prior_address_street, prior_address_city: bw.prior_address_city,
-        prior_address_state: bw.prior_address_state, prior_address_zip: bw.prior_address_zip,
-      }, { onConflict: 'email' })
+      .upsert(payload, { onConflict: 'email' })
       .select('id').single()
     if (berr || !brow) return NextResponse.json({ error: 'Failed to save borrower' }, { status: 500 })
     borrowerIds.push(brow.id)
@@ -85,22 +90,36 @@ export async function POST(req: NextRequest) {
   if (lerr || !loanRow) return NextResponse.json({ error: 'Failed to create loan' }, { status: 500 })
   const loanId = loanRow.id
 
-  // 3. loan_details + loan_demographics.
-  await admin.from('loan_details').upsert(
+  // 3. loan_details + loan_demographics. On hard failure, roll back the loan
+  //    (FK ON DELETE CASCADE cleans children) and leave the draft as 'draft'.
+  const { error: ldErr } = await admin.from('loan_details').upsert(
     { loan_id: loanId, ...m.loanDetails, updated_at: new Date().toISOString() },
     { onConflict: 'loan_id' })
+  if (ldErr) {
+    await admin.from('loans').delete().eq('id', loanId)
+    return NextResponse.json({ error: 'Could not finalize application' }, { status: 500 })
+  }
   if (m.loanDemographics.ethnicity || m.loanDemographics.race || m.loanDemographics.sex) {
-    await admin.from('loan_demographics').upsert(
+    const { error: dErr } = await admin.from('loan_demographics').upsert(
       { loan_id: loanId, ...m.loanDemographics, source: 'loan_application' },
       { onConflict: 'loan_id' })
+    if (dErr) {
+      await admin.from('loans').delete().eq('id', loanId)
+      return NextResponse.json({ error: 'Could not finalize application' }, { status: 500 })
+    }
   }
 
-  // 4. Mark draft submitted + link loan.
-  await admin.from('loan_applications')
+  // 4. Mark draft submitted + link loan. If this fails, roll back the loan so a
+  //    retry does not create a duplicate (draft stays 'draft').
+  const { error: appErr } = await admin.from('loan_applications')
     .update({ status: 'submitted', submitted_loan_id: loanId })
     .eq('id', app.id)
+  if (appErr) {
+    await admin.from('loans').delete().eq('id', loanId)
+    return NextResponse.json({ error: 'Could not finalize application' }, { status: 500 })
+  }
 
-  // 5. Audit.
+  // 5. Audit (best-effort — non-fatal if it fails).
   await admin.from('loan_events').insert({
     loan_id: loanId, event_type: 'application_received',
     description: `Loan application submitted via portal (application ${app.id})`,
