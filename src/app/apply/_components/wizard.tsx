@@ -58,7 +58,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     <Step3Experience key={3} data={data} set={set} />,
     <Step4Declarations key={4} data={data} set={set} />,
     <Step5Authorization key={5} data={data} set={set} />,
-    <Step6Payment key={6} data={data} set={set} token={token} />,
+    <Step6Payment key={6} data={data} token={token} />,
   ][step - 1]
 
   return (

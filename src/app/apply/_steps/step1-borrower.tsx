@@ -11,7 +11,7 @@ export function Step1Borrower({ data, set, ensureDraft }: {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
     set({ primary: { ...primary, [name]: value } })
-    if (name === 'email' && typeof value === 'string' && value.includes('@'))
+    if (name === 'email' && typeof value === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
       ensureDraft(value, (primary.first_name as string) ?? '')
   }
   return (

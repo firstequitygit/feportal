@@ -11,7 +11,7 @@ type SquarePayments = { card: () => Promise<SquareCard> }
 type SquareGlobal = { payments: (appId: string, locationId: string) => SquarePayments }
 
 export function Step6Payment({ data, token }: {
-  data: ApplicationData; set: (patch: Record<string, unknown>) => void; token: string | null
+  data: ApplicationData; token: string | null
 }) {
   const cardRef = useRef<SquareCard | null>(null)
   const [ready, setReady] = useState(false)
@@ -23,7 +23,10 @@ export function Step6Payment({ data, token }: {
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
     const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
     const env = process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === 'production' ? '' : 'sandbox.'
-    if (!appId || !locationId) return
+    if (!appId || !locationId) {
+      console.error('[apply] Square env vars NEXT_PUBLIC_SQUARE_APPLICATION_ID / NEXT_PUBLIC_SQUARE_LOCATION_ID are missing — payment form cannot load.')
+      return
+    }
     const src = `https://${env}web.squarecdn.com/v1/square.js`
     const existing = document.querySelector(`script[src="${src}"]`)
     const init = async () => {
