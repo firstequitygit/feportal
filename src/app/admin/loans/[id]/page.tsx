@@ -31,6 +31,7 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
+import { AdminChargeFee } from '@/components/admin-charge-fee'
 import Link from 'next/link'
 
 function formatCurrency(val: number | null): string {
@@ -95,6 +96,11 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   ])
 
   if (!loan) notFound()
+
+  const { data: linkedApp } = await adminClient
+    .from('loan_applications')
+    .select('fee_amount_cents, fee_charged_at, card_last4, card_brand')
+    .eq('submitted_loan_id', id).maybeSingle()
 
   const isArchived = (archivedIds ?? []).some((r: { loan_id: string }) => r.loan_id === id)
 
@@ -221,6 +227,11 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               currentUnderwriterId={loan.underwriters?.id ?? null}
               allUnderwriters={(allUnderwriters ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
             />
+
+            {linkedApp && (
+              <AdminChargeFee loanId={id} feeCents={linkedApp.fee_amount_cents}
+                chargedAt={linkedApp.fee_charged_at} last4={linkedApp.card_last4} brand={linkedApp.card_brand} />
+            )}
           </div>
 
           {/* Right column: outside contacts (broker + borrowers) */}
