@@ -62,16 +62,18 @@ function borrowerFrom(o: Record<string, unknown>): MappedBorrower {
   }
 }
 
+/** Pure transform: a draft `loan_applications.data` blob → the canonical portal rows (borrowers/loan/loan_details/loan_demographics). No DB/IO. */
 export function mapApplication(data: ApplicationData): MappedApplication {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as Record<string, unknown>[]) : []
+  const entityName = s(primary.entity_name)
   const borrowers = [borrowerFrom(primary), ...cobs.map(borrowerFrom)]
+  if (borrowers[0]) borrowers[0].entity_name = entityName
 
   const propStreet = s(data.property_street)
   const propAddress = [propStreet, s(data.property_city), s(data.property_state), s(data.property_zip)].filter(Boolean).join(', ')
   const loanTypeLabel = s(data.loan_type)
   const loanType = loanTypeLabel ? (APPLICATION_LOAN_TYPE_MAP[loanTypeLabel] ?? null) : null
-  const entityName = s(primary.entity_name)
 
   const decl = {
     outstanding_judgements: b(primary.d_liens),
@@ -136,7 +138,8 @@ export function mapApplication(data: ApplicationData): MappedApplication {
     qualifying_rent: n(data.total_monthly_rents),
     annual_property_tax: n(data.annual_property_taxes),
     annual_insurance_premium: n(data.annual_property_insurance),
-    annual_hoa_dues: n(data.monthly_hoa_dues),
+    // Form collects a MONTHLY HOA figure; the column (and downstream DSCR math) expect annual.
+    annual_hoa_dues: (() => { const m = n(data.monthly_hoa_dues); return m === null ? null : m * 12 })(),
   }
 
   return {
