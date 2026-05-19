@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
-import { Building2, ShieldCheck } from 'lucide-react'
+import { Building2, ShieldCheck, FileSearch } from 'lucide-react'
 
 interface LoanRow {
   id: string
@@ -19,6 +19,9 @@ interface DetailRow {
   insurance_company: string | null
   insurance_email: string | null
   insurance_phone: string | null
+  appraisal_company: string | null
+  appraisal_email: string | null
+  appraisal_phone: string | null
 }
 
 interface VendorAggregate {
@@ -58,17 +61,17 @@ export default async function LoanOfficerVendorsPage() {
   const { data: details } = loanIds.length > 0
     ? await adminClient
         .from('loan_details')
-        .select('loan_id, title_company, title_email, title_phone, insurance_company, insurance_email, insurance_phone')
+        .select('loan_id, title_company, title_email, title_phone, insurance_company, insurance_email, insurance_phone, appraisal_company, appraisal_email, appraisal_phone')
         .in('loan_id', loanIds)
     : { data: [] }
 
   // Aggregate per vendor type
-  function aggregate(rows: DetailRow[], kind: 'title' | 'insurance'): VendorAggregate[] {
+  function aggregate(rows: DetailRow[], kind: 'title' | 'insurance' | 'appraisal'): VendorAggregate[] {
     const buckets = new Map<string, VendorAggregate>()
     for (const r of rows) {
-      const name = kind === 'title' ? r.title_company : r.insurance_company
-      const email = kind === 'title' ? r.title_email : r.insurance_email
-      const phone = kind === 'title' ? r.title_phone : r.insurance_phone
+      const name  = kind === 'title' ? r.title_company  : kind === 'insurance' ? r.insurance_company  : r.appraisal_company
+      const email = kind === 'title' ? r.title_email    : kind === 'insurance' ? r.insurance_email    : r.appraisal_email
+      const phone = kind === 'title' ? r.title_phone    : kind === 'insurance' ? r.insurance_phone    : r.appraisal_phone
       const key = vendorKey(name)
       if (!key) continue
       let bucket = buckets.get(key)
@@ -88,6 +91,7 @@ export default async function LoanOfficerVendorsPage() {
 
   const titleVendors = aggregate((details ?? []) as DetailRow[], 'title')
   const insuranceVendors = aggregate((details ?? []) as DetailRow[], 'insurance')
+  const appraiserVendors = aggregate((details ?? []) as DetailRow[], 'appraisal')
 
   return (
     <PortalShell
@@ -99,8 +103,8 @@ export default async function LoanOfficerVendorsPage() {
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Vendors</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Title companies and insurance companies attached to your loans (from the Loan Details
-        section on each file). Click a loan to open it and update the vendor info there.
+        Title companies, insurance companies, and appraisers attached to your loans (from the
+        Loan Details section on each file). Click a loan to open it and update the vendor info there.
       </p>
 
       <div className="space-y-6">
@@ -115,6 +119,12 @@ export default async function LoanOfficerVendorsPage() {
           icon={ShieldCheck}
           vendors={insuranceVendors}
           emptyMessage="No insurance companies on your loans yet."
+        />
+        <VendorSection
+          title="Appraisers"
+          icon={FileSearch}
+          vendors={appraiserVendors}
+          emptyMessage="No appraisers on your loans yet."
         />
       </div>
     </PortalShell>

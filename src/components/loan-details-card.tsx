@@ -98,13 +98,16 @@ export interface LoanDetails {
   intent_to_occupy?: boolean | null
   down_payment_borrowed?: boolean | null
 
-  // JotForm-sourced — Title & Insurance
+  // JotForm-sourced — Title, Insurance, Appraiser
   title_company?: string | null
   title_email?: string | null
   title_phone?: string | null
   insurance_company?: string | null
   insurance_email?: string | null
   insurance_phone?: string | null
+  appraisal_company?: string | null
+  appraisal_email?: string | null
+  appraisal_phone?: string | null
 
   // JotForm-sourced — Vesting Entity
   vesting_in_entity?: boolean | null
@@ -640,7 +643,7 @@ export function LoanDetailsCard({
             )}
           </Section>
 
-          <Section title="Title & Insurance">
+          <Section title="Vendors (Title, Insurance, Appraiser)">
             <DetailRow label="Title Company / Agent">
               <EditableLoanField
                 loanId={loanId}
@@ -697,6 +700,35 @@ export function LoanDetailsCard({
                 type="text"
                 currentValue={d.insurance_phone ?? null}
                 display={d.insurance_phone ?? '—'}
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser / Appraisal Company">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_company"
+                type="text"
+                currentValue={d.appraisal_company ?? null}
+                display={d.appraisal_company ?? '—'}
+                inputWidthClass="w-56"
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser Email">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_email"
+                type="text"
+                currentValue={d.appraisal_email ?? null}
+                display={d.appraisal_email ?? '—'}
+                inputWidthClass="w-56"
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser Phone">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_phone"
+                type="text"
+                currentValue={d.appraisal_phone ?? null}
+                display={d.appraisal_phone ?? '—'}
               />
             </DetailRow>
           </Section>
