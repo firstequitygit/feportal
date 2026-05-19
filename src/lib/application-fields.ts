@@ -101,10 +101,10 @@ export const HMDA_FIELDS: FieldDef[] = [
 ]
 
 // Deal section (Step 2). `d` is the whole form. Conditional rules per spec §4.1.
-const isBridge = (d: ApplicationData) => d.loan_type === 'Fix & Flip/Renovation' || d.loan_type === 'New Construction'
-const isDSCR = (d: ApplicationData) => d.loan_type === 'DSCR Rental Loan'
-const isRefi = (d: ApplicationData) => d.purchase_or_refi === 'Refinance' || d.purchase_or_refi === 'Cash-Out Refinance'
-const isPurchase = (d: ApplicationData) => d.purchase_or_refi === 'Purchase'
+export const isBridge = (d: ApplicationData) => d.loan_type === 'Fix & Flip/Renovation' || d.loan_type === 'New Construction'
+export const isDSCR = (d: ApplicationData) => d.loan_type === 'DSCR Rental Loan'
+export const isRefi = (d: ApplicationData) => d.purchase_or_refi === 'Refinance' || d.purchase_or_refi === 'Cash-Out Refinance'
+export const isPurchase = (d: ApplicationData) => d.purchase_or_refi === 'Purchase'
 
 export const DEAL_FIELDS: FieldDef[] = [
   { name: 'has_deal', label: 'Do you have a deal?', type: 'yesno', required: true },
