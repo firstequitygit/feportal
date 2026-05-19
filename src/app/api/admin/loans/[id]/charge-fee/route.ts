@@ -43,10 +43,14 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
     const { error: updErr } = await admin.from('loan_applications').update({ fee_charged_at: new Date().toISOString() }).eq('id', app.id)
     if (updErr) throw new Error(`Persist fee_charged_at failed: ${updErr.message}`)
-    await admin.from('loan_events').insert({
-      loan_id: id, event_type: 'fee_charged',
-      description: `Credit & Background Check fee charged: $${(app.fee_amount_cents / 100).toFixed(2)}`,
-    })
+    try {
+      await admin.from('loan_events').insert({
+        loan_id: id, event_type: 'fee_charged',
+        description: `Credit & Background Check fee charged: $${(app.fee_amount_cents / 100).toFixed(2)}`,
+      })
+    } catch (logErr) {
+      console.error('Audit log failed (fee_charged):', logErr instanceof Error ? logErr.message : logErr)
+    }
     return NextResponse.json({ success: true, amount: app.fee_amount_cents })
   } catch (e) {
     console.error('Square charge failed:', e instanceof Error ? e.message : 'unknown')

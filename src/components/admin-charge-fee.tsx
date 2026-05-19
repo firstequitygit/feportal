@@ -12,11 +12,16 @@ export function AdminChargeFee({ loanId, feeCents, chargedAt, last4, brand }: {
   if (feeCents == null) return null
   async function charge() {
     setLoading(true)
-    const res = await fetch(`/api/admin/loans/${loanId}/charge-fee`, { method: 'POST' })
-    const j = await res.json()
-    setLoading(false)
-    if (j.success) { setDone(true); toast.success('Fee charged') }
-    else toast.error(j.error ?? 'Charge failed')
+    try {
+      const res = await fetch(`/api/admin/loans/${loanId}/charge-fee`, { method: 'POST' })
+      const j = await res.json()
+      if (j.success) { setDone(true); toast.success('Fee charged') }
+      else toast.error(j.error ?? 'Charge failed')
+    } catch {
+      toast.error('Network error — please try again')
+    } finally {
+      setLoading(false)
+    }
   }
   return (
     <Card>
