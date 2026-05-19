@@ -71,7 +71,7 @@ Structural twin of `src/lib/jotform-mapper.ts` but Supabase-only. Input:
 - **`borrowers`** — 1 primary + up to 3 co-borrowers (`auth_user_id` NULL until staff invites via existing `invite-borrower` flow).
 - **`loans`** — `borrower_id` / `borrower_id_2` / `_3` / `_4`, `pipeline_stage='New Application'`, `pipedrive_deal_id=NULL`, `loan_amount` = Requested Loan Amount, `property_address`, `entity_name`, and `loan_type` mapped from the form's Loan Type display label to the existing `LoanType` enum / `loans.loan_type` CHECK values: **Fix & Flip/Renovation → `Fix & Flip (Bridge)`**, **DSCR Rental Loan → `Rental (DSCR)`**, **New Construction → `New Construction`**.
 - **`loan_details`** — the large field bag; reuse existing columns (mirror the column set written by `jotform-mapper.ts` `loanDetails`).
-- **`loan_demographics`** — HMDA ethnicity/race/sex per borrower.
+- **`loan_demographics`** — one row per loan (table has `loan_id UNIQUE`): stores the **primary** borrower's HMDA ethnicity/race/sex with `source='loan_application'`. Full per-borrower HMDA (incl. co-borrowers) is preserved in `loan_applications.data` (retained indefinitely) — the existing portal UI only consumes the single-row demographics, so no schema change is needed.
 - Insert one `loan_events` audit row (`event_type`, `description`) per the codebase convention.
 
 Confirmation page after submit (no portal login created — staff invites the
