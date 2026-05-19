@@ -118,6 +118,10 @@ Field set reconciled from the Cognito mockup PDF and the existing
 - **Property Type:** `Single Family`, `Condo`, `Multifamily (2-4 Units)`, `Multifamily (5+ Units)`, `Mixed Use`, `Other Commercial`
 - **Exit Strategy:** `Sell`, `Refinance`, `Other (Explain Below)` (Other → explanation textarea)
 - **Deal Source:** `Short Sale`, `Bank Owned (REO)`, `Sheriff Sale`, `MLS`, `Foreclosure Auction`, `Wholesaler`, `Direct from Seller`, `Other`
+- **How did you hear about us?:** `Internet Search (Google, Bing, etc.)`, `Social Media (Facebook, Instagram, etc.)`, `YouTube`, `Email Marketing`, `Text Message`, `Phone Call`, `Direct Mail`, `Networking Event`, `Realtor Referral`, `Broker Referral`, `Other Referral`, `3rd Party Website`, `3rd Party Publication`, `Other`
+- **Lease Type** (per rental unit): `Annual`, `Month-to-Month`, `Short Term/Vacation Rental`, `Vacant`
+- **Other Real Estate Experience:** `Realtor`, `Contractor`, `Wholesaler`, `Real Estate Attorney`, `Mortgage Broker/Lender`
+- **Fix & Flips / Fix & Holds Completed Last 3 Years:** `0`, `1 - 2`, `3 - 10`, `11+`
 
 **Defaulted (will use these unless changed during implementation):**
 - **Marital Status:** `Married`, `Single`, `Separated` (from current JotForm)
@@ -126,11 +130,7 @@ Field set reconciled from the Cognito mockup PDF and the existing
 - **Entity Type:** `LLC`, `Corporation`, `Limited Partnership`, `Other`
 - **HMDA Ethnicity / Race / Sex:** standard federal HMDA value sets
 
-**Open — needed from product owner before those fields are final** (fields render with a safe placeholder list until provided; flagged here, not blocking the plan):
-- **How did you hear about us?** (marketing referral source — distinct from Deal Source)
-- **Lease Type** (per rental unit)
-- **Fix & Flips / Fix & Holds Completed Last 3 Years** (range buckets)
-- **Other Real Estate Experience** (option list)
+All option lists are now confirmed by the product owner. No open list items remain.
 
 ### Step 1 — Borrower Info
 Primary borrower: Name (First/Middle/Last)\*, Date of Birth\*, SSN\*, U.S.
