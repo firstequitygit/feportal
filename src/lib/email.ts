@@ -15,11 +15,10 @@ export function getTransporter() {
 /**
  * Returns the From: header for outgoing portal email.
  *
- * Prefers MAIL_FROM (e.g. "processing@fefunding.com") when set, else falls
- * back to the Gmail SMTP account itself. Gmail will only let us send with a
- * MAIL_FROM that differs from GMAIL_USER if that address is set up as a
- * verified "Send mail as" alias in the GMAIL_USER account's settings —
- * otherwise Gmail rewrites the From back to the SMTP user.
+ * Prefers MAIL_FROM when set, else falls back to GMAIL_USER (the SMTP auth
+ * user). For Gmail/Workspace the From address must match the authenticated
+ * account (or a verified "Send mail as" alias of it) — otherwise Gmail
+ * rewrites the From back to the SMTP user.
  */
 export function mailFrom(): string {
   const addr = process.env.MAIL_FROM?.trim() || process.env.GMAIL_USER || ''
