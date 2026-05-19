@@ -46,13 +46,14 @@ export async function POST(req: NextRequest) {
     const c = card.card
     if (!c?.id) throw new Error('No card id')
 
-    await admin.from('loan_applications').update({
+    const { error: updErr } = await admin.from('loan_applications').update({
       square_customer_id: customerId,
       square_card_id: c.id,
       card_brand: c.cardBrand ?? null,
       card_last4: c.last4 ?? null,
       fee_amount_cents: feeCents,
     }).eq('id', app.id)
+    if (updErr) throw new Error(`Persist card-on-file failed: ${updErr.message}`)
 
     return NextResponse.json({ success: true, feeCents, last4: c.last4 ?? null, brand: c.cardBrand ?? null })
   } catch (e) {
