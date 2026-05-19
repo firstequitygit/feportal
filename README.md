@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment Variables
+
+`.env.local.example` is excluded by the `.gitignore` `.env*` rule and therefore not committed.
+Copy the block below into your own `.env.local` (never commit that file).
+
+### Square (payment processing)
+
+```
+NEXT_PUBLIC_SQUARE_APPLICATION_ID=
+NEXT_PUBLIC_SQUARE_LOCATION_ID=
+NEXT_PUBLIC_SQUARE_ENVIRONMENT=sandbox
+SQUARE_ACCESS_TOKEN=
+SQUARE_LOCATION_ID=
+SQUARE_ENVIRONMENT=sandbox
+```
