@@ -200,3 +200,34 @@ export const PIPEDRIVE_LOAN_TYPE_MAP: Record<number, LoanType> = {
 // status) in Pipedrive — that data lives in Supabase only. Kept
 // here as an empty const so existing imports don't break.
 export const PIPEDRIVE_PERSON_FIELDS = {} as const
+
+// ============================================================
+// LOAN APPLICATION (draft/intake)
+// ============================================================
+
+export type LoanApplicationStatus = 'draft' | 'submitted'
+
+export interface LoanApplication {
+  id: string
+  status: LoanApplicationStatus
+  current_step: number
+  resume_token: string
+  resume_email: string | null
+  data: Record<string, unknown>
+  square_customer_id: string | null
+  square_card_id: string | null
+  card_brand: string | null
+  card_last4: string | null
+  fee_amount_cents: number | null
+  fee_charged_at: string | null
+  submitted_loan_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Maps the form's Loan Type display label → existing loans.loan_type CHECK value.
+export const APPLICATION_LOAN_TYPE_MAP: Record<string, LoanType> = {
+  'Fix & Flip/Renovation': 'Fix & Flip (Bridge)',
+  'New Construction':       'New Construction',
+  'DSCR Rental Loan':       'Rental (DSCR)',
+}

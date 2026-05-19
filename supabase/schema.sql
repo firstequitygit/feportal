@@ -137,7 +137,7 @@ create index if not exists idx_brokers_email        on brokers(email);
 
 create table if not exists loans (
   id uuid primary key default uuid_generate_v4(),
-  pipedrive_deal_id integer unique not null,
+  pipedrive_deal_id integer unique,   -- nullable: app-created loans have no Pipedrive deal
   borrower_id uuid references borrowers(id) on delete set null,
   broker_id   uuid references brokers(id)   on delete set null,  -- brokered loans: broker is the contact
   loan_officer_id     uuid references loan_officers(id)   on delete set null,
@@ -408,6 +408,35 @@ create table if not exists loan_demographics (
 );
 
 -- ============================================================
+-- LOAN APPLICATIONS (draft/intake table; Supabase-native intake)
+-- ============================================================
+
+create table if not exists loan_applications (
+  id uuid primary key default uuid_generate_v4(),
+  status text not null default 'draft' check (status in ('draft', 'submitted')),
+  current_step int not null default 1 check (current_step between 1 and 6),
+  resume_token uuid not null default uuid_generate_v4(),
+  resume_email text,
+  data jsonb not null default '{}'::jsonb,
+  square_customer_id text,
+  square_card_id text,
+  card_brand text,
+  card_last4 text,
+  fee_amount_cents int,
+  fee_charged_at timestamptz,
+  submitted_loan_id uuid references loans(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create unique index if not exists loan_applications_resume_token_idx
+  on loan_applications(resume_token);
+create index if not exists loan_applications_status_idx
+  on loan_applications(status);
+create index if not exists loan_applications_submitted_loan_idx
+  on loan_applications(submitted_loan_id);
+
+-- ============================================================
 -- LOAN STAGE HISTORY (timeline of stage transitions)
 -- ============================================================
 
@@ -458,6 +487,7 @@ alter table loan_events            enable row level security;
 alter table loan_notes             enable row level security;
 alter table loan_details           enable row level security;
 alter table loan_demographics      enable row level security;
+alter table loan_applications      enable row level security;
 alter table loan_stage_history     enable row level security;
 alter table condition_action_tokens enable row level security;
 
