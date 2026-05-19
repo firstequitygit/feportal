@@ -53,6 +53,8 @@ const LO_NAV: NavItem[] = [
   { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
   { href: '/loan-officer/loans',      label: 'Loans',          icon: Building2 },
   { href: '/loan-officer/conditions', label: 'Conditions',     icon: FileCheck },
+  { href: '/loan-officer/borrowers',  label: 'Borrowers',      icon: UserCircle },
+  { href: '/loan-officer/brokers',    label: 'Brokers',        icon: Briefcase },
   { href: '/reports',                 label: 'Reports',        icon: BarChart3 },
   { href: '/loan-officer/archived',   label: 'Archived Loans', icon: Archive },
 ]
