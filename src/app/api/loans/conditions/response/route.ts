@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { mailFrom } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
@@ -75,7 +76,7 @@ export async function PATCH(req: NextRequest) {
       const addr = recipients.property_address ?? 'a loan'
       const responderLabel = responderName ? `${responderRole} ${responderName}` : responderRole
       await transporter.sendMail({
-        from: `First Equity Funding <${gmailUser}>`,
+        from: mailFrom(),
         to: recipients.emails.join(', '),
         subject: `Condition response — ${addr}`,
         html: `

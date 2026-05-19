@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { mailFrom } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
@@ -163,7 +164,7 @@ async function sendNotification({
     : ''
 
   await transporter.sendMail({
-    from: `First Equity Funding <${gmailUser}>`,
+    from: mailFrom(),
     to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `

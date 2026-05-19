@@ -12,6 +12,20 @@ export function getTransporter() {
   })
 }
 
+/**
+ * Returns the From: header for outgoing portal email.
+ *
+ * Prefers MAIL_FROM (e.g. "processing@fefunding.com") when set, else falls
+ * back to the Gmail SMTP account itself. Gmail will only let us send with a
+ * MAIL_FROM that differs from GMAIL_USER if that address is set up as a
+ * verified "Send mail as" alias in the GMAIL_USER account's settings —
+ * otherwise Gmail rewrites the From back to the SMTP user.
+ */
+export function mailFrom(): string {
+  const addr = process.env.MAIL_FROM?.trim() || process.env.GMAIL_USER || ''
+  return `First Equity Funding <${addr}>`
+}
+
 function shortStage(s: string | null): string {
   if (!s) return 'Unknown'
   return s.split(' /')[0].trim()
@@ -79,7 +93,7 @@ export async function sendStageUpdateEmail(
   const transporter = getTransporter()
   await Promise.all(recipients.map(email =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+      from: mailFrom(),
       to: email,
       subject,
       html,
@@ -146,7 +160,7 @@ export async function sendLoanFundedEmail(loanId: string) {
   const transporter = getTransporter()
   await Promise.all(recipients.map(email =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+      from: mailFrom(),
       to: email,
       subject,
       html,
@@ -213,7 +227,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
   const transporter = getTransporter()
   await Promise.all(recipients.map(email =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+      from: mailFrom(),
       to: email,
       subject,
       html,

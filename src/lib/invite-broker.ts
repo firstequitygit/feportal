@@ -8,6 +8,7 @@
 // its own permission check before calling this.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { mailFrom } from '@/lib/email'
 import { PORTAL_URL } from '@/lib/portal-url'
 import nodemailer from 'nodemailer'
 
@@ -98,7 +99,7 @@ export async function inviteBroker(input: InviteBrokerInput): Promise<InviteBrok
       auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
     })
     await transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+      from: mailFrom(),
       to: email,
       subject: `You've been invited to the First Equity Funding Online Portal`,
       html: `

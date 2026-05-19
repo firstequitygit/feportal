@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { mailFrom } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
@@ -177,7 +178,7 @@ async function sendNotification({
     : ''
 
   await transporter.sendMail({
-    from: `First Equity Funding <${user}>`,
+    from: mailFrom(),
     to: toEmails.join(', '),
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
