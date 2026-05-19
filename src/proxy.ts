@@ -31,11 +31,13 @@ export async function proxy(request: NextRequest) {
 
   // Redirect unauthenticated users to login
   // API routes handle their own auth — don't redirect them
+  // /apply is the public loan-application intake — must not be gated
   if (
     !user &&
     !pathname.startsWith('/login') &&
     !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/api/')
+    !pathname.startsWith('/api/') &&
+    !pathname.startsWith('/apply')
   ) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
