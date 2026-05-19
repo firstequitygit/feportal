@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { InboxView, type InboxItem } from '@/components/inbox-view'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 
 export default async function LoanOfficerInbox() {
   const supabase = await createClient()
@@ -22,15 +24,23 @@ export default async function LoanOfficerInbox() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
+  // Pull every non-archived loan assigned to this LO (active + closed) so
+  // dashboard tiles can count both pipeline and trailing-12-month closings.
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number')
+    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
 
-  const activeLoans = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
+  const allLoans = (loans ?? []).filter(l => !archivedSet.has(l.id))
+  const activeLoans = allLoans.filter(l => l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)
   const loanMap = new Map(activeLoans.map(l => [l.id, l]))
+
+  const metrics = await computeDashboardMetrics(adminClient, {
+    loans: allLoans,
+    conditionAssignee: 'loan_officer',
+  })
 
   const { data: conditions } = loanIds.length > 0
     ? await adminClient
@@ -65,6 +75,8 @@ export default async function LoanOfficerInbox() {
       dashboardHref="/loan-officer/inbox"
       variant="loan-officer"
     >
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <DashboardStats {...metrics} />
       <InboxView items={items} role="loan_officer" linkPrefix="/loan-officer" />
     </PortalShell>
   )
