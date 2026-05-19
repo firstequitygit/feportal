@@ -220,3 +220,53 @@ export async function sendLoanApprovedEmail(loanId: string) {
     }).catch(err => console.error(`Loan Approved email to ${email} failed:`, err))
   ))
 }
+
+const wrap = (title: string, bodyHtml: string) => `
+  <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+    <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+      <h1 style="margin: 0; color: white; font-size: 18px;">${title}</h1>
+    </div>
+    <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+      ${bodyHtml}
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+      <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+    </div>
+  </div>`
+
+export async function sendApplicationResumeEmail(email: string, token: string, firstName: string | null) {
+  const link = `${PORTAL_URL}/apply/resume/${token}`
+  const html = wrap('Your loan application — saved', `
+    <p style="font-size: 15px; margin-top: 0;">Hi ${firstName ?? 'there'},</p>
+    <p style="font-size: 15px;">Your loan application has been saved. You can return any time using the secure link below — your answers will be exactly where you left off.</p>
+    <p style="margin-top: 24px;">
+      <a href="${link}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Resume application</a>
+    </p>
+    <p style="font-size: 13px; color: #555; margin-top: 24px;">Keep this email — the link is private to you.</p>`)
+  await getTransporter().sendMail({
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+    to: email, subject: 'Resume your First Equity loan application', html,
+  }).catch(err => console.error(`Resume email to ${email} failed:`, err))
+}
+
+export async function sendApplicationSubmittedEmail(email: string, firstName: string | null, propertyAddress: string) {
+  const html = wrap('Application received', `
+    <p style="font-size: 15px; margin-top: 0;">Hi ${firstName ?? 'there'},</p>
+    <p style="font-size: 15px;">We've received your loan application for <strong>${propertyAddress}</strong>. Our team will review it and reach out with next steps. Thank you for choosing First Equity Funding.</p>`)
+  await getTransporter().sendMail({
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+    to: email, subject: 'We received your First Equity loan application', html,
+  }).catch(err => console.error(`Submitted email to ${email} failed:`, err))
+}
+
+export async function sendApplicationLoanOfficerNotice(loEmail: string, applicantName: string, propertyAddress: string, loanId: string) {
+  const html = wrap('New loan application', `
+    <p style="font-size: 15px; margin-top: 0;">A new application was submitted.</p>
+    <p style="font-size: 15px;"><strong>Applicant:</strong> ${applicantName}<br/><strong>Property:</strong> ${propertyAddress}</p>
+    <p style="margin-top: 24px;">
+      <a href="${PORTAL_URL}/admin/loans/${loanId}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Open in portal</a>
+    </p>`)
+  await getTransporter().sendMail({
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+    to: loEmail, subject: `New loan application — ${propertyAddress}`, html,
+  }).catch(err => console.error(`LO notice to ${loEmail} failed:`, err))
+}
