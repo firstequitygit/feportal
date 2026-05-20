@@ -158,11 +158,33 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         className="sticky bottom-0 -mx-4 mt-8 border-t border-slate-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
       >
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between">
           <Button variant="outline" disabled={step === 1} onClick={() => setStep(s => Math.max(1, s - 1))}>← Back</Button>
-          {step < TOTAL_STEPS
-            ? <Button onClick={() => setStep(s => Math.min(TOTAL_STEPS, s + 1))}>Next →</Button>
-            : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
+          <div className="flex items-center gap-4">
+            {step !== TOTAL_STEPS && (
+              <button
+                type="button"
+                className="text-sm text-slate-600 underline hover:text-slate-900"
+                onClick={async () => {
+                  try {
+                    await fetch('/api/apply/draft', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ resumeToken: token, data, currentStep: step }),
+                    })
+                    toast.success('Saved. Use the link in your earlier email to resume.')
+                  } catch {
+                    toast.error("Couldn't save. Check your connection and try again.")
+                  }
+                }}
+              >
+                Save &amp; finish later
+              </button>
+            )}
+            {step < TOTAL_STEPS
+              ? <Button onClick={() => setStep(s => Math.min(TOTAL_STEPS, s + 1))}>Next →</Button>
+              : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
+          </div>
         </div>
       </div>
     </div>
