@@ -6,12 +6,12 @@
 
 ## Goal
 
-Replace password-based login with passwordless email authentication (6-digit OTP code *or* magic link, user's choice). Migrate transactional email delivery from Gmail SMTP to Resend along the way. Maintain a 30-day transition window where existing users can still sign in with their old password as an escape hatch.
+Replace password-based login with passwordless email authentication (6-digit OTP code *or* magic link, user's choice). Move **all auth emails** (login codes + password reset) from Nodemailer/Gmail to Resend, with branded HTML templates living in the repo. Maintain a 30-day transition window where existing users can still sign in with their old password as an escape hatch.
 
 ## Non-goals
 
 - Adding social/OAuth login (separate effort, not blocked by this work).
-- Migrating long-running transactional emails (`sendStageUpdateEmail`, etc.) off Nodemailer in this work. We swap Supabase Auth's SMTP only. Application-level emails can be migrated later in a separate effort — they will continue to use Gmail SMTP via Nodemailer until then.
+- Migrating **non-auth** transactional emails — `sendStageUpdateEmail`, `sendLoanFundedEmail`, `sendApplicationSubmittedEmail`, `condition-action` emails — off Nodemailer/Gmail. Those stay on the current path and can migrate to Resend in a follow-up effort.
 - Multi-factor authentication. OTP-as-second-factor is out of scope; this is OTP-as-primary.
 
 ## Current state (verified 2026-05-20)
@@ -38,23 +38,41 @@ Replace password-based login with passwordless email authentication (6-digit OTP
 | Resend cooldown | 60 seconds between code requests for the same email |
 | Verify attempts | Max 5 per code before invalidation |
 | Send rate limit | Max 5 send requests per email per hour |
-| Email provider | Resend (configured as Supabase Auth custom SMTP) |
+| Email transport | Resend SDK called from Next.js API routes (mirrors existing `forgot-password` pattern, swap Nodemailer→Resend) |
+| Email templates | Live in repo at `src/lib/emails/auth/`, version-controlled |
+| OTP generation | `adminClient.auth.admin.generateLink({ type: 'email', email })` returns both the 6-digit code and a magic link |
 
 ## Architecture
 
-### Email delivery — Resend as Supabase Auth SMTP
+### Email delivery — Resend SDK called from API routes
 
-Supabase Auth sends all its own emails (OTP codes, magic links, password reset, invites). It supports custom SMTP via the project settings. We point it at Resend:
+Auth emails are sent from Next.js API routes using the Resend SDK directly. This mirrors the existing `forgot-password/route.ts` pattern (which calls `admin.generateLink()` + Nodemailer) — we swap Nodemailer for Resend and keep everything else.
 
-- Host: `smtp.resend.com`
-- Port: `465` (SSL)
-- Username: `resend`
-- Password: `RESEND_API_KEY` (project env var)
-- Sender: `auth@<verified-domain>` — domain verified in Resend dashboard
+**Why not Supabase's built-in email sending?** Because:
+1. Templates would live in Supabase's web dashboard, outside the repo — no version control, no peer review, lost if the project is rebuilt.
+2. The repo would have two auth-email patterns (app sends password reset; Supabase sends OTP). One pattern is better.
 
-**The app code does not call Resend directly for auth emails.** Supabase handles all auth email rendering and delivery once SMTP is configured. We only customize the Supabase email templates (in dashboard) to match brand voice.
+**Building blocks (new):**
 
-The existing Nodemailer-based `lib/email.ts` transactional emails are out of scope and continue to use Gmail SMTP until a follow-up migration.
+- **`src/lib/resend.ts`** — thin wrapper that exports a memoized Resend client built from `RESEND_API_KEY`. Pattern mirrors `src/lib/supabase/admin.ts`.
+- **`src/lib/emails/auth/sign-in-code.ts`** — exports `renderSignInCodeEmail({ code, magicLink })` returning `{ subject, html }`. Branded HTML matching the existing forgot-password email style.
+- **`src/lib/emails/auth/password-reset.ts`** — same shape, hosts the password-reset HTML that's currently inline in `forgot-password/route.ts`.
+- **`src/lib/emails/send.ts`** — exports `sendAuthEmail({ to, subject, html })` that calls Resend with `from = "First Equity Funding <auth@<verified-domain>>"`. Single chokepoint for retries/logging.
+
+**Auth flows (new and migrated):**
+
+- **OTP send (new):** `POST /api/auth/send-otp`
+  - Body: `{ email: string }`
+  - Calls `adminClient.auth.admin.generateLink({ type: 'email', email })` — Supabase returns both `properties.email_otp` (6 digits) and `properties.action_link` (magic link URL).
+  - Renders with `renderSignInCodeEmail` and sends with `sendAuthEmail`.
+  - Always returns `{ success: true }` regardless of whether the email exists, to prevent enumeration.
+  - In-memory + DB-backed rate limiting (see "Rate limiting and abuse" below).
+
+- **OTP verify:** stays client-side. Login page calls `supabase.auth.verifyOtp({ email, token, type: 'email' })` directly — no server route needed because Supabase verifies the code natively.
+
+- **Password reset (migrated):** `POST /api/auth/forgot-password` is rewritten to use the new helpers — `admin.generateLink({ type: 'magiclink' })` (unchanged) + `renderPasswordResetEmail` + `sendAuthEmail`. Net effect: same behavior, off Gmail, template in repo.
+
+**Domain setup (in Resend dashboard, one-time):** Verify the sending domain (typically the same one used for app URLs), add SPF/DKIM/DMARC records to DNS, set up a no-reply or auth subdomain to isolate auth-email reputation from marketing if/when added.
 
 ### Login flow — single page, progressive reveal
 
@@ -62,18 +80,18 @@ The existing Nodemailer-based `lib/email.ts` transactional emails are out of sco
 
 **State 1: Email entry**
 - Email input + "Send sign-in code" button
-- Calls `supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })`. Supabase sends an email containing **both** the 6-digit code and a magic-link button (template customized to show both).
+- On submit, POST to `/api/auth/send-otp` with `{ email }`. The server route generates the code, sends the email, returns `{ success: true }`.
 - Below the primary CTA: small text link "Use password instead" — only rendered during the 30-day transition window.
 
 **State 2: Code entry**
 - "Check your email" heading with the email obscured-but-recognizable: `a••@example.com`
 - 6-digit code input (one box, single field — not 6 boxes — to keep paste behavior simple)
-- "Verify" button → calls `supabase.auth.verifyOtp({ email, token, type: 'email' })`
+- "Verify" button → calls `supabase.auth.verifyOtp({ email, token, type: 'email' })` from the client
 - Subtext: "or click the link in your email instead"
-- "Resend code" link — disabled with countdown for 60 seconds after each send
+- "Resend code" link — disabled with countdown for 60 seconds after each send (calls `/api/auth/send-otp` again)
 - "Use a different email" link → returns to State 1
 
-**Magic-link landing:** Supabase's magic-link clicks redirect to `/auth/callback` (already exists for the existing magic-link flows). On success, redirect to dashboard. No new route needed.
+**Magic-link landing:** Magic links sent in the OTP email point at `/auth/callback?code=...` (handled by the existing route). On success, redirect to dashboard. No new route needed.
 
 **Password fallback (transition only):** Clicking "Use password instead" toggles a third local state with the existing password input + "Sign in" button calling `signInWithPassword()`. After the 30-day window, this code path is deleted along with the link.
 
@@ -92,43 +110,51 @@ The admin code that issues invites (already uses `supabase.auth.admin.generateLi
 
 ### Rate limiting and abuse
 
-- Supabase Auth enforces server-side rate limits on `signInWithOtp` (default 30 emails/hour per project; configurable in dashboard).
-- **App-level cooldown (60-sec resend):** enforced client-side by disabling the button + countdown. Sufficient because the server-side Supabase limits backstop it.
-- **Email enumeration:** `shouldCreateUser: false` means Supabase returns an error if the email isn't registered. We mask this in the UI: always show "Check your email" regardless. The error is logged server-side via the Supabase response but never surfaced to the user.
-- **Verify attempts (max 5):** Supabase Auth enforces this natively.
-- **TTL (10 min):** matches Supabase default; no config change needed.
+- **Server-side rate limit (5 sends per email per hour):** enforced in `/api/auth/send-otp` via a small `auth_otp_sends` table — `(email, sent_at)` rows; before each send, count rows for that email in the last hour and reject the 6th. Cleanup row older than 1 hour during each request. Tracks attempts even when the email doesn't exist (to mask enumeration).
+- **Server-side cooldown (60 sec):** before sending, check the most recent `auth_otp_sends` row for the email; reject if < 60 sec ago. Same response shape returned to the client either way.
+- **Client-side cooldown UI:** "Resend code" button shows a 60-sec countdown after each send for UX; the server is the source of truth.
+- **Email enumeration:** `/api/auth/send-otp` always returns `{ success: true }`. If `admin.generateLink` errors because the user doesn't exist, the response is identical to a real send. The error is logged server-side but never surfaced.
+- **Verify attempts (max 5):** Supabase Auth enforces this natively on `verifyOtp`.
+- **TTL (10 min):** matches Supabase default for `type: 'email'` OTPs; no config change needed.
 
 ## Components changed
 
 | File | Change |
 |---|---|
+| `feportal/src/lib/resend.ts` | **New** — exports memoized Resend client built from `RESEND_API_KEY` |
+| `feportal/src/lib/emails/send.ts` | **New** — `sendAuthEmail({ to, subject, html })` chokepoint for Resend calls |
+| `feportal/src/lib/emails/auth/sign-in-code.ts` | **New** — `renderSignInCodeEmail({ code, magicLink })` template |
+| `feportal/src/lib/emails/auth/password-reset.ts` | **New** — `renderPasswordResetEmail({ link })` template (extracted from existing inline HTML) |
+| `feportal/src/app/api/auth/send-otp/route.ts` | **New** — POST endpoint: generate code via admin API, send via Resend, enforce rate limits |
+| `feportal/src/app/api/auth/forgot-password/route.ts` | **Migrate** — swap Nodemailer call for `sendAuthEmail` + new template helper; behavior unchanged |
 | `feportal/src/app/login/page.tsx` | Rewrite as progressive-reveal OTP flow with password fallback link (transition only) |
 | `feportal/src/app/auth/set-password/page.tsx` | Replace body with redirect to `/login` |
-| `feportal/src/app/auth/callback/route.ts` | Already exists — verify it handles both OTP magic-link callbacks and invite callbacks; extend if needed |
-| Supabase dashboard | Configure custom SMTP (Resend) + customize OTP/magic-link email templates |
-| Resend dashboard | Verify sending domain |
-| `feportal/.env.local` / Vercel env | Add `RESEND_API_KEY` (already in env per inventory) — confirm present |
+| `feportal/src/app/auth/callback/route.ts` | Already exists — verify it handles invite callbacks (it does, via `exchangeCodeForSession`); no change expected |
+| `feportal/supabase/migrations/<dated>-auth-otp-sends.sql` | **New** — `auth_otp_sends` table for app-level rate limiting |
+| Resend dashboard | Verify sending domain; add SPF/DKIM/DMARC records to DNS |
+| `feportal/.env.local` / Vercel env | Confirm `RESEND_API_KEY` is present and valid in all environments |
 
 ## Phased rollout
 
 Three sequential merges, each independently verifiable:
 
-**Phase 1 — Resend SMTP swap (zero user-facing change)**
-- Verify domain in Resend.
-- Configure Supabase Auth custom SMTP → Resend.
-- Trigger an existing password-reset email to a test account; confirm it arrives from Resend and renders correctly.
-- Verify dashboard logs in Resend show the send.
-- **Reversible:** revert SMTP config in Supabase dashboard.
+**Phase 1 — Resend foundation + password-reset migration (zero user-facing change)**
+- Verify sending domain in Resend (DNS records).
+- Add `src/lib/resend.ts`, `src/lib/emails/send.ts`, and `src/lib/emails/auth/password-reset.ts`.
+- Rewrite `forgot-password/route.ts` to use the new helpers instead of Nodemailer.
+- Trigger a real password-reset email to a test account; confirm it arrives from Resend, renders correctly, and the reset link works end-to-end.
+- **Reversible:** revert the route commit; the rest of the helpers are dead code until Phase 2.
 
-**Phase 2 — Passwordless login UI**
-- Rewrite `login/page.tsx`.
-- Customize Supabase OTP email template to show both code and magic link.
-- End-to-end test: new email arrives, code works, magic link works, fallback password works.
-- **Reversible:** revert the login page commit; Supabase still sends OTPs but no UI exposes them.
+**Phase 2 — Passwordless login UI + send-otp route**
+- Add `src/lib/emails/auth/sign-in-code.ts`.
+- Add `src/app/api/auth/send-otp/route.ts` + the `auth_otp_sends` migration.
+- Rewrite `src/app/login/page.tsx` as progressive-reveal OTP flow with password fallback link.
+- End-to-end test: code email arrives, code verifies, magic link works, password fallback works.
+- **Reversible:** revert the login page + send-otp route commit; password login keeps working.
 
-**Phase 3 — Invite flow + 30-day cleanup (this is two sub-commits in one phase)**
-- 3a (now): Convert invite to magic-link → auto-login. Stub set-password page.
-- 3b (in 30 days, separate PR): Remove password fallback link from login. Delete `set-password/page.tsx`, the password input branch, and any `signInWithPassword` calls.
+**Phase 3 — Invite flow + 30-day cleanup (two sub-commits)**
+- 3a (now): Update invite flow so the invite email points at `/auth/callback` directly (auto-login); stub `set-password/page.tsx` as a redirect to `/login`.
+- 3b (in 30 days, separate PR): Remove password fallback link from login. Delete `set-password/page.tsx`, the password input branch, and any `signInWithPassword` calls. Optionally null-out password hashes in `auth.users` for users who've successfully logged in via OTP since Phase 2.
 
 ## Security review checkpoints
 
