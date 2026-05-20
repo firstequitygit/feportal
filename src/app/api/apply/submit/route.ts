@@ -10,15 +10,45 @@ import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
+function isEmpty(v: unknown): boolean {
+  if (v === undefined || v === null || v === "") return true
+  if (Array.isArray(v) && v.length === 0) return true
+  return false
+}
+
 function missingRequired(data: ApplicationData): string[] {
   const miss: string[] = []
   const primary = (data.primary as Record<string, unknown>) ?? {}
+
+  // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS + DECLARATION_FIELDS + HMDA_FIELDS
   for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS, ...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
-    if (isRequired(f, data, primary) && (primary[f.name] === undefined || primary[f.name] === '' || primary[f.name] === null)) miss.push(`primary.${f.name}`)
+    if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
+      miss.push(`primary.${f.name}`)
+    }
   }
+
+  // Deal fields: scope is the form root (no prefix)
   for (const f of DEAL_FIELDS) {
-    if (isRequired(f, data) && (data[f.name] === undefined || data[f.name] === '' || data[f.name] === null)) miss.push(f.name)
+    if (isRequired(f, data) && isEmpty(data[f.name])) {
+      miss.push(f.name)
+    }
   }
+
+  // Co-borrowers: BORROWER_FIELDS + DECLARATION_FIELDS + HMDA_FIELDS (no PRIMARY_EXTRA_FIELDS)
+  // EXPERIENCE_FIELDS are all optional — skip.
+  const cobs: Record<string, unknown>[] = Array.isArray(data.co_borrowers)
+    ? (data.co_borrowers as Record<string, unknown>[])
+    : []
+  for (let i = 0; i < cobs.length; i++) {
+    const scope = cobs[i]
+    const prefix = `coborrower${i + 1}`
+    for (const f of [...BORROWER_FIELDS, ...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+      if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
+        miss.push(`${prefix}.${f.name}`)
+      }
+    }
+  }
+
   return miss
 }
 
