@@ -227,3 +227,87 @@ export const ALL_FIELDS: readonly FieldDef[] = [
   ...DECLARATION_FIELDS,
   ...HMDA_FIELDS,
 ]
+
+// ---- Per-step required-field gating ----
+//
+// Step → field-array mapping is derived by inspecting each step component:
+//   Step 1 (borrower):    BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS for primary;
+//                         BORROWER_FIELDS for each co-borrower.
+//   Step 2 (deal):        DEAL_FIELDS — scope is the form root (no prefix).
+//   Step 3 (experience):  EXPERIENCE_FIELDS — none are required; returns [].
+//   Step 4 (disclosures): DECLARATION_FIELDS + HMDA_FIELDS per borrower.
+//   Step 5 (payment):     No required-field validation — returns [].
+//
+// Prefix convention mirrors submit/route.ts exactly:
+//   primary fields  → "primary.<name>"
+//   co-borrower N   → "coborrower<N>.<name>"  (1-indexed, no space)
+//   deal fields     → "<name>"  (no prefix)
+//
+// Empty check: undefined | null | "" counts as empty.
+// false and 0 are NOT empty (valid boolean/number answers).
+
+export type StepId = "borrower" | "deal" | "experience" | "disclosures" | "payment"
+
+function isEmpty(v: unknown): boolean {
+  if (v === undefined || v === null || v === "") return true
+  if (Array.isArray(v) && v.length === 0) return true
+  return false
+}
+
+export function getMissingRequiredFields(
+  stepId: StepId,
+  data: ApplicationData,
+): string[] {
+  const miss: string[] = []
+  const primary = (data.primary as Record<string, unknown>) ?? {}
+  const cobs: Record<string, unknown>[] = Array.isArray(data.co_borrowers)
+    ? (data.co_borrowers as Record<string, unknown>[])
+    : []
+
+  if (stepId === "borrower") {
+    // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS
+    for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]) {
+      if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
+        miss.push(`primary.${f.name}`)
+      }
+    }
+    // Co-borrowers: BORROWER_FIELDS only (no PRIMARY_EXTRA_FIELDS)
+    for (let i = 0; i < cobs.length; i++) {
+      const scope = cobs[i]
+      const prefix = `coborrower${i + 1}`
+      for (const f of BORROWER_FIELDS) {
+        if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
+          miss.push(`${prefix}.${f.name}`)
+        }
+      }
+    }
+  } else if (stepId === "deal") {
+    // Deal fields: scope is the form root — no borrower prefix
+    for (const f of DEAL_FIELDS) {
+      if (isRequired(f, data) && isEmpty(data[f.name])) {
+        miss.push(f.name)
+      }
+    }
+  } else if (stepId === "experience") {
+    // No EXPERIENCE_FIELDS are required — always returns []
+  } else if (stepId === "disclosures") {
+    // DECLARATION_FIELDS + HMDA_FIELDS per borrower
+    for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+      if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
+        miss.push(`primary.${f.name}`)
+      }
+    }
+    for (let i = 0; i < cobs.length; i++) {
+      const scope = cobs[i]
+      const prefix = `coborrower${i + 1}`
+      for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+        if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
+          miss.push(`${prefix}.${f.name}`)
+        }
+      }
+    }
+  }
+  // stepId === "payment": no required-field validation
+
+  return miss
+}
