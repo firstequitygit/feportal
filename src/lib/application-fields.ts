@@ -3,7 +3,7 @@
 
 export type FieldType =
   | 'text' | 'email' | 'tel' | 'ssn' | 'date' | 'number' | 'currency'
-  | 'select' | 'radio' | 'yesno' | 'textarea' | 'file'
+  | 'select' | 'radio' | 'yesno' | 'textarea' | 'file' | 'signature'
 
 export type ApplicationData = Record<string, unknown>
 

@@ -32,7 +32,7 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
         const visible = isVisible(f, data, scope)
         const v = scope[f.name]
         const id = `f-${f.name}`
-        const wide = f.type === 'textarea' || f.type === 'radio' || f.type === 'file'
+        const wide = f.type === 'textarea' || f.type === 'radio' || f.type === 'file' || f.type === 'signature'
         const blurErr = blurErrors[f.name] ?? null
         return (
           <FieldReveal key={f.name} show={visible}>
@@ -86,6 +86,31 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
                   onChange={(val) => onChange(f.name, val)}
                   invalid={Boolean(blurErr)}
                   onBlur={() => handleBlur(f.name, f.type, v)} />
+              ) : f.type === 'signature' ? (
+                <div className="space-y-2">
+                  <input
+                    id={id}
+                    type="text"
+                    value={String(v ?? "")}
+                    onChange={(e) => onChange(f.name, e.target.value)}
+                    placeholder="Type your full legal name"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <div className="flex items-baseline justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+                    <span
+                      style={{ fontFamily: "'Brush Script MT', 'Lucida Handwriting', cursive" }}
+                      className="text-2xl text-slate-900"
+                    >
+                      {String(v ?? "") || " "}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {new Date().toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    By typing your name above, you are signing this document electronically.
+                  </p>
+                </div>
               ) : (
                 <Input id={id}
                   type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
