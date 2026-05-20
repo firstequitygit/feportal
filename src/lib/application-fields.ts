@@ -31,7 +31,6 @@ export const PROPERTY_TYPE_OPTIONS = ['Single Family','Condo','Multifamily (2-4 
 export const EXIT_STRATEGY_OPTIONS = ['Sell','Refinance','Other (Explain Below)'] as const
 export const DEAL_SOURCE_OPTIONS = ['Short Sale','Bank Owned (REO)','Sheriff Sale','MLS','Foreclosure Auction','Wholesaler','Direct from Seller','Other'] as const
 export const HEAR_ABOUT_OPTIONS = ['Internet Search (Google, Bing, etc.)','Social Media (Facebook, Instagram, etc.)','YouTube','Email Marketing','Text Message','Phone Call','Direct Mail','Networking Event','Realtor Referral','Broker Referral','Other Referral','3rd Party Website','3rd Party Publication','Other'] as const
-export const LEASE_TYPE_OPTIONS = ['Annual','Month-to-Month','Short Term/Vacation Rental','Vacant'] as const
 export const OTHER_RE_EXPERIENCE_OPTIONS = ['Realtor','Contractor','Wholesaler','Real Estate Attorney','Mortgage Broker/Lender'] as const
 export const FLIPS_COMPLETED_OPTIONS = ['0','1 - 2','3 - 10','11+'] as const
 export const MARITAL_STATUS_OPTIONS = ['Married','Single','Separated'] as const
@@ -146,9 +145,11 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency', help: 'How much cash do the borrowers have available for a downpayment?' },
   { name: 'reserves_post_closing', label: 'Reserves Post Closing', type: 'currency', help: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
   { name: 'number_of_units', label: 'Number of Units', type: 'number',
-    visibleWhen: (d) => isDSCR(d) || d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)',
-    requiredWhen: (d) => isDSCR(d) || d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)' },
-  { name: 'total_monthly_rents', label: 'Total Monthly Rents (All Units)', type: 'currency', visibleWhen: isDSCR, requiredWhen: isDSCR },
+    visibleWhen: (d) => d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)',
+    requiredWhen: (d) => d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)' },
+  { name: 'total_monthly_rents', label: 'Total Monthly Rents (All Units)', type: 'currency',
+    visibleWhen: (d) => (isDSCR(d) || d.property_type === 'Multifamily (5+ Units)') && d.property_type !== 'Multifamily (2-4 Units)',
+    requiredWhen: (d) => (isDSCR(d) || d.property_type === 'Multifamily (5+ Units)') && d.property_type !== 'Multifamily (2-4 Units)' },
   { name: 'annual_property_taxes', label: 'Annual Property Taxes', type: 'currency' },
   { name: 'annual_property_insurance', label: 'Annual Property Insurance', type: 'currency' },
   { name: 'monthly_flood_insurance', label: 'Monthly Flood Insurance', type: 'currency' },
@@ -191,12 +192,16 @@ export const PRIMARY_EXTRA_FIELDS: FieldDef[] = [
   { name: 'hear_about_details', label: 'Details', type: 'text' },
 ]
 
-export interface UnitData { currently_rented?: boolean; current_rent?: number; market_rent?: number; lease_type?: string }
+export interface UnitData { currently_rented?: boolean; current_rent?: number; market_rent?: number }
 export const UNIT_FIELDS: FieldDef[] = [
-  { name: 'currently_rented', label: 'Currently Rented', type: 'yesno' },
-  { name: 'current_rent', label: 'Current Rent', type: 'currency' },
-  { name: 'market_rent', label: 'Market Rent', type: 'currency' },
-  { name: 'lease_type', label: 'Lease Type', type: 'select', options: LEASE_TYPE_OPTIONS },
+  { name: 'currently_rented', label: 'Is this unit occupied?', type: 'yesno', required: true,
+    help: 'Yes = currently leased to a tenant. No = vacant.' },
+  { name: 'current_rent', label: 'Current Monthly Rent', type: 'currency',
+    visibleWhen: (_d, s) => s?.currently_rented === true,
+    requiredWhen: (_d, s) => s?.currently_rented === true },
+  { name: 'market_rent', label: 'Estimated Market Rent', type: 'currency',
+    visibleWhen: (_d, s) => s?.currently_rented === false,
+    requiredWhen: (_d, s) => s?.currently_rented === false },
 ]
 
 /** Generic visibility resolver used by the renderer AND server validation. */

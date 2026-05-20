@@ -5,6 +5,9 @@ import { FieldRenderer } from './field-renderer'
 export function RepeatingUnits({ data, set }: {
   data: ApplicationData; set: (patch: Record<string, unknown>) => void
 }) {
+  // Only collect per-unit detail for 2-4 unit multifamily. 5+ units provide a total rent
+  // on the deal step; the rent roll itself is collected post-submit during conditions.
+  if (data.property_type !== 'Multifamily (2-4 Units)') return null
   const count = Math.max(0, Math.min(4, Number(data.number_of_units) || 0))
   if (!count) return null
   const units = Array.isArray(data.units) ? (data.units as Record<string, unknown>[]) : []
@@ -15,11 +18,6 @@ export function RepeatingUnits({ data, set }: {
   }
   return (
     <div className="space-y-4">
-      {Number(data.number_of_units) > 4 && (
-        <p className="text-xs text-amber-600">
-          For properties with 5+ units, enter the 4 largest units here. Provide details for remaining units in the rent-roll document.
-        </p>
-      )}
       {rows.map((u, i) => (
         <div key={i} className="rounded-lg border p-4">
           <h4 className="mb-2 font-medium">Unit {i + 1}</h4>
