@@ -11,8 +11,6 @@ import { Step5Payment } from '../_steps/step5-payment'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
 
-const ROMAN = ["I", "II", "III", "IV", "V"] as const
-
 // Resolve a prefixed field name to its current value in data.
 // "primary.first_name"  -> data.primary?.first_name
 // "coborrower1.ssn"     -> data.co_borrowers?.[0]?.ssn
@@ -143,109 +141,99 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     <Step5Payment key={5} data={data} token={token} />,
   ][step - 1]
 
-  const roman = ROMAN[step - 1]
-
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       {devSkipRequired && (
         <div
           role="alert"
-          className="mb-4 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
         >
           <strong>Dev mode:</strong> required-field gating is bypassed.
           Server validation still runs on submit.
         </div>
       )}
 
-      {/* SaveStatus — top-right above chapter nav */}
+      {/* SaveStatus — top-right above stepper */}
       <div className="mb-3 flex justify-end">
         <SaveStatus status={autosaveStatus} />
       </div>
 
-      {/* Roman-numeral chapter nav */}
-      <nav className="border-b border-(--apply-border) pb-4">
-        <ol className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-xs uppercase tracking-[0.18em]">
-          {STEP_TITLES.map((t, i) => {
-            const isActive = i + 1 === step
-            const isVisited = i + 1 <= maxVisited
+      {/* Horizontal numbered-circle stepper */}
+      <nav aria-label="Application progress" className="mb-10">
+        <ol className="flex items-start justify-between">
+          {STEP_TITLES.map((title, i) => {
+            const n = i + 1
+            const isActive = n === step
+            const isComplete = n < step
+            const isVisited = n <= maxVisited
+            const isLast = i === STEP_TITLES.length - 1
             return (
-              <li key={t} className="flex items-baseline gap-2">
+              <li key={title} className="relative flex-1 flex flex-col items-center">
+                {/* connecting line to next step */}
+                {!isLast && (
+                  <div
+                    aria-hidden
+                    className={`absolute top-4 left-1/2 right-[-50%] h-px ${
+                      isComplete ? 'bg-[#1F5D8F]' : 'bg-gray-200'
+                    }`}
+                  />
+                )}
+                {/* circle */}
                 <button
                   type="button"
                   disabled={!isVisited}
-                  onClick={() => isVisited && (setSubmitErrors(null), setStep(i + 1))}
+                  onClick={() => {
+                    if (isVisited) {
+                      setSubmitErrors(null)
+                      setStep(n)
+                    }
+                  }}
                   className={[
-                    "flex items-baseline gap-2 transition-colors",
+                    'relative z-10 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
                     isActive
-                      ? "text-(--apply-brand)"
-                      : isVisited
-                        ? "text-(--apply-ink-subtle) hover:text-(--apply-brand)"
-                        : "text-(--apply-ink-muted) opacity-40 cursor-not-allowed",
-                  ].join(" ")}
+                      ? 'border-[#1F5D8F] bg-[#1F5D8F] text-white ring-4 ring-[#1F5D8F]/15'
+                      : isComplete
+                        ? 'border-[#1F5D8F] bg-[#1F5D8F] text-white hover:bg-[#0F3A5E]'
+                        : isVisited
+                          ? 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'
+                          : 'border-gray-200 bg-white text-gray-400 cursor-not-allowed',
+                  ].join(' ')}
                 >
-                  <span
-                    className="text-base normal-case tracking-normal"
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontVariationSettings: "'opsz' 14, 'SOFT' 50",
-                    }}
-                  >
-                    {ROMAN[i]}
-                  </span>
-                  <span className="font-medium">{t}</span>
+                  {isComplete ? (
+                    <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path d="M3.5 8L6.5 11L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : n}
                 </button>
-                {i < STEP_TITLES.length - 1 && (
-                  <span className="ml-4 opacity-40 text-(--apply-ink-muted) hidden sm:inline" aria-hidden>·</span>
-                )}
+                {/* label */}
+                <span
+                  className={`mt-2 text-xs font-medium text-center leading-tight ${
+                    isActive ? 'text-[#1F5D8F]' : 'text-gray-500'
+                  }`}
+                >
+                  {title}
+                </span>
               </li>
             )
           })}
         </ol>
       </nav>
 
-      {/* Chapter opening header */}
-      <header className="mb-10 mt-12 grid grid-cols-[auto_1fr] items-baseline gap-x-8 gap-y-2 border-b border-(--apply-border) pb-8">
-        <div
-          className="text-7xl text-(--apply-brand) leading-none"
-          style={{
-            fontFamily: "var(--font-display)",
-            fontVariationSettings: "'opsz' 144, 'SOFT' 30, 'WONK' 1",
-          }}
-        >
-          {roman}
-        </div>
-        <div>
-          <div className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted) mb-2">
-            Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes
-          </div>
-          <h1
-            className="text-3xl text-(--apply-ink) leading-tight"
-            style={{
-              fontFamily: "var(--font-display)",
-              fontVariationSettings: "'opsz' 36, 'SOFT' 20",
-            }}
-          >
-            {STEP_TITLES[step - 1]}
-          </h1>
-        </div>
-      </header>
+      {/* Step heading */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900">{STEP_TITLES[step - 1]}</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes
+        </p>
+      </div>
 
-      {/* Error banner — editorial styling */}
+      {/* Error banner — standard alert */}
       {liveMissing.length > 0 && (
-        <div
-          role="alert"
-          className="mb-8 border-l-2 border-(--apply-danger) bg-(--apply-surface) pl-6 py-4 pr-4"
-        >
-          <div className="text-xs uppercase tracking-[0.22em] text-(--apply-danger) mb-1">
-            Attention
-          </div>
-          <p
-            className="text-lg text-(--apply-ink) mb-2"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {liveMissing.length} {liveMissing.length === 1 ? "field needs" : "fields need"} attention
+        <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm">
+          <p className="font-medium text-red-800">
+            {liveMissing.length} {liveMissing.length === 1 ? 'field needs' : 'fields need'} attention
           </p>
-          <ul className="space-y-1 text-sm">
+          <ul className="mt-1 space-y-0.5 text-red-700">
             {liveMissing.slice(0, 5).map((name) => {
               const dot = name.indexOf(".")
               const rawName = dot === -1 ? name : name.slice(dot + 1)
@@ -259,7 +247,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                 <li key={name}>
                   <button
                     type="button"
-                    className="text-(--apply-ink-subtle) underline underline-offset-2 hover:text-(--apply-brand)"
+                    className="underline underline-offset-2 hover:text-red-900"
                     onClick={() => {
                       const el = document.getElementById(`f-${name}`)
                       if (el) {
@@ -283,7 +271,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
 
       {/* Sticky footer */}
       <div
-        className="sticky bottom-0 -mx-6 mt-8 border-t border-(--apply-border) bg-(--apply-surface) px-6 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"
+        className="sticky bottom-0 -mx-6 mt-8 border-t border-gray-200 bg-white px-6 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">
@@ -291,7 +279,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
             type="button"
             disabled={step === 1}
             onClick={() => { setSubmitErrors(null); setStep(s => Math.max(1, s - 1)) }}
-            className="inline-flex items-center rounded-sm border border-(--apply-border-strong) px-4 py-2 text-sm text-(--apply-ink-subtle) transition-colors hover:border-(--apply-brand) hover:text-(--apply-brand) disabled:pointer-events-none disabled:opacity-40"
+            className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:border-[#1F5D8F] hover:text-[#1F5D8F] disabled:pointer-events-none disabled:opacity-40"
           >
             &larr; Back
           </button>
@@ -299,7 +287,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
             {step !== TOTAL_STEPS && (
               <button
                 type="button"
-                className="text-xs uppercase tracking-[0.18em] text-(--apply-ink-muted) transition-colors hover:text-(--apply-brand)"
+                className="text-sm text-gray-600 underline hover:text-gray-900"
                 onClick={async () => {
                   try {
                     await fetch('/api/apply/draft', {
@@ -321,7 +309,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                 <button
                   type="button"
                   onClick={goNext}
-                  className="inline-flex items-center rounded-sm bg-(--apply-brand) px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-(--apply-brand-deep) active:scale-[0.98]"
+                  className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98]"
                 >
                   Next &rarr;
                 </button>
@@ -331,7 +319,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                   type="button"
                   onClick={submit}
                   disabled={submitting || !token}
-                  className="inline-flex items-center rounded-sm bg-(--apply-brand) px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-(--apply-brand-deep) active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit Application'}
                 </button>

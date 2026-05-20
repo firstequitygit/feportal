@@ -32,16 +32,16 @@ export function SaveStatus({ status }: { status: AutosaveStatus }) {
 
   const tone =
     status.state === 'error'
-      ? 'text-(--apply-danger,#A8332E)'
+      ? 'text-red-600'
       : status.state === 'saving'
-        ? 'text-(--apply-ink-muted,#64748B)'
-        : 'text-(--apply-brand,#1F5D8F)'
+        ? 'text-gray-500'
+        : 'text-emerald-700'
 
   return (
     <span
       role="status"
       aria-live="polite"
-      className={`text-[10px] uppercase tracking-[0.18em] ${tone}`}
+      className={`text-xs ${tone}`}
     >
       {label}
     </span>

@@ -12,48 +12,43 @@ function CertBlock({ id, title, text, data, set }: {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const printed = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
   return (
-    <div className="space-y-4 rounded-sm border border-(--apply-border) p-6">
-      <h3
-        className="text-lg text-(--apply-brand)"
-        style={{ fontFamily: "var(--font-display)", fontVariationSettings: "'opsz' 20, 'SOFT' 20" }}
-      >
-        {title}
-      </h3>
-      <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-sm bg-(--apply-bg) p-3 text-xs text-(--apply-ink-muted) leading-relaxed border border-(--apply-border)">
+    <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+      <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
         {text}
       </p>
-      <p className="text-sm text-(--apply-ink-subtle)">
-        Printed name: <strong className="text-(--apply-ink)">{printed || '—'}</strong>
-        <span className="mx-2 text-(--apply-ink-muted)">·</span>
+      <p className="text-sm text-gray-600">
+        Printed name: <strong className="text-gray-900">{printed || '—'}</strong>
+        <span className="mx-2 text-gray-400">·</span>
         Date: {new Date().toLocaleDateString()}
       </p>
-      <label className="flex items-center gap-2 text-sm text-(--apply-ink-subtle)">
+      <label className="flex items-center gap-2 text-sm text-gray-600">
         <input type="checkbox" checked={data[`${id}_agree`] === true}
           onChange={e => set({ [`${id}_agree`]: e.target.checked })} />
         I have read and agree to the above.
       </label>
       <div className="space-y-1.5">
-        <label className="text-sm text-(--apply-ink) font-medium">
+        <label className="text-sm font-medium text-gray-700">
           Type your full legal name as your signature
-          <span className="text-(--apply-brand) ml-1" aria-label="required">&#x25CF;</span>
+          <span className="text-red-500 ml-1" aria-label="required">*</span>
         </label>
         <input
-          className="flex h-9 w-full rounded-sm border border-(--apply-border-strong) bg-transparent px-3 text-sm outline-none transition-colors focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30"
+          className="flex h-9 w-full rounded-md border border-gray-300 bg-transparent px-3 text-sm outline-none transition-colors focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30"
           value={(data[`${id}_signature`] as string) ?? ''}
           onChange={e => set({ [`${id}_signature`]: e.target.value })}
         />
-        <div className="mt-2 flex items-baseline justify-between rounded-sm border border-(--apply-border) bg-(--apply-brand-tint) px-4 py-3">
+        <div className="mt-2 flex items-baseline justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-3">
           <span
-            style={{ fontFamily: "var(--font-script)" }}
-            className="text-3xl text-(--apply-ink)"
+            className="text-2xl italic text-gray-900"
+            style={{ fontFamily: "Georgia, serif" }}
           >
             {(data[`${id}_signature`] as string) ?? ''}
           </span>
-          <span className="text-xs text-(--apply-ink-muted)">
+          <span className="text-xs text-gray-500">
             {new Date().toLocaleDateString()}
           </span>
         </div>
-        <p className="text-xs text-(--apply-ink-muted) italic">
+        <p className="text-xs text-gray-500">
           By typing your name above, you are signing this document electronically.
         </p>
       </div>
@@ -86,21 +81,10 @@ export function Step4Disclosures({ data, set, missingFields }: {
   return (
     <div className="space-y-10">
       <section>
-        <div className="mb-6 flex items-baseline gap-4">
-          <span
-            className="text-lg text-(--apply-ink)"
-            style={{ fontFamily: "var(--font-display)", fontVariationSettings: "'opsz' 20, 'SOFT' 20" }}
-          >
-            Declarations
-          </span>
-          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-        </div>
+        <h3 className="mb-4 text-base font-semibold text-gray-900">Declarations</h3>
         {blocks.map((bk, idx) => (
-          <div key={idx} className="mb-6 space-y-4">
-            <div className="flex items-baseline gap-4">
-              <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">{bk.label}</span>
-              <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-            </div>
+          <div key={idx} className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+            <h4 className="mb-4 text-sm font-semibold text-gray-700">{bk.label}</h4>
             <FieldRenderer
               fields={DECLARATION_FIELDS}
               data={data}
@@ -112,11 +96,11 @@ export function Step4Disclosures({ data, set, missingFields }: {
           </div>
         ))}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-(--apply-ink)">
+          <label className="text-sm font-medium text-gray-700">
             If you answered yes to any of the above declarations, please explain
           </label>
           <textarea
-            className="flex min-h-24 w-full rounded-sm border border-(--apply-border-strong) bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30"
+            className="flex min-h-24 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30"
             value={(data.declarations_explanation as string) ?? ''}
             onChange={e => set({ declarations_explanation: e.target.value })}
           />
@@ -124,25 +108,14 @@ export function Step4Disclosures({ data, set, missingFields }: {
       </section>
 
       <section>
-        <div className="mb-4 flex items-baseline gap-4">
-          <span
-            className="text-lg text-(--apply-ink)"
-            style={{ fontFamily: "var(--font-display)", fontVariationSettings: "'opsz' 20, 'SOFT' 20" }}
-          >
-            Government monitoring (HMDA)
-          </span>
-          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-        </div>
-        <p className="mb-6 text-sm text-(--apply-ink-subtle) leading-relaxed">
+        <h3 className="mb-2 text-base font-semibold text-gray-900">Government monitoring (HMDA)</h3>
+        <p className="mb-6 text-sm text-gray-500 leading-relaxed">
           The following questions are required by federal law for fair-lending reporting.
           They do not affect your application. You may choose &ldquo;Prefer not to answer.&rdquo;
         </p>
         {blocks.map((bk, idx) => (
-          <div key={idx} className="mb-6 space-y-4">
-            <div className="flex items-baseline gap-4">
-              <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">{bk.label}</span>
-              <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-            </div>
+          <div key={idx} className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+            <h4 className="mb-4 text-sm font-semibold text-gray-700">{bk.label}</h4>
             <FieldRenderer
               fields={HMDA_FIELDS}
               data={data}
@@ -156,15 +129,7 @@ export function Step4Disclosures({ data, set, missingFields }: {
       </section>
 
       <section>
-        <div className="mb-6 flex items-baseline gap-4">
-          <span
-            className="text-lg text-(--apply-ink)"
-            style={{ fontFamily: "var(--font-display)", fontVariationSettings: "'opsz' 20, 'SOFT' 20" }}
-          >
-            Authorization &amp; signature
-          </span>
-          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-        </div>
+        <h3 className="mb-4 text-base font-semibold text-gray-900">Authorization &amp; signature</h3>
         <div className="space-y-6">
           <CertBlock id="cert" title="Borrowers' Certification and Authorization" text={CERT_TEXT} data={data} set={set} />
           <CertBlock id="auth" title="Authorization to Release Information & Charge Card" text={AUTH_TEXT} data={data} set={set} />

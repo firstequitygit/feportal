@@ -43,22 +43,22 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
         return (
           <FieldReveal key={f.name} show={visible}>
             <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
-              <Label htmlFor={id} className="text-sm font-medium text-(--apply-ink)">
+              <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                 {f.label}
-                {f.required && <span className="text-(--apply-brand) ml-1" aria-label="required">&#x25CF;</span>}
+                {f.required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
                 {f.helpTooltip && <InfoTooltip label={f.label} text={f.helpTooltip} />}
               </Label>
-              {f.help && <p className="text-xs text-(--apply-ink-muted) italic">{f.help}</p>}
+              {f.help && <p className="text-xs text-gray-500">{f.help}</p>}
               {f.type === 'textarea' ? (
                 <textarea
                   id={id}
-                  className={`flex min-h-20 w-full rounded-sm border bg-transparent px-3 py-2 text-sm transition-colors outline-none ${isInvalid ? 'border-(--apply-danger)' : 'border-(--apply-border-strong) focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30'}`}
+                  className={`flex min-h-20 w-full rounded-md border bg-transparent px-3 py-2 text-sm transition-colors outline-none ${isInvalid ? 'border-red-500' : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30'}`}
                   aria-invalid={isInvalid || undefined}
                   value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)} />
               ) : f.type === 'select' ? (
                 <select
                   id={id}
-                  className={`flex h-9 w-full rounded-sm border bg-transparent px-3 text-sm transition-colors outline-none ${isInvalid ? 'border-(--apply-danger)' : 'border-(--apply-border-strong) focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30'}`}
+                  className={`flex h-9 w-full rounded-md border bg-transparent px-3 text-sm transition-colors outline-none ${isInvalid ? 'border-red-500' : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30'}`}
                   aria-invalid={isInvalid || undefined}
                   value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}>
                   <option value="">{'—'} Select {'—'}</option>
@@ -69,10 +69,10 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   id={id}
                   role="group"
                   tabIndex={-1}
-                  className={`flex gap-4 pt-1 ${isInvalid ? 'rounded-sm border border-(--apply-danger) p-2' : ''}`}
+                  className={`flex gap-4 pt-1 ${isInvalid ? 'rounded-md border border-red-500 p-2' : ''}`}
                   aria-invalid={isInvalid || undefined}>
                   {['Yes','No'].map(lbl => (
-                    <label key={lbl} className="flex items-center gap-1.5 text-sm text-(--apply-ink-subtle)">
+                    <label key={lbl} className="flex items-center gap-1.5 text-sm text-gray-600">
                       <input type="radio" name={id} checked={v === (lbl === 'Yes')}
                         onChange={() => onChange(f.name, lbl === 'Yes')} /> {lbl}
                     </label>
@@ -83,17 +83,17 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   id={id}
                   role="group"
                   tabIndex={-1}
-                  className={`flex flex-col gap-1.5 pt-1 ${isInvalid ? 'rounded-sm border border-(--apply-danger) p-2' : ''}`}
+                  className={`flex flex-col gap-1.5 pt-1 ${isInvalid ? 'rounded-md border border-red-500 p-2' : ''}`}
                   aria-invalid={isInvalid || undefined}>
                   {f.options!.map(o => (
-                    <label key={o} className="flex items-center gap-1.5 text-sm text-(--apply-ink-subtle)">
+                    <label key={o} className="flex items-center gap-1.5 text-sm text-gray-600">
                       <input type="radio" name={id} checked={v === o}
                         onChange={() => onChange(f.name, o)} /> {o}
                     </label>
                   ))}
                 </div>
               ) : f.type === 'file' ? (
-                <p className="rounded-sm border border-(--apply-border) bg-(--apply-brand-tint) px-3 py-2 text-xs text-(--apply-ink-muted)">
+                <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
                   You can upload this file after submitting {'—'} your loan officer will request it through the borrower portal.
                 </p>
               ) : f.type === 'currency' ? (
@@ -116,21 +116,21 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                     value={String(v ?? "")}
                     onChange={(e) => onChange(f.name, e.target.value)}
                     placeholder="Type your full legal name"
-                    className={`w-full rounded-sm border px-3 py-2 text-sm transition-colors outline-none ${isInvalid ? 'border-(--apply-danger)' : 'border-(--apply-border-strong) focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30'}`}
+                    className={`w-full rounded-md border px-3 py-2 text-sm transition-colors outline-none ${isInvalid ? 'border-red-500' : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30'}`}
                     aria-invalid={isInvalid || undefined}
                   />
-                  <div className="mt-2 flex items-baseline justify-between rounded-sm border border-(--apply-border) bg-(--apply-brand-tint) px-4 py-3">
+                  <div className="mt-2 flex items-baseline justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-3">
                     <span
-                      style={{ fontFamily: "var(--font-script)" }}
-                      className="text-3xl text-(--apply-ink)"
+                      className="text-2xl italic text-gray-900"
+                      style={{ fontFamily: "Georgia, serif" }}
                     >
                       {String(v ?? "") || " "}
                     </span>
-                    <span className="text-xs text-(--apply-ink-muted)">
+                    <span className="text-xs text-gray-500">
                       {new Date().toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="text-xs text-(--apply-ink-muted) italic">
+                  <p className="text-xs text-gray-500">
                     By typing your name above, you are signing this document electronically.
                   </p>
                 </div>
@@ -139,12 +139,12 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
                   inputMode={f.type === 'number' ? 'decimal' : undefined}
                   placeholder={f.placeholder}
-                  className={isInvalid ? 'border-(--apply-danger)' : 'border-(--apply-border-strong) focus:border-(--apply-brand) focus:ring-1 focus:ring-(--apply-brand)/30 rounded-sm'}
+                  className={isInvalid ? 'border-red-500' : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30 rounded-md'}
                   aria-invalid={isInvalid || undefined}
                   value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
                   onBlur={() => handleBlur(f.name, f.type, v)} />
               )}
-              <div className="min-h-5 text-xs text-(--apply-danger)">
+              <div className="min-h-5 text-xs text-red-600">
                 {blurErr ?? ' '}
               </div>
             </div>

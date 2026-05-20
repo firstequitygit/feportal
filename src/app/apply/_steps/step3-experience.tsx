@@ -11,11 +11,8 @@ export function Step3Experience({ data, set, missingFields }: {
   const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as Record<string, unknown>[]) : []
   return (
     <div className="space-y-8">
-      <div>
-        <div className="mb-6 flex items-baseline gap-4">
-          <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">Primary Borrower</span>
-          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-        </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h3 className="mb-4 text-base font-semibold text-gray-900">Primary Borrower</h3>
         <FieldRenderer
           fields={EXPERIENCE_FIELDS}
           data={data}
@@ -26,13 +23,8 @@ export function Step3Experience({ data, set, missingFields }: {
         />
       </div>
       {cobs.map((c, i) => (
-        <div key={i}>
-          <div className="mb-6 mt-12 flex items-baseline gap-4">
-            <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">
-              Borrower {i + 2}
-            </span>
-            <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
-          </div>
+        <div key={i} className="rounded-lg border border-gray-200 bg-white p-6">
+          <h3 className="mb-4 text-base font-semibold text-gray-900">Co-Borrower {i + 1}</h3>
           <FieldRenderer
             fields={EXPERIENCE_FIELDS}
             data={data}
