@@ -228,6 +228,7 @@ export const FIELD_MAP: FieldMapping[] = [
   s('investor_loan_number', 'loan_details', 'Investor Loan Number'),
   s('submitted_at', 'loan_details', 'Submitted'),
   s('urgency', 'loan_details', 'Urgency'),
+  s('investor', 'loan_details', 'Investor'),
   s('underwriter_notes', 'loan_details', "Alicyn's Notes"),
   s('exceptions', 'loan_details', 'Exceptions'),
   s('cross_collateralization', 'loan_details', 'Cross Collaterization Flag ', boolToYesNo, yesNoToBool),

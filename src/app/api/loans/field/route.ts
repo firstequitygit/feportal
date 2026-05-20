@@ -51,6 +51,10 @@ const RATE_LOCK_OPTION_MAP: Record<string, number | null> = {
 }
 
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
+const INVESTOR_OPTIONS = [
+  'Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', 'FE',
+  'ROC', 'Corvest', 'Held', 'Logan Financial', 'DSCR', 'Verus',
+] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
 const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
@@ -81,6 +85,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   loan_application:        { type: 'text',     table: 'loan_details' },
   submitted_at:            { type: 'date',     table: 'loan_details' },
   urgency:                 { type: 'enum',     table: 'loan_details', validValues: URGENCY_OPTIONS },
+  investor:                { type: 'enum',     table: 'loan_details', validValues: INVESTOR_OPTIONS },
   reason_canceled:         { type: 'textarea', table: 'loan_details' },
   underwriter_notes:       { type: 'textarea', table: 'loan_details' },
   exceptions:              { type: 'textarea', table: 'loan_details' },

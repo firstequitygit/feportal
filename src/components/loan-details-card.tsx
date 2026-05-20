@@ -13,6 +13,7 @@ export interface LoanDetails {
   loan_application?: string | null
   submitted_at?: string | null
   urgency?: string | null
+  investor?: string | null
   reason_canceled?: string | null
   underwriter_notes?: string | null
   exceptions?: string | null
@@ -146,6 +147,10 @@ interface Props {
 }
 
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
+const INVESTOR_OPTIONS = [
+  'Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', 'FE',
+  'ROC', 'Corvest', 'Held', 'Logan Financial', 'DSCR', 'Verus',
+] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
@@ -369,6 +374,16 @@ export function LoanDetailsCard({
                 options={URGENCY_OPTIONS}
                 currentValue={d.urgency ?? null}
                 display={d.urgency ?? '—'}
+              />
+            </DetailRow>
+            <DetailRow label="Investor">
+              <EditableLoanField
+                loanId={loanId}
+                field="investor"
+                type="enum"
+                options={INVESTOR_OPTIONS}
+                currentValue={d.investor ?? null}
+                display={d.investor ?? '—'}
               />
             </DetailRow>
             <DetailRow label="Cross Collateralization">
