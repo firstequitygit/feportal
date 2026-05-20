@@ -6,9 +6,8 @@ import { STEP_TITLES, TOTAL_STEPS, type ApplicationData } from '@/lib/applicatio
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
-import { Step4Declarations } from '../_steps/step4-declarations'
-import { Step5Authorization } from '../_steps/step5-authorization'
-import { Step6Payment } from '../_steps/step6-payment'
+import { Step4Disclosures } from '../_steps/step4-disclosures'
+import { Step5Payment } from '../_steps/step5-payment'
 import { useAutosave } from './use-autosave'
 
 export function Wizard({ initialData, initialStep, initialToken }: {
@@ -56,9 +55,8 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} />,
     <Step2Deal key={2} data={data} set={set} />,
     <Step3Experience key={3} data={data} set={set} />,
-    <Step4Declarations key={4} data={data} set={set} />,
-    <Step5Authorization key={5} data={data} set={set} />,
-    <Step6Payment key={6} data={data} token={token} />,
+    <Step4Disclosures key={4} data={data} set={set} />,
+    <Step5Payment key={5} data={data} token={token} />,
   ][step - 1]
 
   return (
