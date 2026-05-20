@@ -10,7 +10,7 @@ type SquareCard = { attach: (sel: string) => Promise<void>; tokenize: () => Prom
 type SquarePayments = { card: () => Promise<SquareCard> }
 type SquareGlobal = { payments: (appId: string, locationId: string) => SquarePayments }
 
-export function Step6Payment({ data, token }: {
+export function Step5Payment({ data, token }: {
   data: ApplicationData; token: string | null
 }) {
   const cardRef = useRef<SquareCard | null>(null)
