@@ -67,7 +67,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         setSubmitErrors(missing)
         requestAnimationFrame(() => {
           const rawName = missing[0].startsWith('primary.') ? missing[0].slice('primary.'.length) : missing[0]
-          const first = document.getElementById(rawName)
+          const first = document.getElementById(`f-${rawName}`)
           if (first) {
             first.scrollIntoView({ behavior: 'smooth', block: 'center' })
             ;(first as HTMLElement).focus()
@@ -94,7 +94,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
       setSubmitErrors(missing)
       requestAnimationFrame(() => {
         const firstName = missing[0].includes(".") ? missing[0].split(".").slice(-1)[0] : missing[0]
-        const el = document.getElementById(firstName)
+        const el = document.getElementById(`f-${firstName}`)
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" })
           ;(el as HTMLElement).focus()
@@ -177,7 +177,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                     type="button"
                     className="underline"
                     onClick={() => {
-                      const el = document.getElementById(rawName)
+                      const el = document.getElementById(`f-${rawName}`)
                       if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
                         ;(el as HTMLElement).focus()
