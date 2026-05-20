@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { STEPS, STEP_TITLES, TOTAL_STEPS, type ApplicationData } from '@/lib/application-fields'
+import { STEPS, STEP_TITLES, TOTAL_STEPS, ALL_FIELDS, type ApplicationData } from '@/lib/application-fields'
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
@@ -19,6 +19,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   const [token, setToken] = useState<string | null>(initialToken)
   const [submitting, setSubmitting] = useState(false)
   const [maxVisited, setMaxVisited] = useState(initialStep || 1)
+  const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
 
   const autosaveStatus = useAutosave(token, data, step)
 
@@ -44,15 +45,31 @@ export function Wizard({ initialData, initialStep, initialToken }: {
 
   async function submit() {
     setSubmitting(true)
+    setSubmitErrors(null)
     try {
       const res = await fetch('/api/apply/submit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeToken: token }),
       })
       const j = await res.json()
-      if (j.success) window.location.href = '/apply/submitted'
-      else if (j.missing) toast.error(`Missing required fields: ${j.missing.slice(0, 5).join(', ')}${j.missing.length > 5 ? '…' : ''}`)
-      else toast.error(j.error ?? 'Submit failed')
+      if (j.success) {
+        window.location.href = '/apply/submitted'
+        return
+      }
+      if (!res.ok && Array.isArray(j.missing) && j.missing.length > 0) {
+        const missing: string[] = j.missing
+        setSubmitErrors(missing)
+        requestAnimationFrame(() => {
+          const rawName = missing[0].startsWith('primary.') ? missing[0].slice('primary.'.length) : missing[0]
+          const first = document.getElementById(rawName)
+          if (first) {
+            first.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            ;(first as HTMLElement).focus()
+          }
+        })
+        return
+      }
+      toast.error(j.error ?? 'Submit failed')
     } catch { toast.error('Network error — please try again') }
     finally { setSubmitting(false) }
   }
@@ -99,6 +116,40 @@ export function Wizard({ initialData, initialStep, initialToken }: {
           Step {step} of {TOTAL_STEPS} · About {STEPS[step - 1].estimateMinutes} minutes
         </span>
       </div>
+      {submitErrors && submitErrors.length > 0 && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+        >
+          <p className="font-medium">
+            {submitErrors.length} {submitErrors.length === 1 ? 'field needs' : 'fields need'} attention
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {submitErrors.slice(0, 5).map((name) => {
+              const rawName = name.startsWith('primary.') ? name.slice('primary.'.length) : name
+              const field = ALL_FIELDS.find((f) => f.name === rawName)
+              const label = field?.label ?? rawName
+              return (
+                <li key={name}>
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      const el = document.getElementById(rawName)
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        ;(el as HTMLElement).focus()
+                      }
+                    }}
+                  >
+                    {label}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
       <div className="pb-20 sm:pb-0">
         {stepEl}
       </div>

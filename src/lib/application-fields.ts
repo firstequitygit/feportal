@@ -219,3 +219,11 @@ export const STEPS: StepDef[] = [
 export const TOTAL_STEPS = STEPS.length
 export const STEP_TITLES = STEPS.map(s => s.title) as string[]
 export const MAX_CO_BORROWERS = 3 // 4 borrowers total
+
+export const ALL_FIELDS: readonly FieldDef[] = [
+  ...BORROWER_FIELDS,
+  ...PRIMARY_EXTRA_FIELDS,
+  ...DEAL_FIELDS,
+  ...DECLARATION_FIELDS,
+  ...HMDA_FIELDS,
+]
