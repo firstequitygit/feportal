@@ -65,6 +65,8 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
               ) : f.type === 'yesno' ? (
                 <div
                   id={id}
+                  role="group"
+                  tabIndex={-1}
                   className={`flex gap-4 pt-1 ${isInvalid ? 'rounded border border-red-500 p-2' : ''}`}
                   aria-invalid={isInvalid || undefined}>
                   {['Yes','No'].map(lbl => (
@@ -77,6 +79,8 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
               ) : f.type === 'radio' ? (
                 <div
                   id={id}
+                  role="group"
+                  tabIndex={-1}
                   className={`flex flex-col gap-1.5 pt-1 ${isInvalid ? 'rounded border border-red-500 p-2' : ''}`}
                   aria-invalid={isInvalid || undefined}>
                   {f.options!.map(o => (
