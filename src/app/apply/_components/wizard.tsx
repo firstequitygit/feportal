@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { STEP_TITLES, TOTAL_STEPS, type ApplicationData } from '@/lib/application-fields'
+import { STEPS, STEP_TITLES, TOTAL_STEPS, type ApplicationData } from '@/lib/application-fields'
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
@@ -93,7 +93,12 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         </div>
       </div>
 
-      <h2 className="mb-4 text-xl font-semibold text-[#1F5D8F]">{STEP_TITLES[step - 1]}</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-[#1F5D8F]">{STEP_TITLES[step - 1]}</h2>
+        <span className="text-sm text-slate-500">
+          Step {step} of {TOTAL_STEPS} · About {STEPS[step - 1].estimateMinutes} minutes
+        </span>
+      </div>
       <div className="pb-20 sm:pb-0">
         {stepEl}
       </div>
