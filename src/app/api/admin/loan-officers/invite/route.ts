@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
-const REDIRECT = `${PORTAL_URL}/auth/set-password`
+const REDIRECT = `${PORTAL_URL}/auth/callback?next=/dashboard`
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()

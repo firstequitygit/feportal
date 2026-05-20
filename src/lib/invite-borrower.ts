@@ -1,6 +1,6 @@
 // Shared logic for inviting a borrower. Mirrors the broker-invite flow:
 // creates (or links to) a Supabase auth user, creates a `borrowers` row
-// if new, generates a recovery link pointing at /auth/welcome, and emails
+// if new, generates a recovery link pointing at /auth/callback, and emails
 // it directly to the borrower via Gmail SMTP.
 //
 // Used by /api/invite (admin), /api/loan-officer/invite, and
@@ -68,7 +68,7 @@ export async function inviteBorrower(input: InviteBorrowerInput): Promise<Invite
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${PORTAL_URL}/auth/welcome` },
+    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/dashboard` },
   })
   if (linkError || !linkData) throw new Error(linkError?.message ?? 'Failed to generate invite link')
 

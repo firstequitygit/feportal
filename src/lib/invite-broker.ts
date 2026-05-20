@@ -82,7 +82,7 @@ export async function inviteBroker(input: InviteBrokerInput): Promise<InviteBrok
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${PORTAL_URL}/auth/welcome` },
+    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/dashboard` },
   })
   if (linkError || !linkData) throw new Error(linkError?.message ?? 'Failed to generate invite link')
 
