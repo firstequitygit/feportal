@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { SSNInput } from "@/components/ui/ssn-input"
 import { FieldReveal } from "@/components/ui/field-reveal"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 import { validators } from "./validators"
 
@@ -36,7 +37,10 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
         return (
           <FieldReveal key={f.name} show={visible}>
             <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
-              <Label htmlFor={id}>{f.label}{f.required ? ' *' : ''}</Label>
+              <Label htmlFor={id}>
+                {f.label}{f.required ? ' *' : ''}
+                {f.helpTooltip && <InfoTooltip label={f.label} text={f.helpTooltip} />}
+              </Label>
               {f.type === 'textarea' ? (
                 <textarea id={id} className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)} />

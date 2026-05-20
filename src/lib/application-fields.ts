@@ -20,6 +20,8 @@ export interface FieldDef {
   visibleWhen?: (d: ApplicationData, scope?: ApplicationData) => boolean
   /** Required only when true (in addition to `required`). */
   requiredWhen?: (d: ApplicationData, scope?: ApplicationData) => boolean
+  /** "Why we ask" tooltip text shown next to the field label. */
+  helpTooltip?: string
 }
 
 // ---- Option lists (spec §5.1 — confirmed final) ----
@@ -45,17 +47,21 @@ export const BORROWER_FIELDS: FieldDef[] = [
   { name: 'first_name', label: 'First Name', type: 'text', required: true },
   { name: 'middle_name', label: 'Middle Name', type: 'text' },
   { name: 'last_name', label: 'Last Name', type: 'text', required: true },
-  { name: 'dob', label: 'Date of Birth', type: 'date', required: true },
-  { name: 'ssn', label: 'Social Security Number', type: 'ssn', required: true },
+  { name: 'dob', label: 'Date of Birth', type: 'date', required: true,
+    helpTooltip: "Verifies your identity and confirms you're of legal age to enter a loan agreement." },
+  { name: 'ssn', label: 'Social Security Number', type: 'ssn', required: true,
+    helpTooltip: "We use your SSN only to verify your identity. No credit check happens until you authorize it on Step 4." },
   { name: 'us_citizen', label: 'U.S. Citizen?', type: 'yesno', required: true },
   { name: 'permanent_resident_alien', label: 'Permanent Resident Alien?', type: 'yesno', required: true },
   { name: 'foreign_national', label: 'Foreign National?', type: 'yesno', required: true },
   { name: 'legal_status', label: 'What is your current legal status?', type: 'text' },
-  { name: 'marital_status', label: 'Marital Status', type: 'select', options: MARITAL_STATUS_OPTIONS },
+  { name: 'marital_status', label: 'Marital Status', type: 'select', options: MARITAL_STATUS_OPTIONS,
+    helpTooltip: "Required because your spouse may have rights in the property under your state's marital property laws." },
   { name: 'email', label: 'Email', type: 'email', required: true },
   { name: 'cell_phone', label: 'Cell Phone', type: 'tel', required: true },
   { name: 'other_phone', label: 'Other Phone', type: 'tel' },
-  { name: 'credit_score', label: 'Estimated Credit Score', type: 'select', options: CREDIT_SCORE_OPTIONS, required: true },
+  { name: 'credit_score', label: 'Estimated Credit Score', type: 'select', options: CREDIT_SCORE_OPTIONS, required: true,
+    helpTooltip: "Helps us route your file to the right loan product. We'll pull credit ourselves during underwriting." },
   { name: 'address_street', label: 'Address Line 1', type: 'text', required: true },
   { name: 'address_city', label: 'City', type: 'text', required: true },
   { name: 'address_state', label: 'State', type: 'text', required: true },
