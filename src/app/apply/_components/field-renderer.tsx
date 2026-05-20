@@ -1,7 +1,8 @@
 'use client'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { isVisible, type FieldDef, type ApplicationData } from '@/lib/application-fields'
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { CurrencyInput } from "@/components/ui/currency-input"
+import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 
 type Props = {
   fields: FieldDef[]
@@ -53,11 +54,15 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
               <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
                 You can upload this file after submitting — your loan officer will request it through the borrower portal.
               </p>
+            ) : f.type === 'currency' ? (
+              <CurrencyInput id={id} name={f.name}
+                value={String(v ?? '')}
+                onChange={(val) => onChange(f.name, val)} />
             ) : (
               <Input id={id}
                 type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
-                inputMode={f.type === 'number' || f.type === 'currency' ? 'decimal' : undefined}
-                placeholder={f.placeholder ?? (f.type === 'ssn' ? '###-##-####' : f.type === 'currency' ? '$' : undefined)}
+                inputMode={f.type === 'number' ? 'decimal' : undefined}
+                placeholder={f.placeholder ?? (f.type === 'ssn' ? '###-##-####' : undefined)}
                 value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)} />
             )}
             {f.help && <p className="text-xs text-muted-foreground">{f.help}</p>}
