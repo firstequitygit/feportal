@@ -40,7 +40,7 @@ Replace password-based login with passwordless email authentication (6-digit OTP
 | Send rate limit | Max 5 send requests per email per hour |
 | Email transport | Resend SDK called from Next.js API routes (mirrors existing `forgot-password` pattern, swap Nodemailer→Resend) |
 | Email templates | Live in repo at `src/lib/emails/auth/`, version-controlled |
-| OTP generation | `adminClient.auth.admin.generateLink({ type: 'email', email })` returns both the 6-digit code and a magic link |
+| OTP generation | `adminClient.auth.admin.generateLink({ type: 'magiclink', email })` — response's `properties.email_otp` is the 6-digit code, `properties.action_link` is the magic link |
 
 ## Architecture
 
@@ -63,7 +63,7 @@ Auth emails are sent from Next.js API routes using the Resend SDK directly. This
 
 - **OTP send (new):** `POST /api/auth/send-otp`
   - Body: `{ email: string }`
-  - Calls `adminClient.auth.admin.generateLink({ type: 'email', email })` — Supabase returns both `properties.email_otp` (6 digits) and `properties.action_link` (magic link URL).
+  - Calls `adminClient.auth.admin.generateLink({ type: 'magiclink', email })` — Supabase returns both `properties.email_otp` (6 digits) and `properties.action_link` (magic link URL). Note: admin SDK `GenerateLinkType` union has no `'email'` variant — `'magiclink'` is the value that returns both the OTP code and the link.
   - Renders with `renderSignInCodeEmail` and sends with `sendAuthEmail`.
   - Always returns `{ success: true }` regardless of whether the email exists, to prevent enumeration.
   - In-memory + DB-backed rate limiting (see "Rate limiting and abuse" below).
