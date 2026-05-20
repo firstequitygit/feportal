@@ -2,6 +2,7 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
+import { SSNInput } from "@/components/ui/ssn-input"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 
 type Props = {
@@ -58,11 +59,15 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
               <CurrencyInput id={id} name={f.name}
                 value={String(v ?? '')}
                 onChange={(val) => onChange(f.name, val)} />
+            ) : f.type === 'ssn' ? (
+              <SSNInput id={id} name={f.name}
+                value={String(v ?? '')}
+                onChange={(val) => onChange(f.name, val)} />
             ) : (
               <Input id={id}
                 type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
                 inputMode={f.type === 'number' ? 'decimal' : undefined}
-                placeholder={f.placeholder ?? (f.type === 'ssn' ? '###-##-####' : undefined)}
+                placeholder={f.placeholder}
                 value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)} />
             )}
             {f.help && <p className="text-xs text-muted-foreground">{f.help}</p>}
