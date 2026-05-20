@@ -157,6 +157,15 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
               <FieldRow label="Interest Rate">
                 <EditableLoanField loanId={id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={formatInterestRate(loan.interest_rate)} placeholder="6.5" step="0.001" />
               </FieldRow>
+              <FieldRow label="Interest Only">
+                <EditableLoanField loanId={id} field="interest_only" type="enum" options={['Yes', 'No']} currentValue={loan.interest_only} display={loan.interest_only ?? '—'} />
+              </FieldRow>
+              <FieldRow label="Rate Locked / Days">
+                <EditableLoanField loanId={id} field="rate_locked_days" type="enum" options={['No', '15 days', '30 days', '45 days']} currentValue={loan.rate_locked_days} display={loan.rate_locked_days ?? '—'} />
+              </FieldRow>
+              <FieldRow label="Rate Lock Expiration">
+                <EditableLoanField loanId={id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
+              </FieldRow>
               <FieldRow label="LTV">
                 <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
               </FieldRow>
