@@ -44,15 +44,24 @@ function CertBlock({ id, title, text, data, set }: {
   )
 }
 
-export function Step4Disclosures({ data, set }: {
-  data: ApplicationData; set: (patch: Record<string, unknown>) => void
+export function Step4Disclosures({ data, set, missingFields }: {
+  data: ApplicationData
+  set: (patch: Record<string, unknown>) => void
+  missingFields?: string[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as Record<string, unknown>[]) : []
   const blocks = [
-    { label: 'Primary Borrower', scope: primary, save: (n: string, v: unknown) => set({ primary: { ...primary, [n]: v } }) },
+    {
+      label: 'Primary Borrower',
+      scope: primary,
+      idPrefix: 'primary.' as string,
+      save: (n: string, v: unknown) => set({ primary: { ...primary, [n]: v } }),
+    },
     ...cobs.map((c, i) => ({
-      label: `Co-Borrower ${i + 1}`, scope: c,
+      label: `Co-Borrower ${i + 1}`,
+      scope: c,
+      idPrefix: `coborrower${i + 1}.` as string,
       save: (n: string, v: unknown) => set({ co_borrowers: cobs.map((x, idx) => idx === i ? { ...x, [n]: v } : x) }),
     })),
   ]
@@ -64,7 +73,14 @@ export function Step4Disclosures({ data, set }: {
         {blocks.map((bk, idx) => (
           <div key={idx} className="mb-6 space-y-4">
             <h3 className="font-medium text-[#1F5D8F]">{bk.label} — Declarations</h3>
-            <FieldRenderer fields={DECLARATION_FIELDS} data={data} scope={bk.scope} onChange={bk.save} />
+            <FieldRenderer
+              fields={DECLARATION_FIELDS}
+              data={data}
+              scope={bk.scope}
+              onChange={bk.save}
+              idPrefix={bk.idPrefix}
+              missingFields={missingFields}
+            />
           </div>
         ))}
         <div className="space-y-1.5">
@@ -83,7 +99,14 @@ export function Step4Disclosures({ data, set }: {
         {blocks.map((bk, idx) => (
           <div key={idx} className="mb-6 space-y-4">
             <h3 className="font-medium text-[#1F5D8F]">{bk.label} — HMDA</h3>
-            <FieldRenderer fields={HMDA_FIELDS} data={data} scope={bk.scope} onChange={bk.save} />
+            <FieldRenderer
+              fields={HMDA_FIELDS}
+              data={data}
+              scope={bk.scope}
+              onChange={bk.save}
+              idPrefix={bk.idPrefix}
+              missingFields={missingFields}
+            />
           </div>
         ))}
       </section>

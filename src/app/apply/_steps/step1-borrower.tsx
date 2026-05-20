@@ -4,10 +4,11 @@ import { BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, type ApplicationData } from '@/l
 import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingBorrowers } from '../_components/repeating-borrowers'
 
-export function Step1Borrower({ data, set, ensureDraft }: {
+export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
   data: ApplicationData
   set: (patch: Record<string, unknown>) => void
   ensureDraft: (email: string, firstName: string) => void
+  missingFields?: string[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
@@ -28,13 +29,26 @@ export function Step1Borrower({ data, set, ensureDraft }: {
           check until you sign the authorization on the Disclosures step.
         </p>
       </div>
-      <FieldRenderer fields={[...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]} data={data} scope={primary} onChange={setPrimary} />
+      <FieldRenderer
+        fields={[...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]}
+        data={data}
+        scope={primary}
+        onChange={setPrimary}
+        idPrefix="primary."
+        missingFields={missingFields}
+      />
       <p className="mt-6 text-center text-xs text-slate-500">
         Your data is encrypted and never shared without your authorization.
       </p>
       <div>
         <h3 className="mb-3 font-medium text-[#1F5D8F]">Co-Borrowers</h3>
-        <RepeatingBorrowers data={data} fields={BORROWER_FIELDS} set={set} heading="Co-Borrower" />
+        <RepeatingBorrowers
+          data={data}
+          fields={BORROWER_FIELDS}
+          set={set}
+          heading="Co-Borrower"
+          missingFields={missingFields}
+        />
       </div>
     </div>
   )

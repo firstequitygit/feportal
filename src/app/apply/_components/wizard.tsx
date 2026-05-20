@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,29 @@ import { Step4Disclosures } from '../_steps/step4-disclosures'
 import { Step5Payment } from '../_steps/step5-payment'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
+
+// Resolve a prefixed field name to its current value in data.
+// "primary.first_name"  -> data.primary?.first_name
+// "coborrower1.ssn"     -> data.co_borrowers?.[0]?.ssn
+// "purchase_price"      -> data.purchase_price
+function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
+  const dot = prefixedName.indexOf(".")
+  let v: unknown
+  if (dot === -1) {
+    v = (data as Record<string, unknown>)[prefixedName]
+  } else {
+    const ns = prefixedName.slice(0, dot)
+    const field = prefixedName.slice(dot + 1)
+    if (ns === "primary") {
+      v = ((data as Record<string, Record<string, unknown> | undefined>).primary)?.[field]
+    } else if (ns.startsWith("coborrower")) {
+      const i = parseInt(ns.slice("coborrower".length), 10) - 1
+      const arr = (data as { co_borrowers?: Array<Record<string, unknown>> }).co_borrowers
+      v = arr?.[i]?.[field]
+    }
+  }
+  return v === undefined || v === null || v === ""
+}
 
 export function Wizard({ initialData, initialStep, initialToken }: {
   initialData: ApplicationData; initialStep: number; initialToken: string | null
@@ -34,6 +57,12 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   }, [step])
 
   const set = useCallback((patch: Record<string, unknown>) => setData(d => ({ ...d, ...patch })), [])
+
+  // Derive live-missing: errors from the last validation attempt that are still empty.
+  const liveMissing = useMemo(() => {
+    if (!submitErrors) return [] as string[]
+    return submitErrors.filter((n) => isStillMissing(n, data))
+  }, [submitErrors, data])
 
   // Create the draft once we have the primary email (called by Step 1 on email blur).
   const ensureDraft = useCallback(async (email: string, firstName: string) => {
@@ -66,8 +95,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         const missing: string[] = j.missing
         setSubmitErrors(missing)
         requestAnimationFrame(() => {
-          const rawName = missing[0].startsWith('primary.') ? missing[0].slice('primary.'.length) : missing[0]
-          const first = document.getElementById(`f-${rawName}`)
+          const first = document.getElementById(`f-${missing[0]}`)
           if (first) {
             first.scrollIntoView({ behavior: 'smooth', block: 'center' })
             ;(first as HTMLElement).focus()
@@ -93,8 +121,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     if (missing.length > 0) {
       setSubmitErrors(missing)
       requestAnimationFrame(() => {
-        const firstName = missing[0].includes(".") ? missing[0].split(".").slice(-1)[0] : missing[0]
-        const el = document.getElementById(`f-${firstName}`)
+        const el = document.getElementById(`f-${missing[0]}`)
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" })
           ;(el as HTMLElement).focus()
@@ -108,10 +135,10 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   }
 
   const stepEl = [
-    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} />,
-    <Step2Deal key={2} data={data} set={set} />,
-    <Step3Experience key={3} data={data} set={set} />,
-    <Step4Disclosures key={4} data={data} set={set} />,
+    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} />,
+    <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} />,
+    <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
+    <Step4Disclosures key={4} data={data} set={set} missingFields={liveMissing} />,
     <Step5Payment key={5} data={data} token={token} />,
   ][step - 1]
 
@@ -137,7 +164,12 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                   key={t}
                   type="button"
                   disabled={!isVisited}
-                  onClick={() => isVisited && setStep(i + 1)}
+                  onClick={() => {
+                    if (isVisited) {
+                      setSubmitErrors(null)
+                      setStep(i + 1)
+                    }
+                  }}
                   className={`rounded px-2 py-1 ${isActive ? 'bg-[#1F5D8F] text-white' : i + 1 < step ? 'bg-slate-200 cursor-pointer hover:bg-slate-300' : isVisited ? 'bg-slate-200 cursor-pointer hover:bg-slate-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                 >
                   {i + 1}. {t}
@@ -155,36 +187,43 @@ export function Wizard({ initialData, initialStep, initialToken }: {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-[#1F5D8F]">{STEP_TITLES[step - 1]}</h2>
         <span className="text-sm text-slate-500">
-          Step {step} of {TOTAL_STEPS} · About {STEPS[step - 1].estimateMinutes} minutes
+          Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes
         </span>
       </div>
-      {submitErrors && submitErrors.length > 0 && (
+      {liveMissing.length > 0 && (
         <div
           role="alert"
           className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800"
         >
           <p className="font-medium">
-            {submitErrors.length} {submitErrors.length === 1 ? 'field needs' : 'fields need'} attention
+            {liveMissing.length} {liveMissing.length === 1 ? 'field needs' : 'fields need'} attention
           </p>
           <ul className="mt-1 list-disc pl-5">
-            {submitErrors.slice(0, 5).map((name) => {
-              const rawName = name.startsWith('primary.') ? name.slice('primary.'.length) : name
+            {liveMissing.slice(0, 5).map((name) => {
+              // Strip the borrower prefix to look up the field label in ALL_FIELDS
+              const dot = name.indexOf(".")
+              const rawName = dot === -1 ? name : name.slice(dot + 1)
               const field = ALL_FIELDS.find((f) => f.name === rawName)
               const label = field?.label ?? rawName
+              // Build a readable prefix for co-borrower fields
+              const ns = dot === -1 ? "" : name.slice(0, dot)
+              const displayPrefix = ns.startsWith("coborrower")
+                ? `Co-Borrower ${ns.slice("coborrower".length)}: `
+                : ""
               return (
                 <li key={name}>
                   <button
                     type="button"
                     className="underline"
                     onClick={() => {
-                      const el = document.getElementById(`f-${rawName}`)
+                      const el = document.getElementById(`f-${name}`)
                       if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
                         ;(el as HTMLElement).focus()
                       }
                     }}
                   >
-                    {label}
+                    {displayPrefix}{label}
                   </button>
                 </li>
               )
@@ -201,7 +240,13 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">
-          <Button variant="outline" disabled={step === 1} onClick={() => setStep(s => Math.max(1, s - 1))}>← Back</Button>
+          <Button
+            variant="outline"
+            disabled={step === 1}
+            onClick={() => { setSubmitErrors(null); setStep(s => Math.max(1, s - 1)) }}
+          >
+            &larr; Back
+          </Button>
           <div className="flex items-center gap-4">
             {step !== TOTAL_STEPS && (
               <button
@@ -224,7 +269,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
               </button>
             )}
             {step < TOTAL_STEPS
-              ? <Button onClick={goNext}>Next →</Button>
+              ? <Button onClick={goNext}>Next &rarr;</Button>
               : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
           </div>
         </div>
