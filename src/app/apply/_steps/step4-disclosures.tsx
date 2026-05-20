@@ -25,6 +25,20 @@ function CertBlock({ id, title, text, data, set }: {
         <label className="text-sm">Type your full legal name as your signature *</label>
         <input className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           value={(data[`${id}_signature`] as string) ?? ''} onChange={e => set({ [`${id}_signature`]: e.target.value })} />
+        <div className="flex items-baseline justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+          <span
+            style={{ fontFamily: "'Brush Script MT', 'Lucida Handwriting', cursive" }}
+            className="text-2xl text-slate-900"
+          >
+            {(data[`${id}_signature`] as string) ?? ''}
+          </span>
+          <span className="text-xs text-slate-500">
+            {new Date().toLocaleDateString()}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">
+          By typing your name above, you are signing this document electronically.
+        </p>
       </div>
     </div>
   )
