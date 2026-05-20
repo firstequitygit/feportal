@@ -347,11 +347,14 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
 /**
  * Surfaces the internal-team condition workload to borrowers/brokers so they
  * understand the loan is still in motion even after their own conditions are
- * cleared. Two visual variants:
- *   - `subtle`    — informational note shown alongside the user's own work
- *   - `highlight` — softly emphasized when the user is fully cleared but the
- *                   internal team is still working (so the user doesn't think
- *                   the loan is just sitting idle).
+ * cleared. Designed to be visually distinct from the borrower-facing
+ * condition cards so it can't be missed.
+ *
+ * Two variants share the same visual weight; only the supporting copy and
+ * accent intensity differ:
+ *   - `subtle`    — shown alongside the user's own outstanding work
+ *   - `highlight` — shown when the user is fully cleared but the internal
+ *                   team is still working
  */
 function InternalTeamNote({
   count,
@@ -360,23 +363,34 @@ function InternalTeamNote({
   count: number
   variant?: 'subtle' | 'highlight'
 }) {
-  const tone = variant === 'highlight'
-    ? 'bg-blue-50 border-blue-200 text-blue-900'
-    : 'bg-gray-50 border-gray-200 text-gray-700'
+  const isHighlight = variant === 'highlight'
   return (
-    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-md border text-sm ${tone}`}>
-      <Info className="w-4 h-4 mt-0.5 shrink-0 opacity-80" />
-      <div>
-        <span className="font-medium">
-          {count === 1
-            ? '1 additional condition in progress with our team.'
-            : `${count} additional conditions in progress with our team.`}
-        </span>{' '}
-        <span className="opacity-90">
-          {variant === 'highlight'
-            ? 'You don’t need to take any action on these — we’ll keep things moving.'
-            : 'Nothing for you to do on these — just a heads up while we work them.'}
-        </span>
+    <div
+      className={`flex items-center gap-4 px-4 py-3 rounded-lg border-2 shadow-sm ${
+        isHighlight
+          ? 'bg-amber-50 border-amber-300 text-amber-900'
+          : 'bg-amber-50/70 border-amber-200 text-amber-900'
+      }`}
+    >
+      <div
+        className={`flex items-center justify-center w-12 h-12 rounded-full shrink-0 ${
+          isHighlight ? 'bg-amber-200 text-amber-900' : 'bg-amber-100 text-amber-800'
+        }`}
+      >
+        <Info className="w-6 h-6" strokeWidth={2.25} />
+      </div>
+      <div className="flex items-baseline gap-3 min-w-0">
+        <div className="text-3xl font-bold leading-none tabular-nums shrink-0">{count}</div>
+        <div className="text-sm leading-snug">
+          <div className="font-semibold">
+            additional {count === 1 ? 'condition' : 'conditions'} in progress with our team
+          </div>
+          <div className="text-amber-800/90 mt-0.5">
+            {isHighlight
+              ? 'You don’t need to take any action on these — we’ll keep things moving.'
+              : 'Nothing for you to do on these — just a heads-up while we work them.'}
+          </div>
+        </div>
       </div>
     </div>
   )
