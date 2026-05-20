@@ -190,6 +190,20 @@ export function isRequired(f: FieldDef, data: ApplicationData, scope?: Applicati
   return !!f.required
 }
 
-export const TOTAL_STEPS = 6
-export const STEP_TITLES = ['Borrower Info','Deal Info','Experience','Declarations','Authorization','Payment'] as const
+export interface StepDef {
+  id: string
+  title: string
+  estimateMinutes: number
+}
+
+export const STEPS: StepDef[] = [
+  { id: 'borrower',    title: 'Borrower Info',            estimateMinutes: 5 },
+  { id: 'deal',        title: 'Deal Info',                estimateMinutes: 4 },
+  { id: 'experience',  title: 'Experience',               estimateMinutes: 2 },
+  { id: 'disclosures', title: 'Disclosures & Signatures', estimateMinutes: 4 },
+  { id: 'payment',     title: 'Payment',                  estimateMinutes: 1 },
+]
+
+export const TOTAL_STEPS = STEPS.length
+export const STEP_TITLES = STEPS.map(s => s.title) as string[]
 export const MAX_CO_BORROWERS = 3 // 4 borrowers total
