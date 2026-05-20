@@ -80,13 +80,18 @@ export default async function LoanPage({
     .map(id => (lpRows ?? []).find(r => r.id === id))
     .filter((r): r is { id: string; full_name: string; email: string | null; phone: string | null; title: string | null } => !!r)
 
-  const { data: conditions } = await supabase
+  // Use adminClient (service role) for these reads now that the borrower's
+  // access to the loan has been verified above. The previous supabase (anon)
+  // client was RLS-gated, which broke admin impersonation — RLS saw the admin
+  // user, not the borrower, so 0 conditions/documents/events came back. The
+  // broker page already used adminClient for the same reason.
+  const { data: conditions } = await adminClient
     .from('conditions')
     .select('*')
     .eq('loan_id', loan.id)
     .order('created_at', { ascending: true })
 
-  const { data: documents } = await supabase
+  const { data: documents } = await adminClient
     .from('documents')
     .select('*')
     .eq('loan_id', loan.id)
@@ -101,7 +106,7 @@ export default async function LoanPage({
     })
   )
 
-  const { data: events } = await supabase
+  const { data: events } = await adminClient
     .from('loan_events')
     .select('*')
     .eq('loan_id', loan.id)
