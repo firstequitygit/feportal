@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Wizard } from '../../_components/wizard'
@@ -26,10 +27,12 @@ export default async function ResumePage({ params }: { params: Promise<{ token: 
     )
   }
   return (
-    <Wizard
-      initialData={(app.data ?? {}) as Record<string, unknown>}
-      initialStep={app.current_step ?? 1}
-      initialToken={token}
-    />
+    <Suspense>
+      <Wizard
+        initialData={(app.data ?? {}) as Record<string, unknown>}
+        initialStep={app.current_step ?? 1}
+        initialToken={token}
+      />
+    </Suspense>
   )
 }

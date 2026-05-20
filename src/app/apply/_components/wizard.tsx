@@ -1,8 +1,9 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { STEPS, STEP_TITLES, TOTAL_STEPS, ALL_FIELDS, type ApplicationData } from '@/lib/application-fields'
+import { STEPS, STEP_TITLES, TOTAL_STEPS, ALL_FIELDS, getMissingRequiredFields, type ApplicationData, type StepId } from '@/lib/application-fields'
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
@@ -20,6 +21,11 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   const [submitting, setSubmitting] = useState(false)
   const [maxVisited, setMaxVisited] = useState(initialStep || 1)
   const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
+
+  const searchParams = useSearchParams()
+  const devSkipRequired =
+    process.env.NODE_ENV !== "production" &&
+    searchParams.get("dev") === "1"
 
   const autosaveStatus = useAutosave(token, data, step)
 
@@ -74,6 +80,33 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     finally { setSubmitting(false) }
   }
 
+  function goNext() {
+    if (devSkipRequired) {
+      setSubmitErrors(null)
+      setStep(s => Math.min(TOTAL_STEPS, s + 1))
+      return
+    }
+
+    const stepId = STEPS[step - 1].id as StepId
+    const missing = getMissingRequiredFields(stepId, data)
+
+    if (missing.length > 0) {
+      setSubmitErrors(missing)
+      requestAnimationFrame(() => {
+        const firstName = missing[0].includes(".") ? missing[0].split(".").slice(-1)[0] : missing[0]
+        const el = document.getElementById(firstName)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          ;(el as HTMLElement).focus()
+        }
+      })
+      return
+    }
+
+    setSubmitErrors(null)
+    setStep(s => Math.min(TOTAL_STEPS, s + 1))
+  }
+
   const stepEl = [
     <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} />,
     <Step2Deal key={2} data={data} set={set} />,
@@ -84,6 +117,15 @@ export function Wizard({ initialData, initialStep, initialToken }: {
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-8">
+      {devSkipRequired && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          <strong>Dev mode:</strong> required-field gating is bypassed.
+          Server validation still runs on submit.
+        </div>
+      )}
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-2 text-xs">
@@ -182,7 +224,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
               </button>
             )}
             {step < TOTAL_STEPS
-              ? <Button onClick={() => setStep(s => Math.min(TOTAL_STEPS, s + 1))}>Next →</Button>
+              ? <Button onClick={goNext}>Next →</Button>
               : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
           </div>
         </div>
