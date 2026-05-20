@@ -9,6 +9,8 @@ import { type Loan, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { PortalShell } from '@/components/portal-shell'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatStage(stage: PipelineStage | string | null): string {
   if (!stage) return 'Unknown'
@@ -32,7 +34,11 @@ function formatCurrency(val: number | null): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -40,14 +46,20 @@ export default async function DashboardPage() {
 
   const adminClient = createAdminClient()
 
-  // If admin, send to admin panel
+  // Admin "View as borrower" support — if set, skip all the role redirects
+  // and load this dashboard as if the admin were the impersonated borrower.
+  const sp = await searchParams
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  const isImpersonating = impersonation?.kind === 'borrower'
+
+  // If admin (and NOT impersonating), send to admin panel
   const { data: admin } = await adminClient
     .from('admin_users')
     .select('id')
     .eq('auth_user_id', user.id)
     .single()
 
-  if (admin) redirect('/admin')
+  if (admin && !isImpersonating) redirect('/admin')
 
   // If loan officer, send to loan officer portal
   const { data: loanOfficer } = await adminClient
@@ -56,7 +68,7 @@ export default async function DashboardPage() {
     .eq('auth_user_id', user.id)
     .single()
 
-  if (loanOfficer) redirect('/loan-officer')
+  if (loanOfficer && !isImpersonating) redirect('/loan-officer')
 
   // If loan processor, send to loan processor portal
   const { data: loanProcessor } = await adminClient
@@ -65,7 +77,7 @@ export default async function DashboardPage() {
     .eq('auth_user_id', user.id)
     .single()
 
-  if (loanProcessor) redirect('/loan-processor')
+  if (loanProcessor && !isImpersonating) redirect('/loan-processor')
 
   // If underwriter, send to underwriter portal
   const { data: underwriter } = await adminClient
@@ -74,7 +86,7 @@ export default async function DashboardPage() {
     .eq('auth_user_id', user.id)
     .single()
 
-  if (underwriter) redirect('/underwriter')
+  if (underwriter && !isImpersonating) redirect('/underwriter')
 
   // If broker, send to broker portal. Self-heal the auth_user_id link by email
   // if it wasn't set (defensive — the invite flow always sets it now).
@@ -88,7 +100,7 @@ export default async function DashboardPage() {
       broker = byEmail
     }
   }
-  if (broker) redirect('/broker')
+  if (broker && !isImpersonating) redirect('/broker')
 
   // Get borrower record. Use the admin client to avoid any RLS surprises;
   // this code already verified the user above so privilege escalation isn't
@@ -96,13 +108,11 @@ export default async function DashboardPage() {
   // wasn't linked to the auth user — common when the borrower was created
   // first by the JotForm intake (with auth_user_id NULL) and the invite
   // flow left the link unset.
-  let { data: borrower } = await adminClient
-    .from('borrowers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .maybeSingle()
+  let { data: borrower } = isImpersonating
+    ? await adminClient.from('borrowers').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('borrowers').select('*').eq('auth_user_id', user.id).maybeSingle()
 
-  if (!borrower && user.email) {
+  if (!borrower && !isImpersonating && user.email) {
     const { data: byEmail } = await adminClient
       .from('borrowers')
       .select('*')
@@ -151,6 +161,9 @@ export default async function DashboardPage() {
 
   return (
     <PortalShell userName={borrower.full_name ?? user.email ?? null} userRole="Borrower" dashboardHref="/dashboard">
+        {isImpersonating && (
+          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref()} />
+        )}
         <h2 className="text-2xl font-bold text-gray-900 mb-6">My Loans</h2>
 
         {/* Stats */}

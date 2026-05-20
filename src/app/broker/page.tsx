@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, ChevronRight } from 'lucide-react'
 import { PortalShell } from '@/components/portal-shell'
 import { type PipelineStage } from '@/lib/types'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -24,14 +26,25 @@ function stageBadgeColor(stage: PipelineStage | string | null): string {
   }
 }
 
-export default async function BrokerDashboardPage() {
+export default async function BrokerDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-  const { data: broker } = await adminClient
-    .from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
+
+  // Admin "View as broker" support
+  const sp = await searchParams
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  const isImpersonating = impersonation?.kind === 'broker'
+
+  const { data: broker } = isImpersonating
+    ? await adminClient.from('brokers').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
   if (!broker) redirect('/login')
 
   // Get archived loan IDs to exclude
@@ -56,6 +69,9 @@ export default async function BrokerDashboardPage() {
       dashboardHref="/broker"
       variant="broker"
     >
+      {isImpersonating && (
+        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref()} />
+      )}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">My Loans</h2>
         <p className="text-sm text-gray-500 mt-1">

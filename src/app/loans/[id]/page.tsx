@@ -11,6 +11,8 @@ import { ConditionsList } from '@/components/conditions-list'
 import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -22,33 +24,48 @@ function formatPercent(val: number | null): string {
   return `${val}%`
 }
 
-export default async function LoanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LoanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: borrower } = await supabase
-    .from('borrowers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
+  // Admin "View as borrower" support — see src/lib/impersonate.ts
+  const adminClient = createAdminClient()
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  const isImpersonating = impersonation?.kind === 'borrower'
+
+  // Load the borrower row — either the signed-in borrower, or the
+  // impersonated one when an admin is previewing.
+  const borrowerQuery = isImpersonating
+    ? adminClient.from('borrowers').select('*').eq('id', impersonation.id).single()
+    : supabase.from('borrowers').select('*').eq('auth_user_id', user.id).single()
+  const { data: borrower } = await borrowerQuery
 
   if (!borrower) redirect('/login')
 
-  // Borrower may be any of the four borrower slots on the loan
-  const { data: loan } = await supabase
-    .from('loans')
-    .select('*')
-    .eq('id', id)
-    .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
-    .single()
+  // Borrower may be any of the four borrower slots on the loan. Admins
+  // bypass the row-level filter so they can preview any loan from the
+  // impersonated borrower's perspective.
+  const loanQuery = isImpersonating
+    ? adminClient.from('loans').select('*').eq('id', id).single()
+    : supabase.from('loans').select('*')
+        .eq('id', id)
+        .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
+        .single()
+  const { data: loan } = await loanQuery
 
   if (!loan) notFound()
 
-  // Fetch loan officer + loan processor via admin client (bypasses RLS)
-  const adminClient = createAdminClient()
+  // Fetch loan officer + loan processor via admin client (already created above)
   const lpIds = [loan.loan_processor_id, loan.loan_processor_id_2].filter((id): id is string => !!id)
   const [loanOfficer, lpRows] = await Promise.all([
     loan.loan_officer_id
@@ -92,6 +109,9 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
 
   return (
     <PortalShell userName={borrower.full_name ?? user.email ?? null} userRole="Borrower" dashboardHref="/dashboard">
+        {isImpersonating && (
+          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref(loan.id)} />
+        )}
         <LoanRealtimeRefresh loanId={loan.id} />
         {/* Back link */}
         <Link href="/dashboard" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">

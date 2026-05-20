@@ -11,6 +11,8 @@ import { ConditionsList } from '@/components/conditions-list'
 import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -22,24 +24,42 @@ function formatPercent(val: number | null): string {
   return `${val}%`
 }
 
-export default async function BrokerLoanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BrokerLoanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-  const { data: broker } = await adminClient
-    .from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
+
+  // Admin "View as broker" support
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  const isImpersonating = impersonation?.kind === 'broker'
+
+  const { data: broker } = isImpersonating
+    ? await adminClient.from('brokers').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
   if (!broker) redirect('/login')
 
-  // Loan must have this broker in either slot
-  const { data: loan } = await adminClient
-    .from('loans')
-    .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
-    .eq('id', id)
-    .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
-    .single()
+  // Loan must have this broker in either slot — admins previewing bypass
+  // the slot filter so they can preview any loan from the broker's view.
+  const loanQuery = isImpersonating
+    ? adminClient.from('loans')
+        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
+        .eq('id', id).single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
+        .eq('id', id)
+        .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
+        .single()
+  const { data: loan } = await loanQuery
   if (!loan) notFound()
 
   // Staff contacts (full visibility for broker, same as borrower view)
@@ -87,6 +107,9 @@ export default async function BrokerLoanPage({ params }: { params: Promise<{ id:
       dashboardHref="/broker"
       variant="broker"
     >
+      {isImpersonating && (
+        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id)} />
+      )}
       <LoanRealtimeRefresh loanId={loan.id} />
       <Link href="/broker" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
         ← Back to My Loans
