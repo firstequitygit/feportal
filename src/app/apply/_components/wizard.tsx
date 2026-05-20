@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { STEP_TITLES, TOTAL_STEPS, type ApplicationData } from '@/lib/application-fields'
@@ -18,8 +18,13 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   const [step, setStep] = useState(initialStep || 1)
   const [token, setToken] = useState<string | null>(initialToken)
   const [submitting, setSubmitting] = useState(false)
+  const [maxVisited, setMaxVisited] = useState(initialStep || 1)
 
   const autosaveStatus = useAutosave(token, data, step)
+
+  useEffect(() => {
+    setMaxVisited((m) => Math.max(m, step))
+  }, [step])
 
   const set = useCallback((patch: Record<string, unknown>) => setData(d => ({ ...d, ...patch })), [])
 
@@ -65,9 +70,21 @@ export function Wizard({ initialData, initialStep, initialToken }: {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-2 text-xs">
-            {STEP_TITLES.map((t, i) => (
-              <span key={t} className={`rounded px-2 py-1 ${i + 1 === step ? 'bg-[#1F5D8F] text-white' : i + 1 < step ? 'bg-slate-200' : 'bg-slate-100 text-slate-400'}`}>{i + 1}. {t}</span>
-            ))}
+            {STEP_TITLES.map((t, i) => {
+              const isActive = i + 1 === step
+              const isVisited = i + 1 <= maxVisited
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  disabled={!isVisited}
+                  onClick={() => isVisited && setStep(i + 1)}
+                  className={`rounded px-2 py-1 ${isActive ? 'bg-[#1F5D8F] text-white' : i + 1 < step ? 'bg-slate-200 cursor-pointer hover:bg-slate-300' : isVisited ? 'bg-slate-200 cursor-pointer hover:bg-slate-300' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                >
+                  {i + 1}. {t}
+                </button>
+              )
+            })}
           </div>
           <SaveStatus status={autosaveStatus} />
         </div>
