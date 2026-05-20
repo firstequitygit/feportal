@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText } from 'lucide-react'
+import { Upload, FileText, Info } from 'lucide-react'
 import { type Condition, type Document, type ConditionStatus, CONDITION_CATEGORIES } from '@/lib/types'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 
@@ -72,8 +72,18 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     }
   }
 
-  // Borrowers only see conditions assigned to them
+  // Borrowers (and brokers, who share this view) only see conditions assigned
+  // to them. The other conditions belong to the internal team; we don't
+  // display their contents but we DO surface a count so the user can see the
+  // loan still has open items even after they've cleared theirs.
   const borrowerConditions = conditions.filter(c => !c.assigned_to || c.assigned_to === 'borrower')
+  const internalConditions = conditions.filter(c => c.assigned_to && c.assigned_to !== 'borrower')
+  const internalRemainingCount = internalConditions.filter(c =>
+    c.status === 'Outstanding' || c.status === 'Received' || c.status === 'Rejected'
+  ).length
+  const borrowerRemainingCount = borrowerConditions.filter(c =>
+    c.status === 'Outstanding' || c.status === 'Received' || c.status === 'Rejected'
+  ).length
 
   function getDocsForCondition(conditionId: string): Document[] {
     return documents.filter(d => d.condition_id === conditionId)
@@ -126,8 +136,13 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     return (
       <Card>
         <CardHeader><CardTitle className="text-base">Conditions</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500">No conditions have been added to this loan yet.</p>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-500">
+            {conditions.length === 0
+              ? 'No conditions have been added to this loan yet.'
+              : 'No conditions currently require your action.'}
+          </p>
+          {internalRemainingCount > 0 && <InternalTeamNote count={internalRemainingCount} />}
         </CardContent>
       </Card>
     )
@@ -145,6 +160,13 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     <div className="space-y-4">
       {uploadError && (
         <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{uploadError}</p>
+      )}
+
+      {internalRemainingCount > 0 && (
+        <InternalTeamNote
+          count={internalRemainingCount}
+          variant={borrowerRemainingCount === 0 ? 'highlight' : 'subtle'}
+        />
       )}
 
       {grouped.map(({ catValue, catLabel, group }) => {
@@ -318,6 +340,44 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
           </Card>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Surfaces the internal-team condition workload to borrowers/brokers so they
+ * understand the loan is still in motion even after their own conditions are
+ * cleared. Two visual variants:
+ *   - `subtle`    — informational note shown alongside the user's own work
+ *   - `highlight` — softly emphasized when the user is fully cleared but the
+ *                   internal team is still working (so the user doesn't think
+ *                   the loan is just sitting idle).
+ */
+function InternalTeamNote({
+  count,
+  variant = 'subtle',
+}: {
+  count: number
+  variant?: 'subtle' | 'highlight'
+}) {
+  const tone = variant === 'highlight'
+    ? 'bg-blue-50 border-blue-200 text-blue-900'
+    : 'bg-gray-50 border-gray-200 text-gray-700'
+  return (
+    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-md border text-sm ${tone}`}>
+      <Info className="w-4 h-4 mt-0.5 shrink-0 opacity-80" />
+      <div>
+        <span className="font-medium">
+          {count === 1
+            ? '1 additional condition in progress with our team.'
+            : `${count} additional conditions in progress with our team.`}
+        </span>{' '}
+        <span className="opacity-90">
+          {variant === 'highlight'
+            ? 'You don’t need to take any action on these — we’ll keep things moving.'
+            : 'Nothing for you to do on these — just a heads up while we work them.'}
+        </span>
+      </div>
     </div>
   )
 }
