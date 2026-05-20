@@ -33,13 +33,14 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     return (
       <div
         className={cn(
-          'flex items-center rounded-md border bg-white',
-          invalid ? 'border-red-500' : 'border-slate-300',
-          'focus-within:ring-2 focus-within:ring-[#1F5D8F]/40',
+          'flex items-center rounded-sm border bg-white',
+          invalid
+            ? 'border-(--apply-danger,#A8332E)'
+            : 'border-(--apply-border-strong,#CBD5E1) focus-within:border-(--apply-brand,#1F5D8F) focus-within:ring-1 focus-within:ring-(--apply-brand,#1F5D8F)/30',
           className,
         )}
       >
-        <span className="pl-3 pr-1 text-slate-500 select-none">$</span>
+        <span className="pl-3 pr-1 text-(--apply-ink-muted,#64748B) select-none">$</span>
         <input
           ref={ref}
           type="text"

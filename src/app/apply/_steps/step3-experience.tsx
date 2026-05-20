@@ -12,7 +12,10 @@ export function Step3Experience({ data, set, missingFields }: {
   return (
     <div className="space-y-8">
       <div>
-        <h3 className="mb-3 font-medium">Primary Borrower</h3>
+        <div className="mb-6 flex items-baseline gap-4">
+          <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">Primary Borrower</span>
+          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
+        </div>
         <FieldRenderer
           fields={EXPERIENCE_FIELDS}
           data={data}
@@ -24,7 +27,12 @@ export function Step3Experience({ data, set, missingFields }: {
       </div>
       {cobs.map((c, i) => (
         <div key={i}>
-          <h3 className="mb-3 font-medium">Co-Borrower {i + 1}</h3>
+          <div className="mb-6 mt-12 flex items-baseline gap-4">
+            <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">
+              Borrower {i + 2}
+            </span>
+            <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
+          </div>
           <FieldRenderer
             fields={EXPERIENCE_FIELDS}
             data={data}

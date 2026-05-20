@@ -14,12 +14,22 @@ export function RepeatingBorrowers({ data, fields, set, heading, missingFields }
     set({ co_borrowers: next })
   }
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {cobs.map((c, i) => (
-        <div key={i} className="rounded-lg border p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-medium">{heading} {i + 1}</h3>
-            <Button variant="ghost" size="sm" onClick={() => set({ co_borrowers: cobs.filter((_, idx) => idx !== i) })}>Remove</Button>
+        <div key={i}>
+          <div className="mb-6 mt-12 flex items-baseline gap-4">
+            <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">
+              {heading} {i + 1}
+            </span>
+            <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => set({ co_borrowers: cobs.filter((_, idx) => idx !== i) })}
+              className="text-xs text-(--apply-ink-muted) hover:text-(--apply-danger)"
+            >
+              Remove
+            </Button>
           </div>
           <FieldRenderer
             fields={fields}
@@ -32,7 +42,13 @@ export function RepeatingBorrowers({ data, fields, set, heading, missingFields }
         </div>
       ))}
       {cobs.length < MAX_CO_BORROWERS && (
-        <Button variant="outline" size="sm" onClick={() => set({ co_borrowers: [...cobs, {}] })}>+ Add Co-Borrower</Button>
+        <button
+          type="button"
+          onClick={() => set({ co_borrowers: [...cobs, {}] })}
+          className="text-xs uppercase tracking-[0.18em] text-(--apply-ink-muted) transition-colors hover:text-(--apply-brand)"
+        >
+          + Add Co-Borrower
+        </button>
       )}
     </div>
   )

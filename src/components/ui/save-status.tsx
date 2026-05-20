@@ -27,18 +27,22 @@ export function SaveStatus({ status }: { status: AutosaveStatus }) {
     status.state === 'saving'
       ? 'Saving…'
       : status.state === 'saved'
-        ? `Saved ✓ ${relativeTime(status.at)}`
+        ? `Saved  ${relativeTime(status.at)}`
         : 'Save failed — retry'
 
   const tone =
     status.state === 'error'
-      ? 'text-red-600'
+      ? 'text-(--apply-danger,#A8332E)'
       : status.state === 'saving'
-        ? 'text-slate-500'
-        : 'text-emerald-700'
+        ? 'text-(--apply-ink-muted,#64748B)'
+        : 'text-(--apply-brand,#1F5D8F)'
 
   return (
-    <span role="status" aria-live="polite" className={`text-xs ${tone}`}>
+    <span
+      role="status"
+      aria-live="polite"
+      className={`text-[10px] uppercase tracking-[0.18em] ${tone}`}
+    >
       {label}
     </span>
   )

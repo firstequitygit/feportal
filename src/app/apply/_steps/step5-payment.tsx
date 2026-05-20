@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { type ApplicationData } from '@/lib/application-fields'
 
 declare global { interface Window { Square?: unknown } }
@@ -59,19 +58,45 @@ export function Step5Payment({ data, token }: {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border p-4">
-        <p className="text-sm">Credit &amp; Background Check</p>
-        <p className="text-2xl font-semibold text-[#1F5D8F]">${feeUsd.toFixed(2)}</p>
-        <p className="text-xs text-muted-foreground">$45 × {1 + cobs.length} borrower(s). Your card is saved securely with Square and charged by our team after review — not now.</p>
+    <div className="space-y-6">
+      <div className="rounded-sm border border-(--apply-border) p-6">
+        <div className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted) mb-2">
+          Credit &amp; Background Check
+        </div>
+        <p
+          className="text-3xl text-(--apply-brand) mb-1"
+          style={{ fontFamily: "var(--font-display)", fontVariationSettings: "'opsz' 36, 'SOFT' 20" }}
+        >
+          ${feeUsd.toFixed(2)}
+        </p>
+        <p className="text-xs text-(--apply-ink-muted)">
+          $45 &times; {1 + cobs.length} borrower(s). Your card is saved securely with Square and charged by our team after review — not now.
+        </p>
       </div>
       {saved
-        ? <p className="text-sm text-green-600 font-medium">✓ Card saved: {saved.brand} ••{saved.last4}</p>
-        : <>
-            <div id="sq-card" className="rounded-md border p-3" />
-            <Button onClick={saveCard} disabled={!ready || !token}>{ready ? 'Save card on file' : 'Loading payment form…'}</Button>
-            {!token && <p className="text-xs text-red-600">Enter your email in Step 1 first so we can attach the card to your application.</p>}
-          </>}
+        ? (
+          <p className="text-sm font-medium text-(--apply-brand)">
+            Card saved: {saved.brand} &bull;&bull;{saved.last4}
+          </p>
+        )
+        : (
+          <>
+            <div id="sq-card" className="rounded-sm border border-(--apply-border-strong) p-3" />
+            <button
+              type="button"
+              onClick={saveCard}
+              disabled={!ready || !token}
+              className="inline-flex items-center rounded-sm bg-(--apply-brand) px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-(--apply-brand-deep) active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+            >
+              {ready ? 'Save card on file' : 'Loading payment form…'}
+            </button>
+            {!token && (
+              <p className="text-xs text-(--apply-danger)">
+                Enter your email in Step 1 first so we can attach the card to your application.
+              </p>
+            )}
+          </>
+        )}
     </div>
   )
 }

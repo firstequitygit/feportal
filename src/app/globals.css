@@ -139,3 +139,27 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 }
+
+.apply-theme {
+  --apply-bg: #F8FAFC;
+  --apply-surface: #FFFFFF;
+  --apply-border: #E2E8F0;
+  --apply-border-strong: #CBD5E1;
+  --apply-ink: #0F172A;
+  --apply-ink-subtle: #475569;
+  --apply-ink-muted: #64748B;
+  --apply-brand: #1F5D8F;
+  --apply-brand-deep: #0F3A5E;
+  --apply-brand-tint: #E8EFF6;
+  --apply-accent: #5B8FB9;
+  --apply-danger: #A8332E;
+  --apply-danger-tint: #FBE9E7;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-geist), system-ui, sans-serif;
+  --font-script: var(--font-caveat), "Brush Script MT", cursive;
+
+  background: var(--apply-bg);
+  color: var(--apply-ink);
+  font-family: var(--font-body);
+}

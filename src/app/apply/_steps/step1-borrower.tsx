@@ -18,16 +18,19 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
   }
   return (
     <div className="space-y-8">
-      <div className="mb-6 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-        <div className="mb-1 flex items-center gap-2 font-medium text-slate-900">
-          <Lock className="h-4 w-4 text-slate-600" aria-hidden />
-          Your information is encrypted
+      <div className="mb-10 grid grid-cols-[auto_1fr] gap-4 border-y border-(--apply-border) py-6">
+        <div className="rounded-full bg-(--apply-brand-tint) p-2.5">
+          <Lock className="h-4 w-4 text-(--apply-brand)" aria-hidden />
         </div>
-        <p className="text-slate-600">
-          We use bank-grade encryption in transit and at rest. We never share
-          your data without your authorization, and we don&apos;t run a credit
-          check until you sign the authorization on the Disclosures step.
-        </p>
+        <div>
+          <div className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted) mb-1">
+            Encryption &amp; privacy
+          </div>
+          <p className="text-sm text-(--apply-ink-subtle) leading-relaxed">
+            Your information is encrypted in transit and at rest. No credit check
+            runs until you sign the authorization on the Disclosures step.
+          </p>
+        </div>
       </div>
       <FieldRenderer
         fields={[...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]}
@@ -37,11 +40,14 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
         idPrefix="primary."
         missingFields={missingFields}
       />
-      <p className="mt-6 text-center text-xs text-slate-500">
-        Your data is encrypted and never shared without your authorization.
+      <p className="mt-6 text-center text-xs uppercase tracking-[0.18em] text-(--apply-ink-muted)">
+        Secured · encrypted · never shared without your authorization
       </p>
       <div>
-        <h3 className="mb-3 font-medium text-[#1F5D8F]">Co-Borrowers</h3>
+        <div className="mb-6 mt-4 flex items-baseline gap-4">
+          <span className="text-xs uppercase tracking-[0.22em] text-(--apply-ink-muted)">Co-Borrowers</span>
+          <span className="flex-1 border-t border-(--apply-border)" aria-hidden />
+        </div>
         <RepeatingBorrowers
           data={data}
           fields={BORROWER_FIELDS}
