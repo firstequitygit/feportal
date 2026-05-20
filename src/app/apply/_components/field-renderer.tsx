@@ -1,10 +1,12 @@
 'use client'
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { SSNInput } from "@/components/ui/ssn-input"
 import { FieldReveal } from "@/components/ui/field-reveal"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
+import { validators } from "./validators"
 
 type Props = {
   fields: FieldDef[]
@@ -14,6 +16,15 @@ type Props = {
 }
 
 export function FieldRenderer({ fields, data, scope, onChange }: Props) {
+  const [blurErrors, setBlurErrors] = useState<Record<string, string | null>>({})
+
+  function handleBlur(name: string, type: string, value: unknown) {
+    const validator = validators[type === 'tel' ? 'phone' : type]
+    if (!validator) return
+    const error = validator(value)
+    setBlurErrors(prev => ({ ...prev, [name]: error }))
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map(f => {
@@ -21,6 +32,7 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
         const v = scope[f.name]
         const id = `f-${f.name}`
         const wide = f.type === 'textarea' || f.type === 'radio' || f.type === 'file'
+        const blurErr = blurErrors[f.name] ?? null
         return (
           <FieldReveal key={f.name} show={visible}>
             <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
@@ -61,18 +73,26 @@ export function FieldRenderer({ fields, data, scope, onChange }: Props) {
               ) : f.type === 'currency' ? (
                 <CurrencyInput id={id} name={f.name}
                   value={String(v ?? '')}
-                  onChange={(val) => onChange(f.name, val)} />
+                  onChange={(val) => onChange(f.name, val)}
+                  invalid={Boolean(blurErr)}
+                  onBlur={() => handleBlur(f.name, f.type, v)} />
               ) : f.type === 'ssn' ? (
                 <SSNInput id={id} name={f.name}
                   value={String(v ?? '')}
-                  onChange={(val) => onChange(f.name, val)} />
+                  onChange={(val) => onChange(f.name, val)}
+                  invalid={Boolean(blurErr)}
+                  onBlur={() => handleBlur(f.name, f.type, v)} />
               ) : (
                 <Input id={id}
                   type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
                   inputMode={f.type === 'number' ? 'decimal' : undefined}
                   placeholder={f.placeholder}
-                  value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)} />
+                  value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
+                  onBlur={() => handleBlur(f.name, f.type, v)} />
               )}
+              <div className="min-h-5 text-xs text-red-600">
+                {blurErr ?? ' '}
+              </div>
               {f.help && <p className="text-xs text-muted-foreground">{f.help}</p>}
             </div>
           </FieldReveal>
