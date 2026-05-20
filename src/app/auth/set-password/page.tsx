@@ -1,7 +1,7 @@
-import SetPasswordClient from './set-password-client'
-
-export const dynamic = 'force-dynamic'
+import { redirect } from 'next/navigation'
 
 export default function SetPasswordPage() {
-  return <SetPasswordClient />
+  // Legacy invite endpoint. Direct sign-in is now via /auth/callback;
+  // any users who land here from old invite emails get redirected to login.
+  redirect('/login')
 }

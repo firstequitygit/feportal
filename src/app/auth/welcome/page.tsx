@@ -1,7 +1,7 @@
-import WelcomeClient from './welcome-client'
-
-export const dynamic = 'force-dynamic'
+import { redirect } from 'next/navigation'
 
 export default function WelcomePage() {
-  return <WelcomeClient />
+  // Legacy invite endpoint. Direct sign-in is now via /auth/callback;
+  // any users who land here from old invite emails get redirected to login.
+  redirect('/login')
 }
