@@ -77,13 +77,20 @@ export function Wizard({ initialData, initialStep, initialToken }: {
       </div>
 
       <h2 className="mb-4 text-xl font-semibold text-[#1F5D8F]">{STEP_TITLES[step - 1]}</h2>
-      {stepEl}
+      <div className="pb-20 sm:pb-0">
+        {stepEl}
+      </div>
 
-      <div className="mt-8 flex justify-between">
-        <Button variant="outline" disabled={step === 1} onClick={() => setStep(s => Math.max(1, s - 1))}>← Back</Button>
-        {step < TOTAL_STEPS
-          ? <Button onClick={() => setStep(s => Math.min(TOTAL_STEPS, s + 1))}>Next →</Button>
-          : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
+      <div
+        className="sticky bottom-0 -mx-4 mt-8 border-t border-slate-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex justify-between">
+          <Button variant="outline" disabled={step === 1} onClick={() => setStep(s => Math.max(1, s - 1))}>← Back</Button>
+          {step < TOTAL_STEPS
+            ? <Button onClick={() => setStep(s => Math.min(TOTAL_STEPS, s + 1))}>Next →</Button>
+            : <Button onClick={submit} disabled={submitting || !token}>{submitting ? 'Submitting…' : 'Submit Application'}</Button>}
+        </div>
       </div>
     </div>
   )
