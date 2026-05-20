@@ -100,7 +100,11 @@ export async function POST() {
         maturity_date:             deal.maturity_date,
         entity_name:               deal.entity_name,
         loan_number:               deal.loan_number,
-        rate_locked_days:          deal.rate_locked_days,
+        // rate_locked_days is intentionally NOT pulled — the portal stores
+        // granularity (No / 15 / 30 / 45 days) that Pipedrive's yes-only
+        // "Locked?" enum can't represent. Pulling would clobber the days
+        // value back to "Yes". Pushes still happen on portal edits via
+        // /api/loans/field.
         rate_lock_expiration_date: deal.rate_lock_expiration_date,
         interest_only:             deal.interest_only,
         closed_at:                 deal.closed_at,

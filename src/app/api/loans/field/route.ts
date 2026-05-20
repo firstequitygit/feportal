@@ -17,8 +17,10 @@ interface FieldConfig {
   table?: Table
   /** Pipedrive custom-field key. Required for table='loans', omitted for loan_details. */
   pdKey?: string
-  /** For enum fields: map of canonical value → Pipedrive option ID */
-  optionMap?: Record<string, number>
+  /** For enum fields: map of canonical value → Pipedrive option ID.
+   *  Use `null` for values that should CLEAR the Pipedrive field (e.g. a
+   *  yes-only enum where the portal's "No" means "not set"). */
+  optionMap?: Record<string, number | null>
   /** For enum fields: list of valid values */
   validValues?: readonly string[]
 }
@@ -31,6 +33,22 @@ const LOAN_TYPE_OPTION_MAP: Record<string, number> = Object.entries(PIPEDRIVE_LO
   }, {} as Record<string, number>)
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
+
+// Pipedrive option IDs for the "Interest Only" Yes/No enum (key f0b4...4920fc3).
+const INTEREST_ONLY_OPTIONS = ['Yes', 'No'] as const
+const INTEREST_ONLY_OPTION_MAP: Record<string, number | null> = { Yes: 269, No: 270 }
+
+// "Locked?" is a Pipedrive yes-only enum (only one option id: 148 = "Yes").
+// Portal stores granularity (No / 15 / 30 / 45 days). Push "Yes" for any
+// locked value, null when "No" — and avoid clobbering on pull (see
+// src/lib/pipedrive.ts).
+const RATE_LOCK_OPTIONS = ['No', '15 days', '30 days', '45 days'] as const
+const RATE_LOCK_OPTION_MAP: Record<string, number | null> = {
+  'No': null,
+  '15 days': 148,
+  '30 days': 148,
+  '45 days': 148,
+}
 
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
@@ -53,6 +71,9 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   origination_date: { type: 'date',   pdKey: PIPEDRIVE_FIELDS.originationDate },
   maturity_date:    { type: 'date',   pdKey: PIPEDRIVE_FIELDS.maturityDate },
   entity_name:      { type: 'text',   pdKey: PIPEDRIVE_FIELDS.entityName },
+  interest_only:    { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.interestOnly, optionMap: INTEREST_ONLY_OPTION_MAP, validValues: INTEREST_ONLY_OPTIONS },
+  rate_locked_days: { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.rateLocked,   optionMap: RATE_LOCK_OPTION_MAP,     validValues: RATE_LOCK_OPTIONS },
+  rate_lock_expiration_date: { type: 'date', pdKey: PIPEDRIVE_FIELDS.rateLockExpiration },
 
   // ===== loan_details table (portal-only, no Pipedrive sync) =====
   // Loan / Deal Overview
