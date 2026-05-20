@@ -364,32 +364,31 @@ function InternalTeamNote({
   variant?: 'subtle' | 'highlight'
 }) {
   const isHighlight = variant === 'highlight'
+  // Matches the First Equity brand blue (#1F5D8F) used throughout the portal
+  // (email templates, header bars, primary buttons).
   return (
     <div
-      className={`flex items-center gap-4 px-4 py-3 rounded-lg border-2 shadow-sm ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 shadow-sm ${
         isHighlight
-          ? 'bg-amber-50 border-amber-300 text-amber-900'
-          : 'bg-amber-50/70 border-amber-200 text-amber-900'
+          ? 'bg-sky-50 border-[#1F5D8F]/40 text-[#1F5D8F]'
+          : 'bg-sky-50/70 border-[#1F5D8F]/25 text-[#1F5D8F]'
       }`}
     >
       <div
-        className={`flex items-center justify-center w-12 h-12 rounded-full shrink-0 ${
-          isHighlight ? 'bg-amber-200 text-amber-900' : 'bg-amber-100 text-amber-800'
+        className={`flex items-center justify-center w-10 h-10 rounded-full shrink-0 ${
+          isHighlight ? 'bg-[#1F5D8F]/20' : 'bg-[#1F5D8F]/10'
         }`}
       >
-        <Info className="w-6 h-6" strokeWidth={2.25} />
+        <Info className="w-5 h-5" strokeWidth={2.25} />
       </div>
-      <div className="flex items-baseline gap-3 min-w-0">
-        <div className="text-3xl font-bold leading-none tabular-nums shrink-0">{count}</div>
-        <div className="text-sm leading-snug">
-          <div className="font-semibold">
-            additional {count === 1 ? 'condition' : 'conditions'} in progress with our team
-          </div>
-          <div className="text-amber-800/90 mt-0.5">
-            {isHighlight
-              ? 'You don’t need to take any action on these — we’ll keep things moving.'
-              : 'Nothing for you to do on these — just a heads-up while we work them.'}
-          </div>
+      <div className="text-sm leading-snug min-w-0">
+        <div className="font-semibold">
+          {count} additional {count === 1 ? 'condition' : 'conditions'} in progress with our team
+        </div>
+        <div className="opacity-80 mt-0.5">
+          {isHighlight
+            ? 'You don’t need to take any action on these — we’ll keep things moving.'
+            : 'Nothing for you to do on these — just a heads-up while we work them.'}
         </div>
       </div>
     </div>
