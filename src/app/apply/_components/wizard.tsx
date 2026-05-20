@@ -9,6 +9,7 @@ import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Disclosures } from '../_steps/step4-disclosures'
 import { Step5Payment } from '../_steps/step5-payment'
 import { useAutosave } from './use-autosave'
+import { SaveStatus } from "@/components/ui/save-status"
 
 export function Wizard({ initialData, initialStep, initialToken }: {
   initialData: ApplicationData; initialStep: number; initialToken: string | null
@@ -18,7 +19,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   const [token, setToken] = useState<string | null>(initialToken)
   const [submitting, setSubmitting] = useState(false)
 
-  useAutosave(token, data, step)
+  const autosaveStatus = useAutosave(token, data, step)
 
   const set = useCallback((patch: Record<string, unknown>) => setData(d => ({ ...d, ...patch })), [])
 
@@ -62,10 +63,13 @@ export function Wizard({ initialData, initialStep, initialToken }: {
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-8">
       <div className="mb-6">
-        <div className="flex flex-wrap gap-2 text-xs">
-          {STEP_TITLES.map((t, i) => (
-            <span key={t} className={`rounded px-2 py-1 ${i + 1 === step ? 'bg-[#1F5D8F] text-white' : i + 1 < step ? 'bg-slate-200' : 'bg-slate-100 text-slate-400'}`}>{i + 1}. {t}</span>
-          ))}
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 text-xs">
+            {STEP_TITLES.map((t, i) => (
+              <span key={t} className={`rounded px-2 py-1 ${i + 1 === step ? 'bg-[#1F5D8F] text-white' : i + 1 < step ? 'bg-slate-200' : 'bg-slate-100 text-slate-400'}`}>{i + 1}. {t}</span>
+            ))}
+          </div>
+          <SaveStatus status={autosaveStatus} />
         </div>
         <div className="mt-3 h-1.5 rounded bg-slate-200">
           <div className="h-1.5 rounded bg-[#1F5D8F] transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
