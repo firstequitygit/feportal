@@ -1,41 +1,42 @@
-// Airtable client for the one-way "Loan Details" sync from the portal
-// (Postgres) → First Equity Reports base, Deals table.
+// Bidirectional "fill blanks only" sync between portal Loan Details and the
+// First Equity Reports Airtable base (Deals table + linked Title/Insurance/
+// Appraisers tables).
 //
-// Public surface:
-//   - syncLoanToAirtable(loanId)       sync ONE loan
-//   - syncAllLoansToAirtable()         sync EVERY portal loan with a deal id
+// Sync model — Model B per user direction:
+//   - Airtable has value, portal empty   → pull Airtable into portal
+//   - Airtable empty,    portal has value → push portal into Airtable
+//   - Both have values   → no-op (preserve both)
+//   - Both empty         → no-op
 //
 // Match key: Pipedrive Deal ID. Loans without a matching Airtable row are
-// SKIPPED (we don't create Deal rows from the portal). Vendor rows in the
-// linked Title/Insurance/Appraisers tables ARE find-or-created as needed.
+// skipped (we do NOT create Deal rows from the portal).
 //
-// Auth: AIRTABLE_TOKEN env var (Personal Access Token, scopes data.records:read
-// + data.records:write + schema.bases:read).
+// Auth: AIRTABLE_TOKEN env var (Personal Access Token with
+//       data.records:read + data.records:write + schema.bases:read).
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AIRTABLE_BASE_ID,
   AIRTABLE_DEALS_TABLE_ID,
   AIRTABLE_DEAL_ID_FIELD,
-  buildAirtablePayload,
+  FIELD_MAP,
+  airtableFieldsToRead,
+  isEmptyValue,
   portalLoanDetailsColumns,
   portalLoansColumns,
-  type VendorPayload,
+  type ScalarMapping,
+  type VendorMapping,
 } from '@/lib/airtable-field-map'
 
 // ============================================================
-// Low-level Airtable fetch with retry/backoff for 429s
+// Low-level fetch with retry/backoff
 // ============================================================
 
 const AIRTABLE_API = 'https://api.airtable.com/v0'
 
-async function airtable<T = unknown>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function airtable<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = process.env.AIRTABLE_TOKEN
   if (!token) throw new Error('AIRTABLE_TOKEN not set')
-
   for (let attempt = 0; attempt < 5; attempt++) {
     const res = await fetch(`${AIRTABLE_API}${path}`, {
       ...init,
@@ -46,8 +47,7 @@ async function airtable<T = unknown>(
       },
     })
     if (res.status === 429) {
-      const wait = 1000 * Math.pow(2, attempt)
-      await new Promise(r => setTimeout(r, wait))
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
       continue
     }
     if (!res.ok) {
@@ -59,58 +59,60 @@ async function airtable<T = unknown>(
   throw new Error(`Airtable ${path}: exceeded retry limit (rate limited)`)
 }
 
-// ============================================================
-// Find-or-create a vendor row, return its Airtable record id
-// ============================================================
-
-/**
- * In-process cache so a batch sync doesn't re-lookup the same vendor on
- * every loan. Keyed by `${tableId}::${companyLower}`.
- */
-const vendorIdCache = new Map<string, string>()
-
-async function findOrCreateVendor(v: VendorPayload): Promise<string> {
-  const cacheKey = `${v.tableId}::${v.companyValue.toLowerCase()}`
-  const cached = vendorIdCache.get(cacheKey)
-  if (cached) {
-    if (v.emailValue || v.phoneValue) await maybeUpdateVendor(v.tableId, cached, v)
-    return cached
-  }
-
-  // Airtable filterByFormula needs the company value quoted + escaped.
-  const escaped = v.companyValue.replace(/"/g, '\\"')
-  const formula = `LOWER({${v.companyField}}) = "${escaped.toLowerCase()}"`
-  const url = `/${AIRTABLE_BASE_ID}/${v.tableId}?` + new URLSearchParams({
-    filterByFormula: formula,
-    maxRecords: '1',
-  }).toString()
-  const found = await airtable<{ records: Array<{ id: string }> }>(url)
-
-  let recordId: string
-  if (found.records.length > 0) {
-    recordId = found.records[0].id
-    if (v.emailValue || v.phoneValue) await maybeUpdateVendor(v.tableId, recordId, v)
-  } else {
-    const fields: Record<string, unknown> = { [v.companyField]: v.companyValue }
-    if (v.emailField && v.emailValue) fields[v.emailField] = v.emailValue
-    if (v.phoneField && v.phoneValue) fields[v.phoneField] = v.phoneValue
-    const created = await airtable<{ id: string }>(
-      `/${AIRTABLE_BASE_ID}/${v.tableId}`,
-      { method: 'POST', body: JSON.stringify({ fields }) },
-    )
-    recordId = created.id
-  }
-
-  vendorIdCache.set(cacheKey, recordId)
-  return recordId
+interface AirtableRecord {
+  id: string
+  fields: Record<string, unknown>
 }
 
-/** PATCH the vendor row's email/phone if the portal has values to push. */
-async function maybeUpdateVendor(tableId: string, recordId: string, v: VendorPayload) {
-  const fields: Record<string, unknown> = {}
-  if (v.emailField && v.emailValue) fields[v.emailField] = v.emailValue
-  if (v.phoneField && v.phoneValue) fields[v.phoneField] = v.phoneValue
-  if (Object.keys(fields).length === 0) return
+// ============================================================
+// Look up the Deal record by Pipedrive Deal ID
+// ============================================================
+
+async function findDealByPipedriveId(pipedriveDealId: string): Promise<AirtableRecord | null> {
+  const escaped = pipedriveDealId.replace(/"/g, '\\"')
+  const url = `/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}?` + new URLSearchParams({
+    filterByFormula: `{${AIRTABLE_DEAL_ID_FIELD}} = "${escaped}"`,
+    maxRecords: '1',
+  }).toString()
+  const res = await airtable<{ records: AirtableRecord[] }>(url)
+  return res.records[0] ?? null
+}
+
+// ============================================================
+// Vendor row helpers
+// ============================================================
+
+/** In-process cache for vendor lookups across loans in a single batch run. */
+const vendorRecordCache = new Map<string, AirtableRecord>()
+
+async function fetchVendorRecord(tableId: string, recordId: string): Promise<AirtableRecord> {
+  const cacheKey = `${tableId}::${recordId}`
+  const cached = vendorRecordCache.get(cacheKey)
+  if (cached) return cached
+  const res = await airtable<AirtableRecord>(`/${AIRTABLE_BASE_ID}/${tableId}/${recordId}`)
+  vendorRecordCache.set(cacheKey, res)
+  return res
+}
+
+async function findVendorByCompany(tableId: string, companyField: string, companyName: string): Promise<AirtableRecord | null> {
+  const escaped = companyName.replace(/"/g, '\\"').toLowerCase()
+  const url = `/${AIRTABLE_BASE_ID}/${tableId}?` + new URLSearchParams({
+    filterByFormula: `LOWER({${companyField}}) = "${escaped}"`,
+    maxRecords: '1',
+  }).toString()
+  const res = await airtable<{ records: AirtableRecord[] }>(url)
+  return res.records[0] ?? null
+}
+
+async function createVendor(tableId: string, fields: Record<string, unknown>): Promise<AirtableRecord> {
+  const res = await airtable<AirtableRecord>(`/${AIRTABLE_BASE_ID}/${tableId}`, {
+    method: 'POST',
+    body: JSON.stringify({ fields }),
+  })
+  return res
+}
+
+async function patchVendor(tableId: string, recordId: string, fields: Record<string, unknown>): Promise<void> {
   await airtable(`/${AIRTABLE_BASE_ID}/${tableId}/${recordId}`, {
     method: 'PATCH',
     body: JSON.stringify({ fields }),
@@ -118,50 +120,43 @@ async function maybeUpdateVendor(tableId: string, recordId: string, v: VendorPay
 }
 
 // ============================================================
-// Find a Deal row by Pipedrive Deal ID
-// ============================================================
-
-async function findDealRecordIdByPipedriveId(pipedriveDealId: string): Promise<string | null> {
-  const escaped = pipedriveDealId.replace(/"/g, '\\"')
-  const formula = `{${AIRTABLE_DEAL_ID_FIELD}} = "${escaped}"`
-  const url = `/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}?` + new URLSearchParams({
-    filterByFormula: formula,
-    maxRecords: '1',
-  }).toString()
-  const res = await airtable<{ records: Array<{ id: string }> }>(url)
-  return res.records[0]?.id ?? null
-}
-
-// ============================================================
 // Sync one loan
 // ============================================================
 
+export interface FieldDelta {
+  field: string                 // human-readable identifier ("airtable: Loan Number" or "portal: title_email")
+  direction: 'push' | 'pull'    // push = portal→Airtable; pull = Airtable→portal
+  oldValue: unknown
+  newValue: unknown
+}
+
 export interface SyncResult {
   loanId: string
-  status: 'updated' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'error'
+  status: 'reconciled' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'error'
   airtableRecordId?: string
-  fieldsWritten?: number
-  vendorsLinked?: number
+  pushedToAirtable: number      // number of Airtable fields filled in
+  pulledToPortal: number        // number of portal columns filled in
+  deltas?: FieldDelta[]
   error?: string
 }
 
-export async function syncLoanToAirtable(loanId: string): Promise<SyncResult> {
+export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?: boolean } = {}): Promise<SyncResult> {
   const supa = createAdminClient()
+  const collectDeltas = opts.collectDeltas ?? false
 
-  // Pull only the columns the mapping cares about
-  const { data: loan, error: loanErr } = await supa
+  // 1. Load portal data
+  const { data: loanRow, error: loanErr } = await supa
     .from('loans')
     .select(portalLoansColumns().join(','))
     .eq('id', loanId)
     .single()
-  if (loanErr || !loan) {
-    return { loanId, status: 'error', error: loanErr?.message ?? 'loan not found' }
+  if (loanErr || !loanRow) {
+    return { loanId, status: 'error', pushedToAirtable: 0, pulledToPortal: 0, error: loanErr?.message ?? 'loan not found' }
   }
-
-  const loanRow = loan as unknown as Record<string, unknown>
-  const dealId = loanRow.pipedrive_deal_id
+  const loan = loanRow as unknown as Record<string, unknown>
+  const dealId = loan.pipedrive_deal_id
   if (!dealId || typeof dealId !== 'string') {
-    return { loanId, status: 'skipped-no-deal-id' }
+    return { loanId, status: 'skipped-no-deal-id', pushedToAirtable: 0, pulledToPortal: 0 }
   }
 
   const { data: detail } = await supa
@@ -171,42 +166,205 @@ export async function syncLoanToAirtable(loanId: string): Promise<SyncResult> {
     .maybeSingle()
   const detailRow = (detail ?? null) as Record<string, unknown> | null
 
-  // Resolve the Airtable Deal record id
-  const recordId = await findDealRecordIdByPipedriveId(dealId)
-  if (!recordId) return { loanId, status: 'skipped-no-airtable-row' }
-
-  // Build the payload
-  const { fields, vendors } = buildAirtablePayload(loanRow, detailRow)
-
-  // Find-or-create each vendor row (in parallel — vendor cache de-dupes
-  // identical companies across loans)
-  const vendorResults = await Promise.all(vendors.map(async v => ({
-    linkField: v.linkField,
-    recordId: await findOrCreateVendor(v),
-  })))
-  for (const vr of vendorResults) {
-    // Airtable multipleRecordLinks accept an array of record ids
-    fields[vr.linkField] = [vr.recordId]
+  // 2. Find Airtable Deal record (full fields)
+  const dealRecord = await findDealByPipedriveId(dealId)
+  if (!dealRecord) {
+    return { loanId, status: 'skipped-no-airtable-row', pushedToAirtable: 0, pulledToPortal: 0 }
   }
 
-  if (Object.keys(fields).length === 0) {
-    return { loanId, status: 'updated', airtableRecordId: recordId, fieldsWritten: 0, vendorsLinked: 0 }
+  const airtableFields = dealRecord.fields
+  const airtablePatch: Record<string, unknown> = {}
+  const portalLoanPatch: Record<string, unknown> = {}
+  const portalDetailPatch: Record<string, unknown> = {}
+  const deltas: FieldDelta[] = []
+
+  // 3. Reconcile each scalar mapping
+  for (const m of FIELD_MAP) {
+    if (m.kind === 'scalar') reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas)
   }
 
-  // PATCH the Deal row. typecast=true asks Airtable to coerce values where
-  // possible (e.g. accept a number when the field is currency, accept a
-  // singleSelect text that already matches one of the choices).
-  await airtable(`/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}/${recordId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ fields, typecast: true }),
-  })
+  // 4. Reconcile each vendor mapping (linked-table)
+  for (const m of FIELD_MAP) {
+    if (m.kind !== 'vendor') continue
+    await reconcileVendor(m, detailRow, airtableFields, airtablePatch, portalDetailPatch, deltas, collectDeltas)
+  }
+
+  // 5. Apply Airtable changes (PATCH the Deal — typecast lets Airtable coerce
+  //    text into enum choices when values match).
+  let pushedToAirtable = 0
+  if (Object.keys(airtablePatch).length > 0) {
+    await airtable(`/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}/${dealRecord.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fields: airtablePatch, typecast: true }),
+    })
+    pushedToAirtable = Object.keys(airtablePatch).length
+  }
+
+  // 6. Apply portal changes
+  let pulledToPortal = 0
+  if (Object.keys(portalLoanPatch).length > 0) {
+    const { error } = await supa.from('loans').update(portalLoanPatch).eq('id', loanId)
+    if (error) throw new Error(`portal loans update failed: ${error.message}`)
+    pulledToPortal += Object.keys(portalLoanPatch).length
+  }
+  if (Object.keys(portalDetailPatch).length > 0) {
+    // upsert in case loan_details row doesn't exist yet
+    const { error } = await supa
+      .from('loan_details')
+      .upsert(
+        { loan_id: loanId, ...portalDetailPatch, updated_at: new Date().toISOString() },
+        { onConflict: 'loan_id' },
+      )
+    if (error) throw new Error(`portal loan_details upsert failed: ${error.message}`)
+    pulledToPortal += Object.keys(portalDetailPatch).length
+  }
 
   return {
     loanId,
-    status: 'updated',
-    airtableRecordId: recordId,
-    fieldsWritten: Object.keys(fields).length,
-    vendorsLinked: vendorResults.length,
+    status: 'reconciled',
+    airtableRecordId: dealRecord.id,
+    pushedToAirtable,
+    pulledToPortal,
+    ...(collectDeltas ? { deltas } : {}),
+  }
+}
+
+// ============================================================
+// Reconcile one scalar field
+// ============================================================
+
+function reconcileScalar(
+  m: ScalarMapping,
+  loan: Record<string, unknown>,
+  detail: Record<string, unknown> | null,
+  airtableFields: Record<string, unknown>,
+  airtablePatch: Record<string, unknown>,
+  portalLoanPatch: Record<string, unknown>,
+  portalDetailPatch: Record<string, unknown>,
+  deltas: FieldDelta[],
+  collectDeltas: boolean,
+) {
+  const src = m.portalTable === 'loans' ? loan : (detail ?? {})
+  const portalValue = src[m.portalCol]
+  const airtableValue = airtableFields[m.airtableField]
+
+  const portalEmpty = isEmptyValue(portalValue)
+  const airtableEmpty = isEmptyValue(airtableValue)
+
+  // Both empty or both populated → skip
+  if (portalEmpty === airtableEmpty) return
+
+  if (airtableEmpty && !portalEmpty) {
+    // Push portal → Airtable
+    const v = m.toAirtable ? m.toAirtable(portalValue) : portalValue
+    if (v === undefined) return
+    airtablePatch[m.airtableField] = v
+    if (collectDeltas) {
+      deltas.push({ field: `airtable: ${m.airtableField}`, direction: 'push', oldValue: airtableValue, newValue: v })
+    }
+  } else if (!airtableEmpty && portalEmpty) {
+    // Pull Airtable → portal
+    const v = m.toPortal ? m.toPortal(airtableValue) : airtableValue
+    if (v === undefined) return
+    if (m.portalTable === 'loans') portalLoanPatch[m.portalCol] = v
+    else portalDetailPatch[m.portalCol] = v
+    if (collectDeltas) {
+      deltas.push({ field: `portal: ${m.portalCol}`, direction: 'pull', oldValue: portalValue, newValue: v })
+    }
+  }
+}
+
+// ============================================================
+// Reconcile one vendor mapping (linked Title/Insurance/Appraiser)
+// ============================================================
+
+async function reconcileVendor(
+  m: VendorMapping,
+  detail: Record<string, unknown> | null,
+  airtableFields: Record<string, unknown>,
+  airtablePatch: Record<string, unknown>,
+  portalDetailPatch: Record<string, unknown>,
+  deltas: FieldDelta[],
+  collectDeltas: boolean,
+) {
+  // Portal-side trio
+  const detailSrc = detail ?? {}
+  const portalCompany = pickString(detailSrc[m.portalCompanyCol])
+  const portalEmail   = m.portalEmailCol ? pickString(detailSrc[m.portalEmailCol]) : null
+  const portalPhone   = m.portalPhoneCol ? pickString(detailSrc[m.portalPhoneCol]) : null
+
+  // Airtable-side: the Deal's link field (array of record IDs)
+  const linkRaw = airtableFields[m.airtableLinkField]
+  const linkedIds = Array.isArray(linkRaw) ? linkRaw.filter((x): x is string => typeof x === 'string') : []
+  const airtableEmpty = linkedIds.length === 0
+
+  if (airtableEmpty && !portalCompany) return  // nothing to do
+  if (!airtableEmpty) {
+    // Airtable has a linked vendor → pull its Company/Email/Phone into portal
+    // for any portal column currently empty. Do NOT modify the vendor row
+    // (that would feel like overwriting Airtable from portal data).
+    const linkedVendor = await fetchVendorRecord(m.vendorTableId, linkedIds[0])
+    const v = linkedVendor.fields
+    const vendorCompany = pickString(v[m.vendorCompanyField])
+    const vendorEmail = m.vendorEmailField ? pickString(v[m.vendorEmailField]) : null
+    const vendorPhone = m.vendorPhoneField ? pickString(v[m.vendorPhoneField]) : null
+
+    pullIfEmpty(detailSrc, m.portalCompanyCol, vendorCompany, portalDetailPatch, deltas, collectDeltas)
+    if (m.portalEmailCol) pullIfEmpty(detailSrc, m.portalEmailCol, vendorEmail, portalDetailPatch, deltas, collectDeltas)
+    if (m.portalPhoneCol) pullIfEmpty(detailSrc, m.portalPhoneCol, vendorPhone, portalDetailPatch, deltas, collectDeltas)
+    return
+  }
+
+  // airtable empty + portal has company → find-or-create vendor + link
+  let vendor = await findVendorByCompany(m.vendorTableId, m.vendorCompanyField, portalCompany!)
+  if (!vendor) {
+    const fields: Record<string, unknown> = { [m.vendorCompanyField]: portalCompany }
+    if (m.vendorEmailField && portalEmail) fields[m.vendorEmailField] = portalEmail
+    if (m.vendorPhoneField && portalPhone) fields[m.vendorPhoneField] = portalPhone
+    vendor = await createVendor(m.vendorTableId, fields)
+    if (collectDeltas) deltas.push({ field: `airtable vendor: ${m.airtableLinkField}`, direction: 'push', oldValue: null, newValue: `created "${portalCompany}"` })
+  } else {
+    // Existing vendor — only fill missing email/phone on the vendor row.
+    const patch: Record<string, unknown> = {}
+    if (m.vendorEmailField && portalEmail && isEmptyValue(vendor.fields[m.vendorEmailField])) patch[m.vendorEmailField] = portalEmail
+    if (m.vendorPhoneField && portalPhone && isEmptyValue(vendor.fields[m.vendorPhoneField])) patch[m.vendorPhoneField] = portalPhone
+    if (Object.keys(patch).length > 0) {
+      await patchVendor(m.vendorTableId, vendor.id, patch)
+      vendor.fields = { ...vendor.fields, ...patch }
+      if (collectDeltas) deltas.push({ field: `airtable vendor: ${m.airtableLinkField}`, direction: 'push', oldValue: null, newValue: `filled ${Object.keys(patch).join('+')} on "${portalCompany}"` })
+    }
+  }
+
+  // Link the vendor record onto the Deal
+  airtablePatch[m.airtableLinkField] = [vendor.id]
+  if (collectDeltas) {
+    deltas.push({ field: `airtable: ${m.airtableLinkField}`, direction: 'push', oldValue: [], newValue: [vendor.id] })
+  }
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+function pickString(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t ? t : null
+}
+
+function pullIfEmpty(
+  src: Record<string, unknown>,
+  col: string,
+  value: string | null,
+  portalDetailPatch: Record<string, unknown>,
+  deltas: FieldDelta[],
+  collectDeltas: boolean,
+) {
+  if (!value) return
+  if (!isEmptyValue(src[col])) return
+  portalDetailPatch[col] = value
+  if (collectDeltas) {
+    deltas.push({ field: `portal: ${col}`, direction: 'pull', oldValue: src[col], newValue: value })
   }
 }
 
@@ -216,7 +374,9 @@ export async function syncLoanToAirtable(loanId: string): Promise<SyncResult> {
 
 export interface BatchSyncSummary {
   total: number
-  updated: number
+  reconciled: number
+  pushedFieldsTotal: number
+  pulledFieldsTotal: number
   skippedNoDealId: number
   skippedNoAirtableRow: number
   errors: number
@@ -226,7 +386,6 @@ export interface BatchSyncSummary {
 export async function syncAllLoansToAirtable(): Promise<BatchSyncSummary> {
   const supa = createAdminClient()
 
-  // Stream loan ids (paginated, since the table can exceed 1000 rows)
   const loanIds: string[] = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supa
@@ -242,20 +401,23 @@ export async function syncAllLoansToAirtable(): Promise<BatchSyncSummary> {
 
   const summary: BatchSyncSummary = {
     total: loanIds.length,
-    updated: 0,
+    reconciled: 0,
+    pushedFieldsTotal: 0,
+    pulledFieldsTotal: 0,
     skippedNoDealId: 0,
     skippedNoAirtableRow: 0,
     errors: 0,
     errorSample: [],
   }
 
-  // Sequential. Could be parallelized with care for Airtable rate limits
-  // (5 req/sec/base). Keeping serial for v1; revisit if too slow.
   for (const id of loanIds) {
     try {
       const r = await syncLoanToAirtable(id)
-      if (r.status === 'updated') summary.updated++
-      else if (r.status === 'skipped-no-deal-id') summary.skippedNoDealId++
+      if (r.status === 'reconciled') {
+        summary.reconciled++
+        summary.pushedFieldsTotal += r.pushedToAirtable
+        summary.pulledFieldsTotal += r.pulledToPortal
+      } else if (r.status === 'skipped-no-deal-id') summary.skippedNoDealId++
       else if (r.status === 'skipped-no-airtable-row') summary.skippedNoAirtableRow++
       else if (r.status === 'error') {
         summary.errors++
@@ -268,9 +430,6 @@ export async function syncAllLoansToAirtable(): Promise<BatchSyncSummary> {
     }
   }
 
-  // Reset the vendor cache so the next batch run picks up any vendor-row
-  // edits made directly in Airtable between syncs.
-  vendorIdCache.clear()
-
+  vendorRecordCache.clear()
   return summary
 }

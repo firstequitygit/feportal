@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 
 interface BatchSummary {
   total: number
-  updated: number
+  reconciled: number
+  pushedFieldsTotal: number
+  pulledFieldsTotal: number
   skippedNoDealId: number
   skippedNoAirtableRow: number
   errors: number
@@ -15,10 +17,9 @@ interface BatchSummary {
 }
 
 /**
- * Admin-only one-click button that fires the Portal → Airtable Deals sync.
- * Mirrors SyncButton (Pipedrive) styling/UX, but talks to a different
- * endpoint and surfaces a richer summary toast because the sync can produce
- * four distinct outcomes per loan.
+ * Admin-only one-click button that fires the bidirectional Loan Details
+ * sync between the portal and the Airtable Deals base. Model B: fill blanks
+ * only — never overwrite a populated field on either side.
  */
 export function AirtableSyncButton() {
   const router = useRouter()
@@ -26,15 +27,15 @@ export function AirtableSyncButton() {
 
   async function handleSync() {
     setSyncing(true)
-    const toastId = toast.loading('Syncing Loan Details to Airtable…')
+    const toastId = toast.loading('Reconciling Loan Details with Airtable…')
     try {
       const res = await fetch('/api/admin/sync-airtable', { method: 'POST' })
       const data = await res.json()
       if (data.ok && data.summary) {
         const s = data.summary as BatchSummary
         toast.success(
-          `Airtable: ${s.updated} updated · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`,
-          { id: toastId, duration: 8000 },
+          `Reconciled ${s.reconciled} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`,
+          { id: toastId, duration: 10000 },
         )
         router.refresh()
       } else {
