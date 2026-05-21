@@ -98,7 +98,7 @@ function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
 
   return (
     <Link href={`${linkPrefix}/loans/${loan.id}`} className="block group">
-      <Card className={`border border-gray-200 border-l-4 ${accentClass} transition-all duration-150 group-hover:shadow-md group-hover:border-gray-300 ${isClosed || isCancelled ? 'opacity-70' : ''} ${isOnHold ? 'opacity-90' : ''}`}>
+      <Card className={`border border-gray-200 border-l-4 ${accentClass} transition-all duration-150 group-hover:shadow-md group-hover:border-gray-300 ${isClosed || isCancelled ? 'opacity-70' : ''} ${isOnHold ? 'bg-yellow-50' : ''}`}>
         <CardContent className="p-5">
           {/* Top row: address + badges + chevron */}
           <div className="flex items-start justify-between gap-4">
