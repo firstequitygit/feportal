@@ -120,6 +120,44 @@ async function patchVendor(tableId: string, recordId: string, fields: Record<str
 }
 
 // ============================================================
+// Loan Status push (one-way, on demand)
+// ============================================================
+//
+// Used by /api/loans/status when a loan is cancelled, put on hold, or
+// reactivated. Pushes the 'Loan Status' singleSelect field on the matching
+// Deals row. Pass null to clear (used when reactivating).
+//
+// Loan Status field is a singleSelect with at least these options:
+//   - "Canceled"    (American spelling — matches Airtable's existing option)
+//   - "On Hold"
+// Anything else for `statusLabel` is rejected by Airtable if not configured;
+// we let that error propagate so it surfaces in logs.
+//
+// Match key is the Pipedrive Deal ID, same as the bidirectional sync.
+// Loans with no matching Airtable row are silently skipped — not every deal
+// makes it to Airtable.
+
+const AIRTABLE_LOAN_STATUS_FIELD = 'Loan Status'
+
+export async function pushLoanStatusToAirtable(
+  pipedriveDealId: string,
+  statusLabel: 'Canceled' | 'On Hold' | null,
+): Promise<{ updated: boolean; recordId?: string }> {
+  const dealRecord = await findDealByPipedriveId(pipedriveDealId)
+  if (!dealRecord) return { updated: false }
+
+  await airtable(`/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}/${dealRecord.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      fields: { [AIRTABLE_LOAN_STATUS_FIELD]: statusLabel },
+      typecast: true,
+    }),
+  })
+
+  return { updated: true, recordId: dealRecord.id }
+}
+
+// ============================================================
 // Sync one loan
 // ============================================================
 

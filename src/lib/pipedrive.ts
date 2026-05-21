@@ -423,3 +423,61 @@ export async function resolvePersonOptionId(
   const match = options.find(o => o.label.trim().toLowerCase() === label.trim().toLowerCase())
   return match ? match.id : null
 }
+
+// ===== Deal labels =====
+//
+// Pipedrive's built-in deal label field uses option IDs, not the label
+// strings. We fetch the dealFields config once and resolve a name like
+// "ON HOLD" to the numeric id we PATCH onto the deal.
+
+let dealFieldsCache: Record<string, unknown>[] | null = null
+async function getDealFieldsRaw(): Promise<Record<string, unknown>[]> {
+  if (dealFieldsCache) return dealFieldsCache
+  const data = await pipedriveGet('/dealFields')
+  if (!data.success || !Array.isArray(data.data)) return []
+  const fields = data.data as Record<string, unknown>[]
+  dealFieldsCache = fields
+  return fields
+}
+
+async function resolveDealLabelId(labelName: string): Promise<number | null> {
+  const fields = await getDealFieldsRaw()
+  const labelField = fields.find(f => (f as { key?: string }).key === 'label')
+  if (!labelField) return null
+  const options = (labelField as { options?: { id: number; label: string }[] }).options
+  if (!options) return null
+  const match = options.find(o => o.label.trim().toLowerCase() === labelName.trim().toLowerCase())
+  return match ? match.id : null
+}
+
+/**
+ * Set or clear the deal's label. Pass a label name (e.g. "ON HOLD") to set
+ * it, or null to clear. Throws if the requested label name doesn't exist
+ * as an option in Pipedrive — that's a config issue worth surfacing.
+ */
+export async function setDealLabel(dealId: number, labelName: string | null): Promise<void> {
+  let body: Record<string, unknown>
+  if (labelName === null) {
+    body = { label: null }
+  } else {
+    const id = await resolveDealLabelId(labelName)
+    if (id === null) {
+      throw new Error(`Pipedrive deal label "${labelName}" not found — add it to the Label field options in Pipedrive.`)
+    }
+    body = { label: id }
+  }
+  const res = await fetch(`${BASE_URL}/deals/${dealId}?api_token=${TOKEN}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '')
+    throw new Error(`Pipedrive label update failed (${res.status}): ${errBody}`)
+  }
+  const data = await res.json().catch(() => null)
+  if (data && data.success === false) {
+    throw new Error(`Pipedrive label update rejected: ${data.error ?? 'unknown'}`)
+  }
+}

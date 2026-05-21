@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { markDealLost, markDealOpen } from '@/lib/pipedrive'
+import { markDealLost, markDealOpen, setDealLabel } from '@/lib/pipedrive'
+import { pushLoanStatusToAirtable } from '@/lib/airtable'
 import type { LoanStatus } from '@/lib/types'
 
 // PATCH /api/loans/status
@@ -64,17 +65,49 @@ export async function PATCH(req: NextRequest) {
 
   // Sync Pipedrive FIRST — same pattern as the stage route, fail loudly
   // before we touch the local DB so the two stay aligned.
+  //
+  // Status → Pipedrive translation:
+  //   cancelled  → status='lost' + lost_reason; label cleared
+  //   on_hold    → label='ON HOLD'; status untouched
+  //   active     → reopen if previously lost; label cleared
   try {
-    if (status === 'cancelled' && loan.pipedrive_deal_id) {
-      await markDealLost(loan.pipedrive_deal_id, reason ?? null)
-    } else if (previousStatus === 'cancelled' && status === 'active' && loan.pipedrive_deal_id) {
-      await markDealOpen(loan.pipedrive_deal_id)
+    if (loan.pipedrive_deal_id) {
+      if (status === 'cancelled') {
+        await markDealLost(loan.pipedrive_deal_id, reason ?? null)
+        // Clear the ON HOLD label if it was set — a lost deal shouldn't
+        // also carry the hold label.
+        if (previousStatus === 'on_hold') {
+          await setDealLabel(loan.pipedrive_deal_id, null)
+        }
+      } else if (status === 'on_hold') {
+        await setDealLabel(loan.pipedrive_deal_id, 'ON HOLD')
+      } else if (status === 'active') {
+        if (previousStatus === 'cancelled') {
+          await markDealOpen(loan.pipedrive_deal_id)
+        } else if (previousStatus === 'on_hold') {
+          await setDealLabel(loan.pipedrive_deal_id, null)
+        }
+      }
     }
-    // on_hold ↔ active does not touch Pipedrive.
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Pipedrive update failed'
     console.error('Pipedrive status sync failed:', msg)
     return NextResponse.json({ error: `Could not update Pipedrive: ${msg}` }, { status: 502 })
+  }
+
+  // Airtable mirror — singleSelect 'Loan Status' field on the matching Deals
+  // row. Best-effort: log + continue on failure rather than blocking the
+  // portal mutation. Worst case the user clicks the manual Airtable sync.
+  if (loan.pipedrive_deal_id) {
+    try {
+      const airtableLabel: 'Canceled' | 'On Hold' | null =
+        status === 'cancelled' ? 'Canceled' :
+        status === 'on_hold'   ? 'On Hold'  :
+        null
+      await pushLoanStatusToAirtable(String(loan.pipedrive_deal_id), airtableLabel)
+    } catch (err) {
+      console.error('Airtable Loan Status push failed:', err instanceof Error ? err.message : err)
+    }
   }
 
   // Mirror locally. Cancel auto-archives; reactivate-from-cancel unarchives.
