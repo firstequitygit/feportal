@@ -30,7 +30,8 @@ import { LoanType } from '@/lib/types'
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
-import { ViewAsDropdown, buildViewAsOptions } from '@/components/view-as-dropdown'
+import { ViewAsDropdown } from '@/components/view-as-dropdown'
+import { buildViewAsOptions } from '@/lib/view-as-options'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
