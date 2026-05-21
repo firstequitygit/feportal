@@ -167,7 +167,7 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
               <FieldRow label="Rate Lock Expiration">
                 <EditableLoanField loanId={loan.id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
               </FieldRow>
-              <FieldRow label="As Is Value">
+              <FieldRow label="Value (As-Is)">
                 <EditableLoanField
                   loanId={loan.id}
                   field="value_as_is"
@@ -180,7 +180,7 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
               <FieldRow label="LTV">
                 <EditableLoanField loanId={loan.id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
               </FieldRow>
-              <FieldRow label="ARV">
+              <FieldRow label="Value (ARV)">
                 <EditableLoanField loanId={loan.id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
               </FieldRow>
               <FieldRow label="Construction Budget">
