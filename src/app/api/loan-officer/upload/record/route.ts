@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -20,10 +21,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Fetch loan (verify ownership) + LP contact info in one query
+  // Fetch loan (verify ownership). Notify-recipients are loaded via the
+  // shared helper below.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
+    .select('id, property_address')
     .eq('id', loanId)
     .eq('loan_officer_id', lo.id)
     .single()
@@ -81,28 +83,26 @@ export async function POST(req: NextRequest) {
     console.error('File download error:', err)
   }
 
-  // Determine LP recipients — notify both assigned LPs; if none, fall back to general inbox
-  const lp1 = loan.loan_processors as unknown as { full_name: string; email: string | null } | null
-  const lp2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null } | null }).loan_processor_2
-  const recipients = [lp1, lp2]
-    .filter((p): p is { full_name: string; email: string } => !!p?.email)
-    .map(p => ({ toEmail: p.email, toName: p.full_name ?? 'Loan Processor' }))
-  if (recipients.length === 0) {
-    recipients.push({ toEmail: 'fefprocessing@gmail.com', toName: 'Loan Processor' })
-  }
-
+  // Notify LO + primary LP. If neither role is assigned, skip the email
+  // and log a warning (no general-inbox fallback — that mailbox isn't
+  // monitored).
   try {
-    await Promise.all(recipients.map(r => sendNotification({
-      toEmail: r.toEmail,
-      toName: r.toName,
-      uploaderName: lo.full_name,
-      uploaderRole: 'Loan Officer',
-      propertyAddress: loan.property_address ?? 'Unknown property',
-      conditionTitle: condition?.title ?? 'Unknown condition',
-      fileName,
-      fileBuffer,
-      actionToken,
-    })))
+    const recipients = await getStaffRecipientsForLoan(loanId)
+    if (recipients.recipients.length === 0) {
+      console.warn(`LO upload: no staff recipients for loan ${loanId} — email skipped.`)
+    } else {
+      await Promise.all(recipients.recipients.map(r => sendNotification({
+        toEmail: r.email,
+        toName: r.name ?? (r.role === 'loan_officer' ? 'Loan Officer' : 'Loan Processor'),
+        uploaderName: lo.full_name,
+        uploaderRole: 'Loan Officer',
+        propertyAddress: loan.property_address ?? 'Unknown property',
+        conditionTitle: condition?.title ?? 'Unknown condition',
+        fileName,
+        fileBuffer,
+        actionToken,
+      })))
+    }
   } catch (err) {
     console.error('Email notification error:', err)
   }
