@@ -1013,17 +1013,20 @@ export function LoanDetailsCard({
               />
             </DetailRow>
 
-            {/* 120-day validity countdown — calculated, read-only */}
+            {/* 120-day validity countdown — calculated, read-only.
+                Anchored on the Effective Date (appraisal validity period
+                runs from when the appraiser estimated the value, not when
+                the doc landed in our inbox). */}
             <div className="flex justify-between items-center gap-3 pt-2 mt-1 border-t border-gray-100">
               <span className="text-gray-500 flex items-center gap-1.5">
                 Appraisal Days Left
                 <span className="text-[10px] uppercase tracking-wide text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">calc</span>
               </span>
-              <DaysLeftBadge value={daysLeft(d.appraisal_received_date, 120)} />
+              <DaysLeftBadge value={daysLeft(d.appraisal_effective_date, 120)} />
             </div>
-            {!d.appraisal_received_date && (
+            {!d.appraisal_effective_date && (
               <p className="text-xs text-gray-400 italic">
-                Set Appraisal Received Date above to start the 120-day countdown.
+                Set Appraisal Effective Date above to start the 120-day countdown.
               </p>
             )}
           </Section>
