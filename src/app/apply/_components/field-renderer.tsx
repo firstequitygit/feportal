@@ -1,5 +1,6 @@
 'use client'
 import { Fragment, useState } from "react"
+import { Mail, Phone, Calendar, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
@@ -9,6 +10,9 @@ import { FieldReveal } from "@/components/ui/field-reveal"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 import { validators } from "./validators"
+
+// Names of address line-1 fields that get a MapPin icon
+const ADDRESS_LINE1_NAMES = new Set(['address_street', 'property_street', 'prior_address_street'])
 
 type Props = {
   fields: FieldDef[]
@@ -78,6 +82,9 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                     {f.label}
                     {f.required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
+                    {!f.required && !f.requiredWhen && f.type !== 'yesno' && f.type !== 'radio' && (
+                      <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
+                    )}
                     {f.helpTooltip && <InfoTooltip label={f.label} text={f.helpTooltip} />}
                   </Label>
                   {f.help && <p className="text-xs text-gray-500 mt-1">{f.help}</p>}
@@ -167,16 +174,37 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         By typing your name above, you are signing this document electronically.
                       </p>
                     </div>
-                  ) : (
-                    <Input id={id}
-                      type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
-                      inputMode={f.type === 'number' ? 'decimal' : undefined}
-                      placeholder={f.placeholder}
-                      className={isInvalid ? 'border-red-500 py-2.5' : `${validBorder} ${focusClasses} py-2.5 rounded-md`}
-                      aria-invalid={isInvalid || undefined}
-                      value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
-                      onBlur={() => handleBlur(f.name, f.type, v)} />
-                  )}
+                  ) : (() => {
+                    const inputType = f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'
+                    const LeadIcon =
+                      f.type === 'email' ? Mail :
+                      f.type === 'tel' ? Phone :
+                      f.type === 'date' ? Calendar :
+                      ADDRESS_LINE1_NAMES.has(f.name) ? MapPin :
+                      null
+                    return LeadIcon ? (
+                      <div className="relative">
+                        <LeadIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+                        <Input id={id}
+                          type={inputType}
+                          inputMode={f.type === 'number' ? 'decimal' : undefined}
+                          placeholder={f.placeholder}
+                          className={isInvalid ? 'border-red-500 py-2.5 pl-10' : `${validBorder} ${focusClasses} py-2.5 pl-10 rounded-md`}
+                          aria-invalid={isInvalid || undefined}
+                          value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
+                          onBlur={() => handleBlur(f.name, f.type, v)} />
+                      </div>
+                    ) : (
+                      <Input id={id}
+                        type={inputType}
+                        inputMode={f.type === 'number' ? 'decimal' : undefined}
+                        placeholder={f.placeholder}
+                        className={isInvalid ? 'border-red-500 py-2.5' : `${validBorder} ${focusClasses} py-2.5 rounded-md`}
+                        aria-invalid={isInvalid || undefined}
+                        value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
+                        onBlur={() => handleBlur(f.name, f.type, v)} />
+                    )
+                  })()}
                   <div className="min-h-5 text-xs text-red-600">
                     {blurErr ?? ' '}
                   </div>

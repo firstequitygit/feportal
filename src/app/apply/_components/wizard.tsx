@@ -221,55 +221,64 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         </ol>
       </nav>
 
-      {/* Step heading */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">{STEP_TITLES[step - 1]}</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes
-        </p>
-      </div>
+      {/* Form card */}
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="p-6 sm:p-8">
+          {/* Step heading */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
+            <p className="mt-1 text-sm text-gray-500">{STEPS[step - 1].subtitle}</p>
+            <p className="mt-1 text-xs text-gray-400">Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes</p>
+          </div>
 
-      {/* Error banner — standard alert */}
-      {liveMissing.length > 0 && (
-        <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm">
-          <p className="font-medium text-red-800">
-            {liveMissing.length} {liveMissing.length === 1 ? 'field needs' : 'fields need'} attention
-          </p>
-          <ul className="mt-1 space-y-0.5 text-red-700">
-            {liveMissing.slice(0, 5).map((name) => {
-              const dot = name.indexOf(".")
-              const rawName = dot === -1 ? name : name.slice(dot + 1)
-              const field = ALL_FIELDS.find((f) => f.name === rawName)
-              const label = field?.label ?? rawName
-              const ns = dot === -1 ? "" : name.slice(0, dot)
-              const displayPrefix = ns.startsWith("coborrower")
-                ? `Co-Borrower ${ns.slice("coborrower".length)}: `
-                : ""
-              return (
-                <li key={name}>
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-red-900"
-                    onClick={() => {
-                      const el = document.getElementById(`f-${name}`)
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                        ;(el as HTMLElement).focus()
-                      }
-                    }}
-                  >
-                    {displayPrefix}{label}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+          {/* Error banner — standard alert */}
+          {liveMissing.length > 0 && (
+            <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm">
+              <p className="font-medium text-red-800">
+                {liveMissing.length} {liveMissing.length === 1 ? 'field needs' : 'fields need'} attention
+              </p>
+              <ul className="mt-1 space-y-0.5 text-red-700">
+                {liveMissing.slice(0, 5).map((name) => {
+                  const dot = name.indexOf(".")
+                  const rawName = dot === -1 ? name : name.slice(dot + 1)
+                  const field = ALL_FIELDS.find((f) => f.name === rawName)
+                  const label = field?.label ?? rawName
+                  const ns = dot === -1 ? "" : name.slice(0, dot)
+                  const displayPrefix = ns.startsWith("coborrower")
+                    ? `Co-Borrower ${ns.slice("coborrower".length)}: `
+                    : ""
+                  return (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        className="underline underline-offset-2 hover:text-red-900"
+                        onClick={() => {
+                          const el = document.getElementById(`f-${name}`)
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            ;(el as HTMLElement).focus()
+                          }
+                        }}
+                      >
+                        {displayPrefix}{label}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          <div className="pb-20 sm:pb-0">
+            {stepEl}
+          </div>
         </div>
-      )}
-
-      <div className="pb-20 sm:pb-0">
-        {stepEl}
       </div>
+
+      {/* Step counter below the card */}
+      <p className="mt-4 text-center text-xs text-gray-400">
+        Step {step} of {TOTAL_STEPS}
+      </p>
 
       {/* Sticky footer */}
       <div
@@ -311,9 +320,9 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                 <button
                   type="button"
                   onClick={goNext}
-                  className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98]"
+                  className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98]"
                 >
-                  Next &rarr;
+                  Continue to {STEPS[step].title} &rarr;
                 </button>
               )
               : (
@@ -321,7 +330,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                   type="button"
                   onClick={submit}
                   disabled={submitting || !token}
-                  className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit Application'}
                 </button>
