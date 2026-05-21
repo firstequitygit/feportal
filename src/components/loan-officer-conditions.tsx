@@ -45,7 +45,11 @@ function assignedToColor(assigned_to: AssignedTo): string {
   }
 }
 
-const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Rejected', 'Waived']
+// 'Satisfied' is included so LOs can mark a condition complete when the
+// underwriter isn't around. ConditionRow gates it behind a confirm prompt.
+const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Rejected', 'Waived', 'Satisfied']
+
+const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
   condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
@@ -93,6 +97,7 @@ function ConditionRow({
   async function handleStatusSelect(newStatus: ConditionStatus) {
     if (newStatus === condition.status) return
     if (newStatus === 'Rejected') { setPendingRejection(true); return }
+    if (newStatus === 'Satisfied' && !confirm(SATISFY_WARNING)) return
     setStatusChanging(true)
     await onChangeStatus(condition.id, newStatus)
     setStatusChanging(false)
@@ -296,9 +301,15 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
     })
   }
 
-  async function handleBulkStatus(status: 'Received' | 'Waived') {
+  async function handleBulkStatus(status: 'Received' | 'Waived' | 'Satisfied') {
     const ids = Array.from(selectedConditions)
     if (ids.length === 0) return
+    if (status === 'Satisfied') {
+      const msg = ids.length === 1
+        ? SATISFY_WARNING
+        : `Are you sure you would like to satisfy these ${ids.length} conditions? You are not the underwriter assigned to this loan.`
+      if (!confirm(msg)) return
+    }
     setBulkSaving(true); setBulkError(null)
     const results = await Promise.all(ids.map(id =>
       fetch('/api/loan-officer/conditions', {
@@ -564,6 +575,9 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       >
         <BulkActionButton onClick={() => handleBulkStatus('Received')} disabled={bulkSaving}>
           ◑ Mark Received
+        </BulkActionButton>
+        <BulkActionButton onClick={() => handleBulkStatus('Satisfied')} disabled={bulkSaving}>
+          ✓ Mark Satisfied
         </BulkActionButton>
         <BulkActionButton onClick={() => handleBulkStatus('Waived')} disabled={bulkSaving}>
           — Waive

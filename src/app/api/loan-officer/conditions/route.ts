@@ -102,7 +102,9 @@ export async function PUT(req: NextRequest) {
 
   const { conditionId, status, rejectionReason } = await req.json()
 
-  const allowed = ['Outstanding', 'Received', 'Rejected', 'Waived']
+  // 'Satisfied' is normally the underwriter's call, but LO can do it after
+  // confirming the warning in the UI.
+  const allowed = ['Outstanding', 'Received', 'Rejected', 'Waived', 'Satisfied']
   if (!conditionId || !allowed.includes(status))
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
