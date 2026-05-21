@@ -204,6 +204,12 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
                             ⚠ Rejected: {condition.rejection_reason}
                           </p>
                         )}
+                        {condition.status === 'Received' && (
+                          <p className="text-xs text-yellow-700 mt-1.5 font-medium flex items-center gap-1">
+                            <span aria-hidden>⏳</span>
+                            Pending Underwriting review — we have what you sent; no further action needed from you.
+                          </p>
+                        )}
                       </div>
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColor(condition.status)}`}>
                         {condition.status}
