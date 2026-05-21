@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealField } from '@/lib/pipedrive'
+import nodemailer from 'nodemailer'
+import { PORTAL_URL } from '@/lib/portal-url'
 import {
   PIPEDRIVE_FIELDS,
   PIPEDRIVE_LOAN_TYPE_MAP,
@@ -233,6 +235,44 @@ async function maybeAutoAddAppraisalCondition(
       event_type: 'condition_added',
       description: `Condition automatically added (Loan Officer): "${TITLE}" — triggered by Appraisal Received Date being set${editorName ? ` by ${editorName}` : ''}`,
     })
+
+    // Notify the assigned LO via email (matches the manual condition-add
+    // flow in /api/loan-processor/conditions etc.)
+    if (template.assigned_to === 'loan_officer') {
+      try {
+        const { data: loan } = await adminClient
+          .from('loans')
+          .select('property_address, loan_officers(full_name, email)')
+          .eq('id', loanId).single()
+        const lo = loan?.loan_officers as unknown as { full_name: string | null; email: string | null } | null
+        if (lo?.email) {
+          const addr = loan?.property_address ?? 'a loan'
+          const conditionHtml =
+            `<tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${template.title}</strong></td></tr>` +
+            (template.description
+              ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Details</td><td>${template.description}</td></tr>`
+              : '')
+          const html =
+            `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${lo.full_name ?? 'there'},</p>` +
+            `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>` +
+            `<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table>` +
+            `<p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>` +
+            `<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+          })
+          await transporter.sendMail({
+            from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+            to: lo.email,
+            subject: `New condition assigned to you — ${addr}`,
+            html,
+          })
+        }
+      } catch (mailErr) {
+        console.error('Auto Appraisal Received email failed:', mailErr instanceof Error ? mailErr.message : mailErr)
+      }
+    }
   } catch (err) {
     // Don't fail the parent field-update API call if the automation hiccups.
     console.error('Auto-add Appraisal Received condition failed:', err instanceof Error ? err.message : err)
