@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
-import { EditableContactList, type EditableContactRow } from '@/components/editable-contact-list'
+import { LoBrokersGrid, type LoBrokerRow } from './lo-brokers-grid'
 
 export default async function LoanOfficerBrokersPage() {
   const supabase = await createClient()
@@ -14,50 +14,57 @@ export default async function LoanOfficerBrokersPage() {
     .from('loan_officers').select('id, full_name').eq('auth_user_id', user.id).single()
   if (!lo) redirect('/login')
 
-  const { data: rows } = await adminClient
+  const { data: loans } = await adminClient
     .from('loans')
-    .select('broker_id, broker_id_2')
+    .select('id, property_address, pipeline_stage, updated_at, broker_id, broker_id_2')
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
+    .order('updated_at', { ascending: false })
 
-  const loanCountById = new Map<string, number>()
-  for (const r of rows ?? []) {
-    for (const id of [r.broker_id, r.broker_id_2]) {
-      if (!id) continue
-      loanCountById.set(id, (loanCountById.get(id) ?? 0) + 1)
+  const counts = new Map<string, number>()
+  const mostRecent = new Map<string, { id: string; pipeline_stage: string | null; updated_at: string | null }>()
+  for (const l of loans ?? []) {
+    for (const bid of [l.broker_id, l.broker_id_2]) {
+      if (!bid) continue
+      counts.set(bid, (counts.get(bid) ?? 0) + 1)
+      if (!mostRecent.has(bid)) {
+        mostRecent.set(bid, { id: l.id, pipeline_stage: l.pipeline_stage, updated_at: l.updated_at })
+      }
     }
   }
-  const ids = [...loanCountById.keys()]
+  const brokerIds = [...counts.keys()]
 
-  const { data: brokers } = ids.length > 0
-    ? await adminClient.from('brokers').select('id, full_name, email, phone, company_name').in('id', ids).order('full_name')
+  const { data: brokers } = brokerIds.length > 0
+    ? await adminClient
+        .from('brokers')
+        .select('id, full_name, email, phone, company_name')
+        .in('id', brokerIds)
+        .order('full_name')
     : { data: [] }
 
-  const initial: EditableContactRow[] = (brokers ?? []).map(b => {
-    const count = loanCountById.get(b.id) ?? 0
+  const rows: LoBrokerRow[] = (brokers ?? []).map(b => {
+    const recent = mostRecent.get(b.id) ?? null
     return {
       id: b.id,
       full_name: b.full_name,
       email: b.email,
       phone: b.phone,
       company_name: b.company_name,
-      subtitle: count > 0 ? `On ${count} of your loan${count === 1 ? '' : 's'}` : null,
+      loan_count: counts.get(b.id) ?? 0,
+      most_recent_loan_id: recent?.id ?? null,
+      last_loan_stage: recent?.pipeline_stage ?? null,
+      last_loan_activity: recent?.updated_at ?? null,
     }
   })
 
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-3xl">
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Brokers</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Every broker across every loan assigned to you. Click the pencil to correct
-        a misspelling, update an email, change a phone number, or set a company.
+        Every broker across every loan assigned to you. Click a cell to edit contact info
+        or company name inline, or use the chevron to jump to their most recent loan.
       </p>
-      <EditableContactList
-        label="brokers"
-        apiPath="/api/loan-officer/brokers"
-        withCompany
-        initialContacts={initial}
-      />
+      <LoBrokersGrid initialRows={rows} />
     </PortalShell>
   )
 }
