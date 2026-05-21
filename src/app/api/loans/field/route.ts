@@ -189,6 +189,22 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   entity_formation_state: { type: 'text',    table: 'loan_details' },
 }
 
+/**
+ * Compute the DSCR LTV (loan_amount / value_as_is, as percent) for the given
+ * loan. Returns null if value_as_is is missing/zero so the caller can skip.
+ */
+async function computeDscrLtv(
+  adminClient: ReturnType<typeof createAdminClient>,
+  loanId: string,
+  loanAmount: number,
+): Promise<number | null> {
+  const { data: d } = await adminClient
+    .from('loan_details').select('value_as_is').eq('loan_id', loanId).maybeSingle()
+  const v = d?.value_as_is
+  if (!v || v <= 0 || !loanAmount || loanAmount <= 0) return null
+  return Math.round((Number(loanAmount) / Number(v)) * 100 * 100) / 100
+}
+
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -292,9 +308,24 @@ export async function PATCH(req: NextRequest) {
     // edits via the same API afterwards still work normally.
     if (field === 'loan_type' && dbValue === 'Rental (DSCR)') {
       const { data: current } = await adminClient
-        .from('loans').select('term_months, interest_only').eq('id', loanId).single()
+        .from('loans').select('term_months, interest_only, loan_amount').eq('id', loanId).single()
       if (current?.term_months == null) patch.term_months = 360
       if (current?.interest_only == null) patch.interest_only = 'No'
+      // Also recompute LTV if both inputs exist (loan just became DSCR).
+      if (current?.loan_amount) {
+        const computed = await computeDscrLtv(adminClient, loanId, current.loan_amount as number)
+        if (computed != null) patch.ltv = computed
+      }
+    }
+
+    // DSCR LTV auto-calc when the loan_amount changes on a DSCR loan.
+    if (field === 'loan_amount' && typeof dbValue === 'number') {
+      const { data: l } = await adminClient
+        .from('loans').select('loan_type').eq('id', loanId).single()
+      if (l?.loan_type === 'Rental (DSCR)') {
+        const computed = await computeDscrLtv(adminClient, loanId, dbValue)
+        if (computed != null) patch.ltv = computed
+      }
     }
 
     const { error } = await adminClient
@@ -304,6 +335,17 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error('Local field update failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Mirror LTV change to Pipedrive when we recomputed it (we already
+    // wrote the primary field above; this ensures Pipedrive's LTV stays
+    // aligned with the portal's auto-calc).
+    if (patch.ltv != null && field !== 'ltv' && loan.pipedrive_deal_id) {
+      try {
+        await updateDealField(loan.pipedrive_deal_id, PIPEDRIVE_FIELDS.ltv, patch.ltv as number)
+      } catch (err) {
+        console.error('LTV Pipedrive push failed:', err instanceof Error ? err.message : err)
+      }
     }
   } else {
     // loan_details — upsert by loan_id (the migration backfilled rows, but be defensive)
@@ -316,6 +358,20 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error('loan_details update failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // DSCR LTV auto-calc when value_as_is changes on a DSCR loan.
+    if (field === 'value_as_is' && typeof dbValue === 'number') {
+      const { data: l } = await adminClient
+        .from('loans').select('loan_type, loan_amount, pipedrive_deal_id').eq('id', loanId).single()
+      if (l?.loan_type === 'Rental (DSCR)' && l.loan_amount) {
+        const newLtv = Math.round((Number(l.loan_amount) / dbValue) * 100 * 100) / 100
+        await adminClient.from('loans').update({ ltv: newLtv }).eq('id', loanId)
+        if (l.pipedrive_deal_id) {
+          try { await updateDealField(l.pipedrive_deal_id, PIPEDRIVE_FIELDS.ltv, newLtv) }
+          catch (err) { console.error('LTV Pipedrive push failed:', err instanceof Error ? err.message : err) }
+        }
+      }
     }
   }
 

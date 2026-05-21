@@ -161,7 +161,13 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
                 />
               </FieldRow>
               <FieldRow label="LTV">
-                <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                {loan.loan_type === 'Rental (DSCR)' ? (
+                  <span className="font-medium text-gray-700" title="Auto-calculated from Loan Amount ÷ Value (As-Is)">
+                    {loan.ltv ? `${loan.ltv}%` : '—'}
+                  </span>
+                ) : (
+                  <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                )}
               </FieldRow>
               {loan.loan_type !== 'Rental (DSCR)' && (
                 <>
