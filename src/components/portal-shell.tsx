@@ -42,6 +42,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/underwriters',     label: 'Underwriters',        icon: ShieldCheck },
   { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
+  { href: '/admin/vendors',          label: 'Vendors',             icon: Store },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
