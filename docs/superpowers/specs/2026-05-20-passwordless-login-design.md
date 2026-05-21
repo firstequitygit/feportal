@@ -184,3 +184,59 @@ End-to-end via Playwright MCP against the dev server:
 1. **Email deliverability during Resend warmup.** Mitigated by verifying domain ahead of Phase 1 and starting with low-volume password-reset traffic before passwordless launch.
 2. **Users on slow corporate email scanners** may have magic links pre-fetched/invalidated. Mitigated by offering OTP code as alternative on the same screen.
 3. **Existing in-flight invite emails** (sent before Phase 3 deploy) will land on the redirect-to-login page. Acceptable — they can sign in passwordlessly with their email. Documented in the release notes.
+
+---
+
+## Implementation notes (post-approval pivot)
+
+The implementation diverged from the design above on email transport. Below is what actually shipped.
+
+### What changed and why
+
+The plan called for sending OTP emails via the Resend SDK directly from `/api/auth/send-otp`, using `adminClient.auth.admin.generateLink({ type: 'magiclink' })` server-side to generate both the 6-digit code and the magic link. During implementation this turned out to be unworkable:
+
+- `admin.generateLink` for type `magiclink` returns `properties.email_otp` (the 6-digit code), but Supabase's `/auth/v1/verify` endpoint cannot independently verify that code via any `verifyOtp` type. The code is a *display* of the underlying token, not a separately-checkable artifact in admin-generated flows.
+- @supabase/ssr's browser client uses PKCE flow by default, and PKCE-generated OTPs store a `code_challenge` in `auth.flow_state` rather than a verifiable hash in `auth.users.recovery_token`. The typed code only verifies when the requesting browser still has the matching `code_verifier` cookie.
+
+### Final architecture
+
+| Surface | Implementation |
+|---|---|
+| OTP send | Client calls `supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: <origin>/auth/callback?next=/dashboard } })` |
+| Email transport | Supabase Auth's project-level SMTP, pointed at Resend (`smtp.resend.com`, port 465, user `resend`, password = `RESEND_API_KEY`, sender `First Equity Funding <auth@irongateportals.com>`) |
+| Email template | Customized `mailer_templates_magic_link_content` in Supabase Auth config — branded HTML with both the 6-digit code and a "Sign in" button. Template variables `{{ .Token }}` and `{{ .ConfirmationURL }}`. |
+| OTP length | `mailer_otp_length: 6` (was Supabase default of 8) |
+| Rate limits | `rate_limit_email_sent: 100/hour`, `smtp_max_frequency: 10s` (raised from 2/hr and 60s defaults; SMTP custom config eligible for higher limits) |
+| Code verification | Client `supabase.auth.verifyOtp({ email, token, type: 'email' })` — works against the PKCE-flow `code_challenge` because the SDK includes the matching `code_verifier` cookie automatically |
+| Magic link click | Magic link in email → `https://<project>.supabase.co/auth/v1/verify?token=pkce_...&type=magiclink&redirect_to=<emailRedirectTo>` → Supabase verifies, redirects to our `/auth/callback?code=...` → `exchangeCodeForSession(code)` → session set → redirect to `/dashboard` |
+| Allowed redirect URLs | Configured in Supabase Auth: production domain + Vercel preview wildcards + localhost variants for dev |
+| Forgot-password flow | **Migrated to Resend SDK** as originally planned (Task 1.4) — unaffected by the OTP pivot. Sends via `sendAuthEmail()` + `renderPasswordResetEmail()` from app code, not Supabase SMTP. |
+
+### Files that became unused (deleted in `7bede5f`)
+
+- `src/lib/emails/auth/sign-in-code.ts` — replaced by the Supabase-dashboard-stored template
+- `src/app/api/auth/send-otp/route.ts` — replaced by client-side `signInWithOtp` call
+- `supabase/migrations/20260520-auth-otp-sends.sql` — the rate-limit table is now redundant (Supabase enforces its own); migration file deleted but the table itself remains in the live DB as an orphan. Drop in a follow-up cleanup.
+
+### Operational requirements (one-time)
+
+These have been completed in the live Supabase project:
+
+- Custom SMTP configured pointing at Resend
+- Sending domain `irongateportals.com` verified in Resend (SPF/DKIM/DMARC records)
+- `mailer_subjects_magic_link` set to "Your First Equity Funding sign-in code"
+- `mailer_templates_magic_link_content` customized with branded HTML
+- Allowed redirect URL list extended to include `http://localhost:3000/**`, `:3001/**`, `:3002/**` (dev only — review before production deploy if uncomfortable)
+- `rate_limit_email_sent` raised to 100, `smtp_max_frequency` lowered to 10s
+- `mailer_otp_length` set to 6
+- `RESEND_API_KEY` and `AUTH_EMAIL_FROM` env vars added to Vercel for Production scope (NOTE: forgot-password route relies on these. Other env vars still need re-scoping to Preview if previews are needed — see PR description for follow-up.)
+
+### Security checkpoints — final status
+
+- ✅ `shouldCreateUser: false` set on `signInWithOtp` (prevents drive-by account creation)
+- ✅ Login UI always advances to code screen regardless of send outcome (no enumeration)
+- ✅ Resend domain verified
+- ✅ Supabase RLS unchanged
+- ✅ Session cookies httpOnly/secure/sameSite via @supabase/ssr defaults
+- ✅ `/auth/callback` validates `next` against open-redirect (regex guard added in `1e41e9b`)
+- ✅ Magic link tokens are pkce-flow tokens, exchanged server-side via `exchangeCodeForSession` (not trusted from query params)
