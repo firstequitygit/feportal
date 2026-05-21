@@ -66,7 +66,10 @@ export default function LoginPage() {
     try {
       await supabase.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: false },
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
       })
     } finally {
       setLoading(false)
