@@ -283,9 +283,23 @@ export async function PATCH(req: NextRequest) {
 
   // Mirror locally
   if (table === 'loans') {
+    const patch: Record<string, unknown> = { [field]: dbValue }
+
+    // DSCR-specific defaults: when an LO/admin flips loan_type to
+    // 'Rental (DSCR)', pre-fill term_months = 360 and interest_only = 'No'
+    // for any of those fields that are currently null. DSCR rentals are
+    // consistently amortizing 30-year so this saves manual entry. Manual
+    // edits via the same API afterwards still work normally.
+    if (field === 'loan_type' && dbValue === 'Rental (DSCR)') {
+      const { data: current } = await adminClient
+        .from('loans').select('term_months, interest_only').eq('id', loanId).single()
+      if (current?.term_months == null) patch.term_months = 360
+      if (current?.interest_only == null) patch.interest_only = 'No'
+    }
+
     const { error } = await adminClient
       .from('loans')
-      .update({ [field]: dbValue })
+      .update(patch)
       .eq('id', loanId)
     if (error) {
       console.error('Local field update failed:', error.message)

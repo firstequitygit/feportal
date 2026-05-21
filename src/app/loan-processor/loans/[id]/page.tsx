@@ -180,12 +180,16 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
               <FieldRow label="LTV">
                 <EditableLoanField loanId={loan.id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
               </FieldRow>
-              <FieldRow label="Value (ARV)">
-                <EditableLoanField loanId={loan.id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
-              </FieldRow>
-              <FieldRow label="Construction Budget">
-                <EditableLoanField loanId={loan.id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
-              </FieldRow>
+              {loan.loan_type !== 'Rental (DSCR)' && (
+                <>
+                  <FieldRow label="Value (ARV)">
+                    <EditableLoanField loanId={loan.id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
+                  </FieldRow>
+                  <FieldRow label="Construction Budget">
+                    <EditableLoanField loanId={loan.id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
+                  </FieldRow>
+                </>
+              )}
               <FieldRow label="Term">
                 <EditableLoanField loanId={loan.id} field="term_months" type="number" currentValue={loan.term_months} display={loan.term_months ? `${loan.term_months} months` : '—'} placeholder="360" step="1" />
               </FieldRow>
