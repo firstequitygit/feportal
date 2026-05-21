@@ -254,7 +254,7 @@ export default async function LoanPage({
         {/* Recent Activity */}
         {events && events.length > 0 && (
           <div className="mt-6">
-            <LoanActivity events={events} title="Recent Activity" />
+            <LoanActivity events={events} title="Recent Activity" hideStaffNames />
           </div>
         )}
     </PortalShell>

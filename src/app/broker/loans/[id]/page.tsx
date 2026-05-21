@@ -263,7 +263,7 @@ export default async function BrokerLoanPage({
 
       {(events?.length ?? 0) > 0 && (
         <div className="mt-6">
-          <LoanActivity events={events!} title="Recent Activity" />
+          <LoanActivity events={events!} title="Recent Activity" hideStaffNames />
         </div>
       )}
     </PortalShell>
