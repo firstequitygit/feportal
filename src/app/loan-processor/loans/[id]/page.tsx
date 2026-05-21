@@ -32,35 +32,50 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
 }
 
-export default async function LoanProcessorLoanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LoanProcessorLoanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
 
-  const { data: lp } = await adminClient
-    .from('loan_processors')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
+  // Admin "View as Loan Processor" support — admin-only.
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
+  const isImpersonating = impersonation?.kind === 'loan_processor'
+
+  const { data: lp } = isImpersonating
+    ? await adminClient.from('loan_processors').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('loan_processors').select('*').eq('auth_user_id', user.id).maybeSingle()
 
   if (!lp) redirect('/login')
 
-  // Verify this loan is assigned to this loan processor
-  const { data: loan } = await adminClient
-    .from('loans')
-    .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
-    .eq('id', id)
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-    .single()
+  // Verify this loan is assigned to this loan processor (admins bypass)
+  const loanQuery = isImpersonating
+    ? adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .eq('id', id).single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .eq('id', id)
+        .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+        .single()
+  const { data: loan } = await loanQuery
 
   if (!loan) notFound()
 
@@ -107,6 +122,9 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
 
   return (
     <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor">
+      {isImpersonating && impersonation && (
+        <ImpersonationBanner kind="loan_processor" name={lp.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
+      )}
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/loan-processor/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans

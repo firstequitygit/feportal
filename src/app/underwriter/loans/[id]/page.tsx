@@ -27,34 +27,48 @@ import { LoanType } from '@/lib/types'
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
 }
 
-export default async function UnderwriterLoanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function UnderwriterLoanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
 
-  const { data: uw } = await adminClient
-    .from('underwriters')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
+  // Admin "View as Underwriter" support — admin-only.
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
+  const isImpersonating = impersonation?.kind === 'underwriter'
+
+  const { data: uw } = isImpersonating
+    ? await adminClient.from('underwriters').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('underwriters').select('*').eq('auth_user_id', user.id).maybeSingle()
 
   if (!uw) redirect('/login')
 
-  const { data: loan } = await adminClient
-    .from('loans')
-    .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
-    .eq('id', id)
-    .eq('underwriter_id', uw.id)
-    .single()
+  const loanQuery = isImpersonating
+    ? adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
+        .eq('id', id).single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
+        .eq('id', id)
+        .eq('underwriter_id', uw.id).single()
+  const { data: loan } = await loanQuery
 
   if (!loan) notFound()
 
@@ -93,6 +107,9 @@ export default async function UnderwriterLoanPage({ params }: { params: Promise<
 
   return (
     <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter">
+      {isImpersonating && impersonation && (
+        <ImpersonationBanner kind="underwriter" name={uw.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
+      )}
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/underwriter/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans

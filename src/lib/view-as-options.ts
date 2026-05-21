@@ -3,32 +3,43 @@
 // components can call it without tripping Next.js's client-reference
 // machinery. The ViewAsOption type is re-exported here too.
 
+export type ViewAsKind =
+  | 'borrower' | 'broker'
+  | 'loan_officer' | 'loan_processor' | 'underwriter'
+
 export interface ViewAsOption {
-  /** 'borrower' or 'broker' — drives the query-param name */
-  kind: 'borrower' | 'broker'
+  kind: ViewAsKind
   id: string
   name: string
-  /** Optional sub-label, e.g. "Slot 2 broker" */
+  /** Optional sub-label, e.g. "Slot 2 broker" or company name */
   hint?: string
 }
 
-interface MaybeBorrowerOrBroker {
+interface MaybePerson {
   id?: string | null
   full_name?: string | null
   company_name?: string | null
 }
 
 /**
- * Pulls borrower + broker options off a loan row that was queried with
- * embeds like:
- *   .select('*, borrowers!borrower_id(id, full_name), brokers!broker_id(id, full_name, company_name), broker_2:brokers!broker_id_2(id, full_name, company_name)')
+ * Pulls borrower + broker (always) and optionally LO/LP/UW (when
+ * `includeStaff` is true, i.e. the viewer is an admin) options off a loan
+ * row that was queried with the appropriate embeds.
  */
-export function buildViewAsOptions(loan: {
-  borrowers?: MaybeBorrowerOrBroker | null
-  brokers?: MaybeBorrowerOrBroker | null
-  broker_2?: MaybeBorrowerOrBroker | null
-}): ViewAsOption[] {
+export function buildViewAsOptions(
+  loan: {
+    borrowers?: MaybePerson | null
+    brokers?: MaybePerson | null
+    broker_2?: MaybePerson | null
+    loan_officers?: MaybePerson | null
+    loan_processors?: MaybePerson | null
+    loan_processor_2?: MaybePerson | null
+    underwriters?: MaybePerson | null
+  },
+  options: { includeStaff?: boolean } = {},
+): ViewAsOption[] {
   const opts: ViewAsOption[] = []
+
   if (loan.borrowers?.id) {
     opts.push({
       kind: 'borrower',
@@ -52,5 +63,38 @@ export function buildViewAsOptions(loan: {
       hint: loan.broker_2.company_name ?? 'Slot 2 broker',
     })
   }
+
+  if (options.includeStaff) {
+    if (loan.loan_officers?.id) {
+      opts.push({
+        kind: 'loan_officer',
+        id: loan.loan_officers.id,
+        name: loan.loan_officers.full_name ?? '(no name)',
+      })
+    }
+    if (loan.loan_processors?.id) {
+      opts.push({
+        kind: 'loan_processor',
+        id: loan.loan_processors.id,
+        name: loan.loan_processors.full_name ?? '(no name)',
+      })
+    }
+    if (loan.loan_processor_2?.id) {
+      opts.push({
+        kind: 'loan_processor',
+        id: loan.loan_processor_2.id,
+        name: loan.loan_processor_2.full_name ?? '(no name)',
+        hint: 'Slot 2 processor',
+      })
+    }
+    if (loan.underwriters?.id) {
+      opts.push({
+        kind: 'underwriter',
+        id: loan.underwriters.id,
+        name: loan.underwriters.full_name ?? '(no name)',
+      })
+    }
+  }
+
   return opts
 }

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Eye, X } from 'lucide-react'
 
 interface Props {
-  kind: 'borrower' | 'broker'
+  kind: 'borrower' | 'broker' | 'loan_officer' | 'loan_processor' | 'underwriter'
   name?: string | null
   /** Where the "Exit" link sends the admin back to. */
   exitHref: string
@@ -15,7 +15,12 @@ interface Props {
  * renders inline.
  */
 export function ImpersonationBanner({ kind, name, exitHref }: Props) {
-  const label = kind === 'borrower' ? 'Borrower' : 'Broker'
+  const label =
+    kind === 'borrower'       ? 'Borrower'       :
+    kind === 'broker'         ? 'Broker'         :
+    kind === 'loan_officer'   ? 'Loan Officer'   :
+    kind === 'loan_processor' ? 'Loan Processor' :
+    'Underwriter'
   return (
     <div className="bg-amber-100 border-b border-amber-300 text-amber-900">
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between text-sm">

@@ -138,7 +138,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan)} />
+            <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan, { includeStaff: true })} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"

@@ -44,8 +44,23 @@ export function ViewAsDropdown({ loanId, options }: Props) {
   if (options.length === 0) return null
 
   function hrefFor(opt: ViewAsOption): string {
-    if (opt.kind === 'borrower') return `/loans/${loanId}?as_borrower=${opt.id}`
-    return `/broker/loans/${loanId}?as_broker=${opt.id}`
+    switch (opt.kind) {
+      case 'borrower':       return `/loans/${loanId}?as_borrower=${opt.id}`
+      case 'broker':         return `/broker/loans/${loanId}?as_broker=${opt.id}`
+      case 'loan_officer':   return `/loan-officer/loans/${loanId}?as_loan_officer=${opt.id}`
+      case 'loan_processor': return `/loan-processor/loans/${loanId}?as_loan_processor=${opt.id}`
+      case 'underwriter':    return `/underwriter/loans/${loanId}?as_underwriter=${opt.id}`
+    }
+  }
+
+  function labelFor(kind: ViewAsOption['kind']): { label: string; color: string } {
+    switch (kind) {
+      case 'borrower':       return { label: 'Borrower',       color: 'bg-blue-50 text-blue-700' }
+      case 'broker':         return { label: 'Broker',         color: 'bg-violet-50 text-violet-700' }
+      case 'loan_officer':   return { label: 'Loan Officer',   color: 'bg-emerald-50 text-emerald-700' }
+      case 'loan_processor': return { label: 'Loan Processor', color: 'bg-amber-50 text-amber-700' }
+      case 'underwriter':    return { label: 'Underwriter',    color: 'bg-rose-50 text-rose-700' }
+    }
   }
 
   return (
@@ -78,9 +93,9 @@ export function ViewAsDropdown({ loanId, options }: Props) {
                 <div className="font-medium text-gray-900 truncate">{opt.name}</div>
                 {opt.hint && <div className="text-xs text-gray-500">{opt.hint}</div>}
               </div>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${opt.kind === 'borrower' ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700'}`}>
-                {opt.kind === 'borrower' ? 'Borrower' : 'Broker'}
-              </span>
+              {(() => { const l = labelFor(opt.kind); return (
+                <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${l.color}`}>{l.label}</span>
+              ) })()}
             </button>
           ))}
         </div>

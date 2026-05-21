@@ -15,7 +15,9 @@ import type { createAdminClient } from '@/lib/supabase/admin'
 
 type Admin = ReturnType<typeof createAdminClient>
 
-export type ImpersonationKind = 'borrower' | 'broker'
+export type ImpersonationKind =
+  | 'borrower' | 'broker'
+  | 'loan_officer' | 'loan_processor' | 'underwriter'
 export type ImpersonatorRole = 'admin' | 'loan_officer' | 'loan_processor'
 
 export interface ImpersonationContext {
@@ -26,6 +28,18 @@ export interface ImpersonationContext {
   /** Optional display name (set by callers after loading the role row). */
   displayName?: string | null
 }
+
+/** Query-param names mapped to the kind they signal. */
+const KIND_PARAMS = {
+  borrower:        'as_borrower',
+  broker:          'as_broker',
+  loan_officer:    'as_loan_officer',
+  loan_processor:  'as_loan_processor',
+  underwriter:     'as_underwriter',
+} as const
+
+/** Which kinds are restricted to admin impersonators only. */
+const ADMIN_ONLY_KINDS: ImpersonationKind[] = ['loan_officer', 'loan_processor', 'underwriter']
 
 /**
  * @param loanIdForAccessCheck Required when LO/LP should be allowed to
@@ -39,19 +53,28 @@ export async function resolveImpersonation(
   options: { loanIdForAccessCheck?: string } = {},
 ): Promise<ImpersonationContext | null> {
   if (!searchParams) return null
-  const asBorrower = pickString(searchParams.as_borrower)
-  const asBroker   = pickString(searchParams.as_broker)
-  if (!asBorrower && !asBroker) return null
 
-  // Detect impersonator role. Admin always wins; otherwise only check
-  // LO/LP if we have a loan to verify against.
+  // Find which (if any) impersonation kind was requested.
+  let requestedKind: ImpersonationKind | null = null
+  let requestedId: string | null = null
+  for (const [kind, param] of Object.entries(KIND_PARAMS) as [ImpersonationKind, string][]) {
+    const v = pickString(searchParams[param])
+    if (v) { requestedKind = kind; requestedId = v; break }
+  }
+  if (!requestedKind || !requestedId) return null
+
+  // Detect impersonator role. Admin always wins; LO/LP only count when we
+  // have a loan to verify access against AND the kind is borrower/broker.
   const { data: admin } = await supa
     .from('admin_users').select('id').eq('auth_user_id', authUserId).maybeSingle()
 
   let impersonatorRole: ImpersonatorRole | null = null
   if (admin) {
     impersonatorRole = 'admin'
-  } else if (options.loanIdForAccessCheck) {
+  } else if (
+    options.loanIdForAccessCheck &&
+    !ADMIN_ONLY_KINDS.includes(requestedKind)
+  ) {
     const [{ data: lo }, { data: lp }] = await Promise.all([
       supa.from('loan_officers').select('id').eq('auth_user_id', authUserId).maybeSingle(),
       supa.from('loan_processors').select('id').eq('auth_user_id', authUserId).maybeSingle(),
@@ -68,12 +91,12 @@ export async function resolveImpersonation(
 
         // (b) Verify the impersonated borrower/broker is actually on the loan
         if (impersonatorRole) {
-          if (asBorrower) {
+          if (requestedKind === 'borrower') {
             const slots = [loan.borrower_id, loan.borrower_id_2, loan.borrower_id_3, loan.borrower_id_4]
-            if (!slots.includes(asBorrower)) impersonatorRole = null
-          } else if (asBroker) {
+            if (!slots.includes(requestedId)) impersonatorRole = null
+          } else if (requestedKind === 'broker') {
             const slots = [loan.broker_id, loan.broker_id_2]
-            if (!slots.includes(asBroker)) impersonatorRole = null
+            if (!slots.includes(requestedId)) impersonatorRole = null
           }
         }
       }
@@ -81,9 +104,7 @@ export async function resolveImpersonation(
   }
 
   if (!impersonatorRole) return null
-
-  if (asBorrower) return { kind: 'borrower', id: asBorrower, impersonatorRole }
-  return { kind: 'broker', id: asBroker!, impersonatorRole }
+  return { kind: requestedKind, id: requestedId, impersonatorRole }
 }
 
 function pickString(v: string | string[] | undefined): string | null {
