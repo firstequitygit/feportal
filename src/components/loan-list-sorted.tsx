@@ -10,7 +10,7 @@ import { formatInterestRate } from '@/lib/format-interest-rate'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 
-const BOARD_STAGES = PIPELINE_STAGES.slice(0, 5) // New Application → Submitted
+const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // New Application → Submitted (excludes Closed)
 
 type LoanWithBorrower = Loan & { borrowers?: { full_name: string | null; email: string } | null }
 
@@ -246,8 +246,10 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
   const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all')
   const [closedExpanded, setClosedExpanded] = useState(false)
 
-  // Stages that actually have loans
-  const activeStages = PIPELINE_STAGES.filter(s => activeLoans.some(l => l.pipeline_stage === s))
+  // Always offer the full set of non-Closed stages as filter pills so the
+  // user can see every stage that exists in the system (even if no loan is
+  // currently in it). BOARD_STAGES already excludes 'Closed'.
+  const activeStages = BOARD_STAGES
 
   const filteredActive = stageFilter === 'all'
     ? activeLoans
