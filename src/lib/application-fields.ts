@@ -209,11 +209,12 @@ export interface StepDef {
 }
 
 export const STEPS: StepDef[] = [
-  { id: 'borrower',    title: 'Borrower Info',            estimateMinutes: 5 },
-  { id: 'deal',        title: 'Deal Info',                estimateMinutes: 4 },
-  { id: 'experience',  title: 'Experience',               estimateMinutes: 2 },
-  { id: 'disclosures', title: 'Disclosures & Signatures', estimateMinutes: 4 },
-  { id: 'payment',     title: 'Payment',                  estimateMinutes: 1 },
+  { id: 'borrower',       title: 'Borrower Info',   estimateMinutes: 5 },
+  { id: 'deal',           title: 'Deal Info',        estimateMinutes: 4 },
+  { id: 'experience',     title: 'Experience',       estimateMinutes: 2 },
+  { id: 'declarations',   title: 'Declarations',     estimateMinutes: 3 },
+  { id: 'authorization',  title: 'Authorization',    estimateMinutes: 1 },
+  { id: 'payment',        title: 'Payment',          estimateMinutes: 1 },
 ]
 
 export const TOTAL_STEPS = STEPS.length
@@ -224,6 +225,7 @@ export const ALL_FIELDS: readonly FieldDef[] = [
   ...BORROWER_FIELDS,
   ...PRIMARY_EXTRA_FIELDS,
   ...DEAL_FIELDS,
+  ...EXPERIENCE_FIELDS,
   ...DECLARATION_FIELDS,
   ...HMDA_FIELDS,
 ]
