@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { sendEmail } from '@/lib/mailer'
 
 // Step 3: Record the uploaded document in the database and notify staff
 export async function POST(req: NextRequest) {
@@ -147,18 +147,6 @@ async function sendNotification({
   fileBuffer: Buffer | null
   actionToken: string | null
 }) {
-  const user = process.env.GMAIL_USER
-  const pass = process.env.GMAIL_APP_PASSWORD
-  if (!user || !pass) {
-    console.warn('Gmail credentials not configured')
-    return
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-  })
-
   const actionButtons = actionToken
     ? `
       <div style="margin-top: 24px;">
@@ -176,9 +164,7 @@ async function sendNotification({
       </div>`
     : ''
 
-  await transporter.sendMail({
-    from: `First Equity Funding <${user}>`,
-    to: toEmails.join(', '),
+  await sendEmail({    to: toEmails.join(', '),
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">

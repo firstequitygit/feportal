@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { sendEmail } from '@/lib/mailer'
 
 // Records an admin-uploaded document in the database
 export async function POST(req: NextRequest) {
@@ -70,18 +70,10 @@ export async function POST(req: NextRequest) {
     if (recipients.recipients.length === 0) {
       console.warn(`Admin upload: no staff recipients for loan ${loanId} — email skipped.`)
     } else {
-      const gmailUser = process.env.GMAIL_USER
-      const gmailPass = process.env.GMAIL_APP_PASSWORD
-      if (gmailUser && gmailPass) {
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: { user: gmailUser, pass: gmailPass },
-        })
+      {
         const addr = loan?.property_address ?? recipients.property_address ?? 'Unknown property'
         const condTitle = condition?.title ?? 'Unknown condition'
-        await Promise.all(recipients.recipients.map(r => transporter.sendMail({
-          from: `First Equity Funding <${gmailUser}>`,
-          to: r.email,
+        await Promise.all(recipients.recipients.map(r => sendEmail({          to: r.email,
           subject: `Document uploaded — ${addr}`,
           html: `
             <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">

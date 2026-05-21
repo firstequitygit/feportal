@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { sendEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -99,19 +99,11 @@ async function sendNotification({ toEmail, toName, uploaderName, propertyAddress
   propertyAddress: string; conditionTitle: string; fileName: string
   fileBuffer: Buffer | null; actionToken: string | null
 }) {
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_APP_PASSWORD
-  if (!gmailUser || !gmailPass) { console.warn('Gmail credentials not configured'); return }
-
-  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
-
   const actionButtons = actionToken
     ? `<div style="margin-top:24px;"><p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin:0 0 12px;">Update this condition directly from your email:</p><div>${actionButton('📥 Mark Received', 'received', actionToken, '#2563eb')}${actionButton('✅ Mark Satisfied', 'satisfied', actionToken, '#16a34a')}${actionButton('❌ Mark Rejected', 'rejected', actionToken, '#dc2626')}</div><p style="font-family:Arial,sans-serif;font-size:11px;color:#aaa;margin-top:12px;">These links expire in 7 days.</p></div>`
     : ''
 
-  await transporter.sendMail({
-    from: `First Equity Funding <${gmailUser}>`,
-    to: toEmail,
+  await sendEmail({    to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${toName},<br/><br/><strong>${uploaderName}</strong> (Underwriter) has uploaded a document to the First Equity Funding portal.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;"><tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr></table>${actionButtons}<p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">Or log in to the <a href="${BASE_URL}/loan-processor" style="color:#1F5D8F;">processor portal</a> to review.</p>`,
     attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : [],

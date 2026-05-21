@@ -1,16 +1,31 @@
-import nodemailer from 'nodemailer'
 import { createAdminClient } from './supabase/admin'
 import { PORTAL_URL, PORTAL_DOMAIN } from './portal-url'
 import { getLoanContacts } from './loan-contact'
+import { sendEmail } from './mailer'
 
+/**
+ * Back-compat shim. Earlier this file exposed a nodemailer transporter via
+ * getTransporter(); some routes still call `getTransporter().sendMail(...)`.
+ * Keep the surface but route everything through the new sendEmail() helper
+ * (Resend). Accepts and ignores `from` so existing callers compile.
+ */
 export function getTransporter() {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+  return {
+    async sendMail(opts: {
+      from?: string
+      to: string | string[]
+      subject: string
+      html: string
+      attachments?: Array<{ filename: string; content: Buffer }>
+    }) {
+      await sendEmail({
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        attachments: opts.attachments,
+      })
     },
-  })
+  }
 }
 
 function shortStage(s: string | null): string {
@@ -84,7 +99,6 @@ export async function sendStageUpdateEmail(
   const transporter = getTransporter()
   await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
       to: r.email,
       subject,
       html: bodyHtml(r.greetingName),
@@ -176,7 +190,6 @@ export async function sendLoanFundedEmail(loanId: string) {
   const transporter = getTransporter()
   await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
       to: r.email,
       subject,
       html: bodyHtml(r.greetingName),
@@ -241,7 +254,6 @@ export async function sendLoanApprovedEmail(loanId: string) {
   const transporter = getTransporter()
   await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
       to: r.email,
       subject,
       html: bodyHtml(r.greetingName),

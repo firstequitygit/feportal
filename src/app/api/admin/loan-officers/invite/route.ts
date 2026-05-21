@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { sendEmail } from '@/lib/mailer'
 
 const REDIRECT = `${PORTAL_URL}/auth/callback?next=/dashboard`
 
@@ -78,14 +78,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Send branded email
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-  })
-
-  await transporter.sendMail({
-    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-    to: lo.email,
+  await sendEmail({    to: lo.email,
     subject: 'Your First Equity Funding Online Portal access',
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLoanContacts } from '@/lib/loan-contact'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { sendEmail } from '@/lib/mailer'
 
 async function verifyAdmin() {
   const supabase = await createClient()
@@ -12,16 +12,6 @@ async function verifyAdmin() {
   const { data: admin } = await supabase
     .from('admin_users').select('id').eq('auth_user_id', user.id).single()
   return admin ? user : null
-}
-
-function getTransporter() {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  })
 }
 
 async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminClient>, loanId: string) {
@@ -92,16 +82,12 @@ export async function POST(request: Request) {
     `
 
     if (assigned_to === 'loan_officer' && lo?.email) {
-      await getTransporter().sendMail({
-        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-        to: lo.email,
+      await sendEmail({        to: lo.email,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
       })
     } else if (assigned_to === 'loan_processor' && lps.length > 0) {
-      await Promise.all(lps.map(processor => getTransporter().sendMail({
-        from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-        to: processor.email!,
+      await Promise.all(lps.map(processor => sendEmail({        to: processor.email!,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
       })))
@@ -113,9 +99,7 @@ export async function POST(request: Request) {
         const greeting = contacts.length === 1 ? (contacts[0].name ?? 'there') : 'there'
         const kind = contacts[0].kind
         const portalUrl = contacts[0].portalUrl
-        await getTransporter().sendMail({
-          from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-          to: contacts.map(c => c.email).join(', '),
+        await sendEmail({          to: contacts.map(c => c.email).join(', '),
           subject: `New condition added — ${loan?.property_address ?? 'a loan'}`,
           html: `
             <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greeting},</p>
@@ -240,9 +224,7 @@ async function sendBorrowerStatusNotification({
   const message = statusMessages[status] ?? `The status has been updated to ${status}.`
   const color = statusColors[status] ?? '#333'
 
-  await getTransporter().sendMail({
-    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-    to: contacts.map(c => c.email).join(', '),
+  await sendEmail({    to: contacts.map(c => c.email).join(', '),
     subject: `Condition update — ${loan?.property_address ?? 'a loan'}`,
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greeting},</p>

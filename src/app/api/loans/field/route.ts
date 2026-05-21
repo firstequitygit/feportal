@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealField } from '@/lib/pipedrive'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { sendEmail } from '@/lib/mailer'
 import {
   PIPEDRIVE_FIELDS,
   PIPEDRIVE_LOAN_TYPE_MAP,
@@ -258,13 +258,7 @@ async function maybeAutoAddAppraisalCondition(
             `<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table>` +
             `<p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>` +
             `<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`
-          const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-          })
-          await transporter.sendMail({
-            from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-            to: lo.email,
+          await sendEmail({            to: lo.email,
             subject: `New condition assigned to you — ${addr}`,
             html,
           })

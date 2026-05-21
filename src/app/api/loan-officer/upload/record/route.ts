@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { sendEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -138,18 +138,6 @@ async function sendNotification({
   fileBuffer: Buffer | null
   actionToken: string | null
 }) {
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_APP_PASSWORD
-  if (!gmailUser || !gmailPass) {
-    console.warn('Gmail credentials not configured')
-    return
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: gmailUser, pass: gmailPass },
-  })
-
   const actionButtons = actionToken
     ? `<div style="margin-top:24px;">
         <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin:0 0 12px;">Update this condition directly from your email:</p>
@@ -162,9 +150,7 @@ async function sendNotification({
       </div>`
     : ''
 
-  await transporter.sendMail({
-    from: `First Equity Funding <${gmailUser}>`,
-    to: toEmail,
+  await sendEmail({    to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">

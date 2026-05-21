@@ -9,7 +9,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PORTAL_URL } from '@/lib/portal-url'
-import nodemailer from 'nodemailer'
+import { sendEmail } from '@/lib/mailer'
 
 export interface InviteBorrowerInput {
   email: string
@@ -79,13 +79,7 @@ export async function inviteBorrower(input: InviteBorrowerInput): Promise<Invite
   let emailSent = false
   let emailError: string | null = null
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-    })
-    await transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-      to: email,
+    await sendEmail({      to: email,
       subject: `You've been invited to the First Equity Funding Online Portal`,
       html: `
         <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greetingName},</p>
