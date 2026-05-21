@@ -21,7 +21,7 @@ export default async function LoanOfficersPage() {
     .order('full_name')
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-2xl">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Loan Officers</h2>
       <AdminLoanOfficersManager initialLoanOfficers={(loanOfficers ?? []) as LoanOfficer[]} />
     </PortalShell>

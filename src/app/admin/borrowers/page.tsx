@@ -36,7 +36,7 @@ export default async function AdminBorrowersPage() {
   }))
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-none">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Borrowers</h2>
       <p className="text-sm text-gray-500 mb-6">
         All borrowers in the portal. Adding borrowers happens via JotForm intake or the

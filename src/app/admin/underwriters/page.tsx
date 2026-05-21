@@ -21,7 +21,7 @@ export default async function UnderwritersPage() {
     .order('full_name')
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-2xl">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Underwriters</h2>
       <AdminUnderwritersManager initialUnderwriters={(underwriters ?? []) as Underwriter[]} />
     </PortalShell>

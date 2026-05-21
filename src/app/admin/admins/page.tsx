@@ -22,7 +22,7 @@ export default async function AdminUsersPage() {
     .order('created_at', { ascending: true })
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={me.is_super ?? false} maxWidth="max-w-2xl">
+    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={me.is_super ?? false} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Users</h2>
       <p className="text-sm text-gray-500 mb-6">
         Only super-admins can see this page. New admins are created with a temporary password
