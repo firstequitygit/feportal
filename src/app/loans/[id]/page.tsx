@@ -38,9 +38,10 @@ export default async function LoanPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Admin "View as borrower" support — see src/lib/impersonate.ts
+  // "View as borrower" support — see src/lib/impersonate.ts.
+  // loanIdForAccessCheck enables LO/LP impersonation (admin works everywhere).
   const adminClient = createAdminClient()
-  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
   const isImpersonating = impersonation?.kind === 'borrower'
 
   // Load the borrower row — either the signed-in borrower, or the
@@ -114,8 +115,8 @@ export default async function LoanPage({
 
   return (
     <PortalShell userName={borrower.full_name ?? user.email ?? null} userRole="Borrower" dashboardHref="/dashboard">
-        {isImpersonating && (
-          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref(loan.id)} />
+        {isImpersonating && impersonation && (
+          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />
         )}
         <LoanRealtimeRefresh loanId={loan.id} />
         {/* Back link */}

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Eye, ChevronDown } from 'lucide-react'
 
-interface Option {
+export interface ViewAsOption {
   /** 'borrower' or 'broker' — drives the query-param name */
   kind: 'borrower' | 'broker'
   id: string
@@ -15,7 +15,40 @@ interface Option {
 
 interface Props {
   loanId: string
-  options: Option[]
+  options: ViewAsOption[]
+}
+
+interface MaybeBorrowerOrBroker { id?: string | null; full_name?: string | null; company_name?: string | null }
+
+/**
+ * Shared helper that pulls borrower + broker options off a loan row that
+ * was queried with embeds like:
+ *   .select('*, borrowers!borrower_id(id, full_name), brokers!broker_id(id, full_name, company_name), broker_2:brokers!broker_id_2(id, full_name, company_name)')
+ */
+export function buildViewAsOptions(loan: {
+  borrowers?: MaybeBorrowerOrBroker | null
+  brokers?: MaybeBorrowerOrBroker | null
+  broker_2?: MaybeBorrowerOrBroker | null
+}): ViewAsOption[] {
+  const opts: ViewAsOption[] = []
+  if (loan.borrowers?.id) {
+    opts.push({ kind: 'borrower', id: loan.borrowers.id, name: loan.borrowers.full_name ?? '(no name)' })
+  }
+  if (loan.brokers?.id) {
+    opts.push({
+      kind: 'broker', id: loan.brokers.id,
+      name: loan.brokers.full_name ?? '(no name)',
+      hint: loan.brokers.company_name ?? undefined,
+    })
+  }
+  if (loan.broker_2?.id) {
+    opts.push({
+      kind: 'broker', id: loan.broker_2.id,
+      name: loan.broker_2.full_name ?? '(no name)',
+      hint: loan.broker_2.company_name ?? 'Slot 2 broker',
+    })
+  }
+  return opts
 }
 
 /**
@@ -28,7 +61,7 @@ export function ViewAsDropdown({ loanId, options }: Props) {
   const [open, setOpen] = useState(false)
   if (options.length === 0) return null
 
-  function hrefFor(opt: Option): string {
+  function hrefFor(opt: ViewAsOption): string {
     if (opt.kind === 'borrower') return `/loans/${loanId}?as_borrower=${opt.id}`
     return `/broker/loans/${loanId}?as_broker=${opt.id}`
   }

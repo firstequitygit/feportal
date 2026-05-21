@@ -39,8 +39,8 @@ export default async function BrokerLoanPage({
 
   const adminClient = createAdminClient()
 
-  // Admin "View as broker" support
-  const impersonation = await resolveImpersonation(adminClient, user.id, sp)
+  // "View as broker" support. loanIdForAccessCheck enables LO/LP impersonation.
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
   const isImpersonating = impersonation?.kind === 'broker'
 
   const { data: broker } = isImpersonating
@@ -107,8 +107,8 @@ export default async function BrokerLoanPage({
       dashboardHref="/broker"
       variant="broker"
     >
-      {isImpersonating && (
-        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id)} />
+      {isImpersonating && impersonation && (
+        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />
       )}
       <LoanRealtimeRefresh loanId={loan.id} />
       <Link href="/broker" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">

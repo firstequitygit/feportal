@@ -30,6 +30,7 @@ import { LoanType } from '@/lib/types'
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { ViewAsDropdown, buildViewAsOptions } from '@/components/view-as-dropdown'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -121,6 +122,7 @@ export default async function LoanProcessorLoanPage({ params }: { params: Promis
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan)} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"

@@ -28,7 +28,7 @@ import { EditableClosingDate } from '@/components/editable-closing-date'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { DocumentsList } from '@/components/documents-list'
 import { formatDate } from '@/lib/format-date'
-import { ViewAsDropdown } from '@/components/view-as-dropdown'
+import { ViewAsDropdown, buildViewAsOptions } from '@/components/view-as-dropdown'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
@@ -332,35 +332,5 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   )
 }
 
-/**
- * Build the "View as" dropdown options from the joined borrower + broker
- * rows on the loan. We surface up to one borrower (primary — co-borrowers
- * see the same loan view, so listing all four would be noise) plus both
- * broker slots when assigned.
- */
-interface MaybeBorrowerOrBroker { id?: string | null; full_name?: string | null; company_name?: string | null }
-function buildViewAsOptions(loan: {
-  borrowers?: MaybeBorrowerOrBroker | null
-  brokers?: MaybeBorrowerOrBroker | null
-  broker_2?: MaybeBorrowerOrBroker | null
-}): Array<{ kind: 'borrower' | 'broker'; id: string; name: string; hint?: string }> {
-  const opts: Array<{ kind: 'borrower' | 'broker'; id: string; name: string; hint?: string }> = []
-  if (loan.borrowers?.id) {
-    opts.push({ kind: 'borrower', id: loan.borrowers.id, name: loan.borrowers.full_name ?? '(no name)' })
-  }
-  if (loan.brokers?.id) {
-    opts.push({
-      kind: 'broker', id: loan.brokers.id,
-      name: loan.brokers.full_name ?? '(no name)',
-      hint: loan.brokers.company_name ?? undefined,
-    })
-  }
-  if (loan.broker_2?.id) {
-    opts.push({
-      kind: 'broker', id: loan.broker_2.id,
-      name: loan.broker_2.full_name ?? '(no name)',
-      hint: loan.broker_2.company_name ?? 'Slot 2 broker',
-    })
-  }
-  return opts
-}
+// buildViewAsOptions lives in src/components/view-as-dropdown.tsx so the
+// LO and LP pages can reuse it.
