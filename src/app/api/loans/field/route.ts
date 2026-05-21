@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealField } from '@/lib/pipedrive'
+import { PORTAL_URL } from '@/lib/portal-url'
+import { sendEmail } from '@/lib/mailer'
 import {
   PIPEDRIVE_FIELDS,
   PIPEDRIVE_LOAN_TYPE_MAP,
@@ -17,8 +19,10 @@ interface FieldConfig {
   table?: Table
   /** Pipedrive custom-field key. Required for table='loans', omitted for loan_details. */
   pdKey?: string
-  /** For enum fields: map of canonical value → Pipedrive option ID */
-  optionMap?: Record<string, number>
+  /** For enum fields: map of canonical value → Pipedrive option ID.
+   *  Use `null` for values that should CLEAR the Pipedrive field (e.g. a
+   *  yes-only enum where the portal's "No" means "not set"). */
+  optionMap?: Record<string, number | null>
   /** For enum fields: list of valid values */
   validValues?: readonly string[]
 }
@@ -32,10 +36,30 @@ const LOAN_TYPE_OPTION_MAP: Record<string, number> = Object.entries(PIPEDRIVE_LO
 
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 
+// Pipedrive option IDs for the "Interest Only" Yes/No enum (key f0b4...4920fc3).
+const INTEREST_ONLY_OPTIONS = ['Yes', 'No'] as const
+const INTEREST_ONLY_OPTION_MAP: Record<string, number | null> = { Yes: 269, No: 270 }
+
+// "Locked?" is a Pipedrive yes-only enum (only one option id: 148 = "Yes").
+// Portal stores granularity (No / 15 / 30 / 45 days). Push "Yes" for any
+// locked value, null when "No" — and avoid clobbering on pull (see
+// src/lib/pipedrive.ts).
+const RATE_LOCK_OPTIONS = ['No', '15 days', '30 days', '45 days'] as const
+const RATE_LOCK_OPTION_MAP: Record<string, number | null> = {
+  'No': null,
+  '15 days': 148,
+  '30 days': 148,
+  '45 days': 148,
+}
+
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
+const INVESTOR_OPTIONS = [
+  'Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', 'FE',
+  'ROC', 'Corvest', 'Held', 'Logan Financial', 'DSCR', 'Verus',
+] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
-const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
+const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
 const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
@@ -53,6 +77,9 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   origination_date: { type: 'date',   pdKey: PIPEDRIVE_FIELDS.originationDate },
   maturity_date:    { type: 'date',   pdKey: PIPEDRIVE_FIELDS.maturityDate },
   entity_name:      { type: 'text',   pdKey: PIPEDRIVE_FIELDS.entityName },
+  interest_only:    { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.interestOnly, optionMap: INTEREST_ONLY_OPTION_MAP, validValues: INTEREST_ONLY_OPTIONS },
+  rate_locked_days: { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.rateLocked,   optionMap: RATE_LOCK_OPTION_MAP,     validValues: RATE_LOCK_OPTIONS },
+  rate_lock_expiration_date: { type: 'date', pdKey: PIPEDRIVE_FIELDS.rateLockExpiration },
 
   // ===== loan_details table (portal-only, no Pipedrive sync) =====
   // Loan / Deal Overview
@@ -60,6 +87,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   loan_application:        { type: 'text',     table: 'loan_details' },
   submitted_at:            { type: 'date',     table: 'loan_details' },
   urgency:                 { type: 'enum',     table: 'loan_details', validValues: URGENCY_OPTIONS },
+  investor:                { type: 'enum',     table: 'loan_details', validValues: INVESTOR_OPTIONS },
   reason_canceled:         { type: 'textarea', table: 'loan_details' },
   underwriter_notes:       { type: 'textarea', table: 'loan_details' },
   exceptions:              { type: 'textarea', table: 'loan_details' },
@@ -146,18 +174,119 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   intent_to_occupy:      { type: 'boolean', table: 'loan_details' },
   down_payment_borrowed: { type: 'boolean', table: 'loan_details' },
 
-  // Title & Insurance contact info
+  // Title, Insurance, Appraiser contact info
   title_company:     { type: 'text', table: 'loan_details' },
   title_email:       { type: 'text', table: 'loan_details' },
   title_phone:       { type: 'text', table: 'loan_details' },
   insurance_company: { type: 'text', table: 'loan_details' },
   insurance_email:   { type: 'text', table: 'loan_details' },
   insurance_phone:   { type: 'text', table: 'loan_details' },
+  appraisal_company: { type: 'text', table: 'loan_details' },
+  appraisal_email:   { type: 'text', table: 'loan_details' },
+  appraisal_phone:   { type: 'text', table: 'loan_details' },
 
   // Vesting Entity (entity_name itself stays on loans table — it syncs to Pipedrive)
   vesting_in_entity:      { type: 'boolean', table: 'loan_details' },
   entity_type:            { type: 'enum',    table: 'loan_details', validValues: ENTITY_TYPE_OPTIONS },
   entity_formation_state: { type: 'text',    table: 'loan_details' },
+}
+
+/**
+ * When an LP/LO/UW sets the Appraisal Received Date on a loan, automatically
+ * add the "Appraisal Received" condition (LO action: review appraisal +
+ * update sizer) if it isn't already on the loan. The condition title +
+ * description + assigned_to are sourced from condition_templates so changes
+ * to the template flow through.
+ *
+ * No-op if:
+ *   - the template doesn't exist
+ *   - a condition with the same title already exists on this loan
+ */
+async function maybeAutoAddAppraisalCondition(
+  adminClient: ReturnType<typeof createAdminClient>,
+  loanId: string,
+  editorName: string | null,
+) {
+  try {
+    const TITLE = 'Appraisal Received'
+
+    const { data: existing } = await adminClient
+      .from('conditions').select('id')
+      .eq('loan_id', loanId).eq('title', TITLE).maybeSingle()
+    if (existing) return  // already on the loan
+
+    const { data: template } = await adminClient
+      .from('condition_templates')
+      .select('title, description, assigned_to, category')
+      .eq('title', TITLE).maybeSingle()
+    if (!template) return  // template missing — bail silently
+
+    await adminClient.from('conditions').insert({
+      loan_id: loanId,
+      title: template.title,
+      description: template.description,
+      assigned_to: template.assigned_to,
+      category: template.category,
+      status: 'Outstanding',
+    })
+
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'condition_added',
+      description: `Condition automatically added (Loan Officer): "${TITLE}" — triggered by Appraisal Received Date being set${editorName ? ` by ${editorName}` : ''}`,
+    })
+
+    // Notify the assigned LO via email (matches the manual condition-add
+    // flow in /api/loan-processor/conditions etc.)
+    if (template.assigned_to === 'loan_officer') {
+      try {
+        const { data: loan } = await adminClient
+          .from('loans')
+          .select('property_address, loan_officers(full_name, email)')
+          .eq('id', loanId).single()
+        const lo = loan?.loan_officers as unknown as { full_name: string | null; email: string | null } | null
+        if (lo?.email) {
+          const addr = loan?.property_address ?? 'a loan'
+          const conditionHtml =
+            `<tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${template.title}</strong></td></tr>` +
+            (template.description
+              ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Details</td><td>${template.description}</td></tr>`
+              : '')
+          const html =
+            `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${lo.full_name ?? 'there'},</p>` +
+            `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>` +
+            `<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table>` +
+            `<p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>` +
+            `<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`
+          await sendEmail({            to: lo.email,
+            subject: `New condition assigned to you — ${addr}`,
+            html,
+          })
+        }
+      } catch (mailErr) {
+        console.error('Auto Appraisal Received email failed:', mailErr instanceof Error ? mailErr.message : mailErr)
+      }
+    }
+  } catch (err) {
+    // Don't fail the parent field-update API call if the automation hiccups.
+    console.error('Auto-add Appraisal Received condition failed:', err instanceof Error ? err.message : err)
+  }
+}
+
+/**
+ * Compute the DSCR LTV (loan_amount / value_as_is, as percent) for the given
+ * loan. Returns null if value_as_is is missing/zero so the caller can skip.
+ */
+async function computeDscrLtv(
+  adminClient: ReturnType<typeof createAdminClient>,
+  loanId: string,
+  loanAmount: number,
+): Promise<number | null> {
+  const { data: d } = await adminClient
+    .from('loan_details').select('value_as_is').eq('loan_id', loanId).maybeSingle()
+  const v = d?.value_as_is
+  if (!v || v <= 0 || !loanAmount || loanAmount <= 0) return null
+  return Math.round((Number(loanAmount) / Number(v)) * 100 * 100) / 100
 }
 
 export async function PATCH(req: NextRequest) {
@@ -238,6 +367,14 @@ export async function PATCH(req: NextRequest) {
     if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Editor display name — used by both the audit log and any automation
+  // triggers below (e.g. the Appraisal Received auto-condition).
+  const editorName: string | null =
+    (lo?.full_name as string | undefined) ??
+    (lp?.full_name as string | undefined) ??
+    (uw?.full_name as string | undefined) ??
+    (admin ? 'Admin' : null)
+
   // Pipedrive write — only for loans-table fields with a pdKey
   if (table === 'loans' && config.pdKey) {
     if (!loan.pipedrive_deal_id) {
@@ -254,13 +391,73 @@ export async function PATCH(req: NextRequest) {
 
   // Mirror locally
   if (table === 'loans') {
+    const patch: Record<string, unknown> = { [field]: dbValue }
+
+    // DSCR-specific defaults: when an LO/admin flips loan_type to
+    // 'Rental (DSCR)', pre-fill term_months = 360 and interest_only = 'No'
+    // for any of those fields that are currently null. DSCR rentals are
+    // consistently amortizing 30-year so this saves manual entry. Manual
+    // edits via the same API afterwards still work normally.
+    if (field === 'loan_type' && dbValue === 'Rental (DSCR)') {
+      const { data: current } = await adminClient
+        .from('loans').select('term_months, interest_only, loan_amount').eq('id', loanId).single()
+      if (current?.term_months == null) patch.term_months = 360
+      if (current?.interest_only == null) patch.interest_only = 'No'
+      // Also recompute LTV if both inputs exist (loan just became DSCR).
+      if (current?.loan_amount) {
+        const computed = await computeDscrLtv(adminClient, loanId, current.loan_amount as number)
+        if (computed != null) patch.ltv = computed
+      }
+    }
+
+    // Amortization Schedule default based on loan_type. Lives on loan_details
+    // (separate upsert from the loans-table patch). Only fills the field if
+    // it's currently null so manual selections aren't clobbered.
+    if (field === 'loan_type') {
+      const defaultAmort =
+        dbValue === 'Rental (DSCR)' ? '30-yr' :
+        (dbValue === 'Fix & Flip (Bridge)' || dbValue === 'New Construction') ? 'Interest Only' :
+        null
+      if (defaultAmort) {
+        const { data: existing } = await adminClient
+          .from('loan_details').select('amortization_schedule').eq('loan_id', loanId).maybeSingle()
+        if (!existing?.amortization_schedule) {
+          await adminClient.from('loan_details').upsert(
+            { loan_id: loanId, amortization_schedule: defaultAmort, updated_at: new Date().toISOString() },
+            { onConflict: 'loan_id' },
+          )
+        }
+      }
+    }
+
+    // DSCR LTV auto-calc when the loan_amount changes on a DSCR loan.
+    if (field === 'loan_amount' && typeof dbValue === 'number') {
+      const { data: l } = await adminClient
+        .from('loans').select('loan_type').eq('id', loanId).single()
+      if (l?.loan_type === 'Rental (DSCR)') {
+        const computed = await computeDscrLtv(adminClient, loanId, dbValue)
+        if (computed != null) patch.ltv = computed
+      }
+    }
+
     const { error } = await adminClient
       .from('loans')
-      .update({ [field]: dbValue })
+      .update(patch)
       .eq('id', loanId)
     if (error) {
       console.error('Local field update failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Mirror LTV change to Pipedrive when we recomputed it (we already
+    // wrote the primary field above; this ensures Pipedrive's LTV stays
+    // aligned with the portal's auto-calc).
+    if (patch.ltv != null && field !== 'ltv' && loan.pipedrive_deal_id) {
+      try {
+        await updateDealField(loan.pipedrive_deal_id, PIPEDRIVE_FIELDS.ltv, patch.ltv as number)
+      } catch (err) {
+        console.error('LTV Pipedrive push failed:', err instanceof Error ? err.message : err)
+      }
     }
   } else {
     // loan_details — upsert by loan_id (the migration backfilled rows, but be defensive)
@@ -274,15 +471,31 @@ export async function PATCH(req: NextRequest) {
       console.error('loan_details update failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // DSCR LTV auto-calc when value_as_is changes on a DSCR loan.
+    if (field === 'value_as_is' && typeof dbValue === 'number') {
+      const { data: l } = await adminClient
+        .from('loans').select('loan_type, loan_amount, pipedrive_deal_id').eq('id', loanId).single()
+      if (l?.loan_type === 'Rental (DSCR)' && l.loan_amount) {
+        const newLtv = Math.round((Number(l.loan_amount) / dbValue) * 100 * 100) / 100
+        await adminClient.from('loans').update({ ltv: newLtv }).eq('id', loanId)
+        if (l.pipedrive_deal_id) {
+          try { await updateDealField(l.pipedrive_deal_id, PIPEDRIVE_FIELDS.ltv, newLtv) }
+          catch (err) { console.error('LTV Pipedrive push failed:', err instanceof Error ? err.message : err) }
+        }
+      }
+    }
+
+    // Auto-create the "Appraisal Received" condition (LO action item) when
+    // the Appraisal Received Date is set on a loan that doesn't already have
+    // this condition. Uses the existing condition_templates row as the
+    // source of truth for title / description / assignment.
+    if (field === 'appraisal_received_date' && typeof dbValue === 'string' && dbValue.trim()) {
+      await maybeAutoAddAppraisalCondition(adminClient, loanId, editorName)
+    }
   }
 
-  // Audit log
-  const editorName =
-    (lo?.full_name as string | undefined) ??
-    (lp?.full_name as string | undefined) ??
-    (uw?.full_name as string | undefined) ??
-    (admin ? 'Admin' : null)
-
+  // Audit log (editorName computed above for use across this handler)
   try {
     await adminClient.from('loan_events').insert({
       loan_id: loanId,

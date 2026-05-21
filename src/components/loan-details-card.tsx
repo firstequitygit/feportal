@@ -13,6 +13,7 @@ export interface LoanDetails {
   loan_application?: string | null
   submitted_at?: string | null
   urgency?: string | null
+  investor?: string | null
   reason_canceled?: string | null
   underwriter_notes?: string | null
   exceptions?: string | null
@@ -98,13 +99,16 @@ export interface LoanDetails {
   intent_to_occupy?: boolean | null
   down_payment_borrowed?: boolean | null
 
-  // JotForm-sourced — Title & Insurance
+  // JotForm-sourced — Title, Insurance, Appraiser
   title_company?: string | null
   title_email?: string | null
   title_phone?: string | null
   insurance_company?: string | null
   insurance_email?: string | null
   insurance_phone?: string | null
+  appraisal_company?: string | null
+  appraisal_email?: string | null
+  appraisal_phone?: string | null
 
   // JotForm-sourced — Vesting Entity
   vesting_in_entity?: boolean | null
@@ -143,9 +147,13 @@ interface Props {
 }
 
 const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
+const INVESTOR_OPTIONS = [
+  'Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', 'FE',
+  'ROC', 'Corvest', 'Held', 'Logan Financial', 'DSCR', 'Verus',
+] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
-const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
+const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
 const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
@@ -366,6 +374,16 @@ export function LoanDetailsCard({
                 options={URGENCY_OPTIONS}
                 currentValue={d.urgency ?? null}
                 display={d.urgency ?? '—'}
+              />
+            </DetailRow>
+            <DetailRow label="Investor">
+              <EditableLoanField
+                loanId={loanId}
+                field="investor"
+                type="enum"
+                options={INVESTOR_OPTIONS}
+                currentValue={d.investor ?? null}
+                display={d.investor ?? '—'}
               />
             </DetailRow>
             <DetailRow label="Cross Collateralization">
@@ -640,7 +658,7 @@ export function LoanDetailsCard({
             )}
           </Section>
 
-          <Section title="Title & Insurance">
+          <Section title="Vendors (Title, Insurance, Appraiser)">
             <DetailRow label="Title Company / Agent">
               <EditableLoanField
                 loanId={loanId}
@@ -697,6 +715,35 @@ export function LoanDetailsCard({
                 type="text"
                 currentValue={d.insurance_phone ?? null}
                 display={d.insurance_phone ?? '—'}
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser / Appraisal Company">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_company"
+                type="text"
+                currentValue={d.appraisal_company ?? null}
+                display={d.appraisal_company ?? '—'}
+                inputWidthClass="w-56"
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser Email">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_email"
+                type="text"
+                currentValue={d.appraisal_email ?? null}
+                display={d.appraisal_email ?? '—'}
+                inputWidthClass="w-56"
+              />
+            </DetailRow>
+            <DetailRow label="Appraiser Phone">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_phone"
+                type="text"
+                currentValue={d.appraisal_phone ?? null}
+                display={d.appraisal_phone ?? '—'}
               />
             </DetailRow>
           </Section>
@@ -966,17 +1013,20 @@ export function LoanDetailsCard({
               />
             </DetailRow>
 
-            {/* 120-day validity countdown — calculated, read-only */}
+            {/* 120-day validity countdown — calculated, read-only.
+                Anchored on the Effective Date (appraisal validity period
+                runs from when the appraiser estimated the value, not when
+                the doc landed in our inbox). */}
             <div className="flex justify-between items-center gap-3 pt-2 mt-1 border-t border-gray-100">
               <span className="text-gray-500 flex items-center gap-1.5">
                 Appraisal Days Left
                 <span className="text-[10px] uppercase tracking-wide text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">calc</span>
               </span>
-              <DaysLeftBadge value={daysLeft(d.appraisal_received_date, 120)} />
+              <DaysLeftBadge value={daysLeft(d.appraisal_effective_date, 120)} />
             </div>
-            {!d.appraisal_received_date && (
+            {!d.appraisal_effective_date && (
               <p className="text-xs text-gray-400 italic">
-                Set Appraisal Received Date above to start the 120-day countdown.
+                Set Appraisal Effective Date above to start the 120-day countdown.
               </p>
             )}
           </Section>

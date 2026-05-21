@@ -6,12 +6,13 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { SyncButton } from '@/components/sync-button'
+import { AirtableSyncButton } from '@/components/airtable-sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
 import { InviteBroker } from '@/components/invite-broker'
 import {
   LayoutDashboard, LogOut, Menu, X,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3, UserCircle, Briefcase,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -53,6 +54,9 @@ const LO_NAV: NavItem[] = [
   { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
   { href: '/loan-officer/loans',      label: 'Loans',          icon: Building2 },
   { href: '/loan-officer/conditions', label: 'Conditions',     icon: FileCheck },
+  { href: '/loan-officer/borrowers',  label: 'Borrowers',      icon: UserCircle },
+  { href: '/loan-officer/brokers',    label: 'Brokers',        icon: Briefcase },
+  { href: '/loan-officer/vendors',    label: 'Vendors',        icon: Store },
   { href: '/reports',                 label: 'Reports',        icon: BarChart3 },
   { href: '/loan-officer/archived',   label: 'Archived Loans', icon: Archive },
 ]
@@ -61,6 +65,9 @@ const LP_NAV: NavItem[] = [
   { href: '/loan-processor/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/loan-processor/loans',      label: 'Loans',               icon: Building2 },
   { href: '/loan-processor/conditions', label: 'Conditions',          icon: FileCheck },
+  { href: '/loan-processor/borrowers',  label: 'Borrowers',           icon: UserCircle },
+  { href: '/loan-processor/brokers',    label: 'Brokers',             icon: Briefcase },
+  { href: '/loan-processor/vendors',    label: 'Vendors',             icon: Store },
   { href: '/loan-processor/templates',  label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                   label: 'Reports',             icon: BarChart3 },
   { href: '/loan-processor/archived',   label: 'Archived Loans',      icon: Archive },
@@ -207,6 +214,7 @@ export function PortalShell({
         {(variant === 'admin' || variant === 'loan-officer' || variant === 'loan-processor' || variant === 'underwriter') && (
           <div className="px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col items-start gap-2">
             <SyncButton />
+            {variant === 'admin' && <AirtableSyncButton />}
             {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" />}
             {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" />}
             {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" />}

@@ -1,0 +1,312 @@
+{
+  "mapping": [
+    {
+      "portal": "loans.pipedrive_deal_id",
+      "airtable": "Pipedrive Deal ID",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loans.loan_type",
+      "airtable": "Loan Type",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loans.loan_amount",
+      "airtable": "Loan Amount",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loans.interest_rate",
+      "airtable": "Rate",
+      "airtableType": "percent"
+    },
+    {
+      "portal": "loans.arv",
+      "airtable": "ARV Value",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loans.term_months",
+      "airtable": "Loan Term",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loans.maturity_date",
+      "airtable": "Maturity Date ",
+      "airtableType": "date"
+    },
+    {
+      "portal": "loans.entity_name",
+      "airtable": "Entity",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loans.pipeline_stage",
+      "airtable": "Loan Status",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loans.loan_number",
+      "airtable": "Loan Number",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loans.estimated_closing_date",
+      "airtable": "Closing Date",
+      "airtableType": "date"
+    },
+    {
+      "portal": "loans.closed_at",
+      "airtable": "Funding Date",
+      "airtableType": "date"
+    },
+    {
+      "portal": "loan_details.property_street",
+      "airtable": "Property Street",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loan_details.property_city",
+      "airtable": "Property City",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loan_details.property_state",
+      "airtable": "Property State",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.property_zip",
+      "airtable": "Property ZIP",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loan_details.property_type",
+      "airtable": "Property Type",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.number_of_units",
+      "airtable": "Number of Units",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loan_details.flood_zone",
+      "airtable": "Flood Zone",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.loan_type_one",
+      "airtable": "Loan Type",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.initial_loan_amount",
+      "airtable": "Initial Loan Amount",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.coborrower_name",
+      "airtable": "Coborrowers",
+      "airtableType": "multipleRecordLinks"
+    },
+    {
+      "portal": "loan_details.number_of_properties",
+      "airtable": "Number of Properties ",
+      "airtableType": "number"
+    },
+    {
+      "portal": "loan_details.experience_notes",
+      "airtable": "Experience Notes",
+      "airtableType": "singleLineText"
+    },
+    {
+      "portal": "loan_details.liquid_assets_total",
+      "airtable": "Verified Assets",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.foreign_national",
+      "airtable": "Foreign National",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.appraisal_company",
+      "airtable": "Appraiser",
+      "airtableType": "multipleRecordLinks"
+    },
+    {
+      "portal": "loan_details.purchase_price",
+      "airtable": "Purchase Price",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.acquisition_date",
+      "airtable": "Acquisition Date",
+      "airtableType": "date"
+    },
+    {
+      "portal": "loan_details.value_as_is",
+      "airtable": "As Is Value",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.payoff",
+      "airtable": "Payoff",
+      "airtableType": "singleSelect"
+    },
+    {
+      "portal": "loan_details.qualifying_rent",
+      "airtable": "Qualifying Rent",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.annual_insurance_premium",
+      "airtable": "HOI Premium",
+      "airtableType": "currency"
+    },
+    {
+      "portal": "loan_details.annual_hoa_dues",
+      "airtable": "Yearly HOA",
+      "airtableType": "currency"
+    }
+  ],
+  "unmapped": [
+    {
+      "portal": "loans.property_address",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.ltv",
+      "reason": "would map to \"LTV\" but type=formula is read-only"
+    },
+    {
+      "portal": "loans.rehab_budget",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.origination_date",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.last_synced_at",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.rate_locked_days",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.rate_lock_expiration_date",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.interest_only",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loans.loan_type_ii",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.jotform_submission_id",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.submitted_at",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.square_footage",
+      "reason": "hint \"Square Footage\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.units_vacant",
+      "reason": "hint \"Units Vacant\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.experience_borrower",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.credit_score_estimate",
+      "reason": "hint \"Credit Score Estimate\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.credit_frozen",
+      "reason": "hint \"Credit Frozen\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.own_or_rent",
+      "reason": "hint \"Own or Rent\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.mortgage_on_primary",
+      "reason": "hint \"Mortgage on Primary\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.title_company",
+      "reason": "hint \"Title Company\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.title_email",
+      "reason": "hint \"Title Email\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.title_phone",
+      "reason": "hint \"Title Phone\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.insurance_company",
+      "reason": "hint \"Insurance Company\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.insurance_email",
+      "reason": "hint \"Insurance Email\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.insurance_phone",
+      "reason": "hint \"Insurance Phone\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.appraisal_email",
+      "reason": "would map to \"Appraiser Email\" but type=multipleLookupValues is read-only"
+    },
+    {
+      "portal": "loan_details.appraisal_phone",
+      "reason": "would map to \"Appraiser Phone\" but type=multipleLookupValues is read-only"
+    },
+    {
+      "portal": "loan_details.vesting_in_entity",
+      "reason": "hint \"Vesting in Entity\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.entity_type",
+      "reason": "hint \"Entity Type\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.entity_formation_state",
+      "reason": "hint \"Entity Formation State\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.down_payment_borrowed",
+      "reason": "hint \"Down Payment Borrowed\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.intent_to_occupy",
+      "reason": "hint \"Intent to Occupy\" not found in Airtable"
+    },
+    {
+      "portal": "loan_details.declarations",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.annual_property_tax",
+      "reason": "intentionally skipped"
+    },
+    {
+      "portal": "loan_details.jotform_submitted_at",
+      "reason": "intentionally skipped"
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+Table: Deals (tbl0Dg6YE96oD9dDq) — 315 fields
+
+Fields:
+  Deal Name                                 formula options={"isValid":true,"formula":"{fldE24nSRMrwUutbQ}&\" - \"&{flda
+  Borrower                                  multipleRecordLinks options={"linkedTableId":"tblN3zWX9mvN7qksj","isReversed":false,"pre
+  Loan Number                               singleLineText
+  Loan Officer (NEW)                        multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Created                                   createdTime options={"result":{"type":"dateTime","options":{"dateFormat":{"name"
+  Processing Notes                          richText
+  Appraisal Order Date                      date options={"dateFormat":{"name":"local","format":"l"}}
+  Due Date                                  date options={"dateFormat":{"name":"local","format":"l"}}
+  Appraiser                                 multipleRecordLinks options={"linkedTableId":"tblaDSAbqrH32EBQN","isReversed":false,"pre
+  Appraisal Notes                           singleLineText
+  Roseann's Notes                           richText
+  Appraisal                                 singleSelect options={"choices":[{"id":"selUQY3zlCnS42J7w","name":"Not Received",
+  Appraisal Received Date                   date options={"dateFormat":{"name":"local","format":"l"}}
+  Appraisal Days Left                       formula options={"isValid":true,"formula":"IF({fldgYrtZXb5oSKdxI} = BLANK(),
+  Loan Type                                 singleSelect options={"choices":[{"id":"seladU3yqgeaMBFhC","name":"New Constructi
+  Loan Purpose                              singleSelect options={"choices":[{"id":"self497FLfZ77WOih","name":"Purchase","col
+  Investor                                  singleSelect options={"choices":[{"id":"selbjFqcMVS3Wn3IP","name":"Toorak","color
+  Property City                             singleLineText
+  Property State                            singleSelect options={"choices":[{"id":"seloTPy1mKxScdNJG","name":"AL"},{"id":"se
+  Property ZIP                              singleLineText
+  Loan Status                               singleSelect options={"choices":[{"id":"sel8K3mN2gHJUEUjh","name":"New Applicatio
+  LO Notes                                  richText
+  Credit Date                               date options={"dateFormat":{"name":"local","format":"l"}}
+  Credit Days Left                          formula options={"isValid":true,"formula":"IF({fld6ThcmqeEF5UHvz} = BLANK(),
+  Credit/Background                         singleSelect options={"choices":[{"id":"seljPkD9oPcwyBTqm","name":"Complete","col
+  Broker                                    multipleRecordLinks options={"linkedTableId":"tblwKa2qyrAlQNw9g","isReversed":false,"pre
+  LLC Name                                  singleLineText
+  ID                                        singleSelect options={"choices":[{"id":"selRXEMLNPSqfqEGU","name":"Not Received",
+  Bank Statements                           singleSelect options={"choices":[{"id":"selXxMLfgepnKo1IH","name":"Not Received",
+  Insurance                                 singleSelect options={"choices":[{"id":"selIH2ZhN5v1IdsUP","name":"Not Received",
+  Leases                                    singleSelect options={"choices":[{"id":"selbq0oRmWMCQWK8S","name":"Not Received",
+  Certificate of Formation                  singleSelect options={"choices":[{"id":"selZw4n1Z8xqPGpRE","name":"Not Received",
+  Operating Agreement                       singleSelect options={"choices":[{"id":"sel6fZJa2w01ZYW8X","name":"Not Received",
+  EIN                                       singleSelect options={"choices":[{"id":"selGgzGQLlTe4Tyz4","name":"Not Received",
+  Mortgage Statement                        singleSelect options={"choices":[{"id":"sel1NJJ73XNwe0xQe","name":"Not Received",
+  Title                                     singleSelect options={"choices":[{"id":"sel4h7hILDej2ySbU","name":"Not Received",
+  Sales Contract                            singleSelect options={"choices":[{"id":"selUG77KUoSaxabnC","name":"Not Received",
+  Scope of Work                             singleSelect options={"choices":[{"id":"selyCIiuKdBobNqyC","name":"Not Received",
+  Flood Insurance (Condition)               singleSelect options={"choices":[{"id":"selNBB3h4Hc3hrtp0","name":"Not Received",
+  Insurance Contact                         multipleRecordLinks options={"linkedTableId":"tbl6iKk1BFElA3zCD","isReversed":false,"pre
+  Insurance Notes                           singleLineText
+  Title Contact                             multipleRecordLinks options={"linkedTableId":"tblXZ6ucTk9FOotTM","isReversed":false,"pre
+  Title Notes                               singleLineText
+  Contractors License                       singleSelect options={"choices":[{"id":"seljkaVwJFBTALtI8","name":"Not Received",
+  Contractors Insurance                     singleSelect options={"choices":[{"id":"selwRQD8ut08DQIZN","name":"Not Received",
+  Property Type                             singleSelect options={"choices":[{"id":"selgV2a60x4En8M76","name":"Single Family"
+  Number of Units                           singleLineText
+  Bridge Purchase Conditions                button
+  Bridge Refi Conditions                    button
+  DSCR Purchase Conditions                  button
+  DSCR Refi Conditions                      button
+  ID Notes                                  singleLineText
+  Sales Contract Notes                      singleLineText
+  Bank Statement Notes                      singleLineText
+  Entity Notes                              singleLineText
+  Leases Notes                              singleLineText
+  Mortgage Statement Notes                  singleLineText
+  SOW Notes                                 singleLineText
+  Credit/Background Notes                   singleLineText
+  Credit Score                              multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Experience Spreadsheet                    singleSelect options={"choices":[{"id":"sel4h7hILDej2ySbU","name":"Not Received",
+  Coborrowers                               multipleRecordLinks options={"linkedTableId":"tblN3zWX9mvN7qksj","isReversed":false,"pre
+  Loan Officer                              multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Mariel's Notes                            richText
+  Property Street                           singleLineText
+  Maggie's Notes                            multilineText
+  Followed Up - Nicole                      date options={"dateFormat":{"name":"local","format":"l"}}
+  Appraiser Email                           multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE5lbkmOTyAsCa7","fie
+  Conditions Good                           singleSelect options={"choices":[{"id":"seld6f2k4agvBNxQw","name":"✔","color":"bl
+  Appraiser Phone                           multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE5lbkmOTyAsCa7","fie
+  Closing Date                              date options={"dateFormat":{"name":"local","format":"l"}}
+  Loan Amount                               currency options={"precision":0,"symbol":"$"}
+  Rate                                      percent options={"precision":3}
+  Points                                    number options={"precision":3}
+  Exceptions                                richText
+  Property Link                             url
+  Situs                                     singleSelect options={"choices":[{"id":"sela9bGxpzhpYtP3w","name":"✔","color":"gr
+  Diligence                                 singleSelect options={"choices":[{"id":"sela9bGxpzhpYtP3w","name":"✔","color":"gr
+  Month Closed                              formula options={"isValid":true,"formula":" DATETIME_FORMAT({fldWOrNQRRydIuK
+  Entity                                    singleLineText
+  Attorney                                  singleSelect options={"choices":[{"id":"selmdYLZTCBfHCgkg","name":"Hornik","color
+  Funding Source                            singleSelect options={"choices":[{"id":"selCJbcww2VrCkzHm","name":"RAI","color":"
+  Committee Review                          singleSelect options={"choices":[{"id":"selYIyx9eb7OIO20t","name":"✔","color":"gr
+  As Is Value                               currency options={"precision":0,"symbol":"$"}
+  LTV                                       formula options={"isValid":true,"formula":"IF({fldTH2ZqE2vLvFjtm}=\"DSCR\",{
+  ARV Value                                 currency options={"precision":0,"symbol":"$"}
+  Kelli's Notes                             multilineText
+  Borrower's Authorization                  singleSelect options={"choices":[{"id":"selBm41hVanLGckge","name":"Not Received",
+  Alicyn's Notes                            richText
+  Email (from Borrower Name)                multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Foreign National                          singleSelect options={"choices":[{"id":"selalWSqkvkrmyAgt","name":"Yes","color":"
+  Guaranty Type                             singleSelect options={"choices":[{"id":"selY8fVclrujFUzDm","name":"Full","color":
+  Cash Reserves Estimate                    currency options={"precision":0,"symbol":"$"}
+  Number of Properties                      number options={"precision":0}
+  Cross Collaterization Flag                singleSelect options={"choices":[{"id":"selBq4vbEvlur8beC","name":"Yes","color":"
+  Flood Zone                                singleSelect options={"choices":[{"id":"selX3u3T3qsS4vwyA","name":"Yes","color":"
+  Cash Out Amt                              currency options={"precision":2,"symbol":"$"}
+  Acquisition Date                          date options={"dateFormat":{"name":"local","format":"l"}}
+  Purchase Price                            currency options={"precision":0,"symbol":"$"}
+  BPO Value                                 currency options={"precision":0,"symbol":"$"}
+  Occupancy                                 singleSelect options={"choices":[{"id":"selBUV0POvcNdVV26","name":"Tenant Occupie
+  MTM                                       singleSelect options={"choices":[{"id":"selpdhXWolS9tuv8n","name":"Yes","color":"
+  Qualifying Rent                           currency options={"precision":0,"symbol":"$"}
+  Sq Ft                                     number options={"precision":0}
+  HOI Premium                               currency options={"precision":0,"symbol":"$"}
+  Monthly Property Tax                      currency options={"precision":2,"symbol":"$"}
+  Monthly Payment                           formula options={"isValid":true,"formula":"IF({fldTH2ZqE2vLvFjtm} = \"DSCR\"
+  PITIA Reserves                            currency options={"precision":0,"symbol":"$"}
+  DSCR                                      formula options={"isValid":true,"formula":"IF({fldTH2ZqE2vLvFjtm} = \"DSCR\"
+  First Payment Date                        date options={"dateFormat":{"name":"local","format":"l"}}
+  Maturity Date                             date options={"dateFormat":{"name":"local","format":"l"}}
+  Next Payment Date                         date options={"dateFormat":{"name":"local","format":"l"}}
+  Open Date                                 date options={"dateFormat":{"name":"local","format":"l"}}
+  Target Close                              date options={"dateFormat":{"name":"local","format":"l"}}
+  DSCR Outlet                               singleSelect options={"choices":[{"id":"selbjHianpn5KmWqj","name":"Bridge","color
+  Urgency                                   singleSelect options={"choices":[{"id":"selHZVba5qYi6DG1z","name":"*****","color"
+  Alicyn Urgency                            singleSelect options={"choices":[{"id":"sell1LeYJvhED4yE6","name":"*******","colo
+  New Pricing Needed                        singleSelect options={"choices":[{"id":"selSxMnTYLEQmif9S","name":"*****","color"
+  Loan Sold Date                            date options={"dateFormat":{"name":"local","format":"l"}}
+  Loan Sold Status                          singleSelect options={"choices":[{"id":"selSgYbPOOJ8rPIGx","name":"Out to bid","c
+  DSCR Lock Date                            date options={"dateFormat":{"name":"local","format":"l"}}
+  Lock Expiration Date                      date options={"dateFormat":{"name":"local","format":"l"}}
+  Lock Days Left                            formula options={"isValid":true,"formula":"IF({fld4oN7NEWUTTLpMI}=BLANK(),BL
+  Experience Notes                          singleLineText
+  Experience (Coborrowers)                  multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldez5jVe6I0Zm6gd","fie
+  Experience (Borrower)                     multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Time Owned                                formula options={"isValid":true,"formula":"IF({fldPXOcyvJy6HJ2nm} = BLANK(),
+  Borrowers                                 singleLineText
+  Borrowers 2                               singleLineText
+  Broker Fee (Legacy)                       currency options={"precision":2,"symbol":"$"}
+  Wholesaler Profits                        currency options={"precision":2,"symbol":"$"}
+  Commitment Fee (Legacy)                   currency options={"precision":2,"symbol":"$"}
+  Reserves                                  currency options={"precision":2,"symbol":"$"}
+  Flood Insurance                           currency options={"precision":2,"symbol":"$"}
+  Construction Cost                         currency options={"precision":2,"symbol":"$"}
+  Initial Loan Amount                       currency options={"precision":2,"symbol":"$"}
+  Attorney Fee (Legacy)                     currency options={"precision":2,"symbol":"$"}
+  Construction Holdback                     currency options={"precision":2,"symbol":"$"}
+  Loan Term                                 singleSelect options={"choices":[{"id":"selZn21f6H1Wia5jR","name":"12 Months","co
+  Rate Type                                 singleSelect options={"choices":[{"id":"seliJBMzkFMPW7chl","name":"Fixed","color"
+  Amortization Schedule                     singleSelect options={"choices":[{"id":"selnAmZbzF34nj0Ti","name":"Interest Only"
+  Prepayment Penalty                        singleSelect options={"choices":[{"id":"seluFOIqVQ6u9GLCX","name":"None","color":
+  Expiration                                singleSelect options={"choices":[{"id":"selGfFRk1p8cypWpE","name":"(30) thirty da
+  Additional Fees                           singleLineText
+  Loan/Total Cost                           formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip}/{fldmSQNI65jv
+  Loan/As-Is                                formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip}/{fldbkDgP76c9
+  Origination Fee                           formula options={"isValid":true,"formula":"IF(\r\n  {fldeGlkacr8J4JJNm},\r\n
+  Initial Loan/As-Is                        formula options={"isValid":true,"formula":"{fldLE0ICQLPW6Ypvv}/{fldbkDgP76c9
+  Loan to ARV                               formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip}/{fld99DVicUOv
+  Initial Loan/Total Cost                   formula options={"isValid":true,"formula":"{fldLE0ICQLPW6Ypvv}/{fldmSQNI65jv
+  Borrower Table_ID                         formula options={"isValid":true,"formula":"\"tblN3zWX9mvN7qksj\"","reference
+  Committee Review Sheet - DSCR             button
+  Committee Review Sheet - Fix & Flip       button
+  Term Sheet - Fix & Flip                   button
+  Term Sheet - DSCR                         button
+  Money Multiple                            formula options={"isValid":true,"formula":"{fld99DVicUOvatRLk}/(MAX({fldmSQN
+  Servicer                                  singleSelect options={"choices":[{"id":"selwkB4Kw9S8s61U4","name":"BSI","color":"
+  Premium for Sizer/Premium Points          number options={"precision":3}
+  Broker Table_ID                           formula options={"isValid":true,"formula":"\"tblwKa2qyrAlQNw9g\"","reference
+  Coborrowers Table_ID                      formula options={"isValid":true,"formula":"\"tblN3zWX9mvN7qksj\"","reference
+  1008 Doc                                  button
+  Conditions List                           button
+  Loan Application                          singleSelect options={"choices":[{"id":"selJqaddxWbuuNDN6","name":"Not Received",
+  Credit Report                             singleSelect options={"choices":[{"id":"selblyleIU6cBH3sr","name":"Not Received",
+  Background Check                          singleSelect options={"choices":[{"id":"selDv2IxuUhTxD5ck","name":"Not Received",
+  Background - Proof of Judgement(s) Paid   singleSelect options={"choices":[{"id":"seleCX4fmIKr0KnTj","name":"Not Received",
+  Background - Proof of Lien(s) Paid        singleSelect options={"choices":[{"id":"selWQ4oSpYFoSI96m","name":"Not Received",
+  Letter of Explanation (LOE)               singleSelect options={"choices":[{"id":"seluLZo6gOtmhiYBg","name":"Not Received",
+  Desk Review (CDA)                         singleSelect options={"choices":[{"id":"selZeIFA5zRQoCwAM","name":"Not Received",
+  Feasibility Report                        singleSelect options={"choices":[{"id":"sel5ZAJTPTgXO5hxI","name":"Not Received",
+  Certificate of Good Standing              singleSelect options={"choices":[{"id":"sel7GovKzAqGAHF7I","name":"Not Received",
+  Homeowners Insurance Invoice/Paid Receipt  singleSelect options={"choices":[{"id":"selWOc5yIZdNeL2u1","name":"Not Received",
+  Flood Insurance Invoice/Paid Receipt      singleSelect options={"choices":[{"id":"selLlgSAFTDdVX9vF","name":"Not Received",
+  Short Sale Approval Documentation         singleSelect options={"choices":[{"id":"selEIxXRnu7if5MbX","name":"Not Received",
+  Flood Cert                                singleSelect options={"choices":[{"id":"sel1et1xsPqg4wCUD","name":"Not Received",
+  OFAC Search                               singleSelect options={"choices":[{"id":"selo53nm6WimLxkqr","name":"Not Received",
+  Settlement Statement                      singleSelect options={"choices":[{"id":"selFkKFHy1EILbYYv","name":"Not Received",
+  Third-Party Rent Estimate                 singleSelect options={"choices":[{"id":"selzqAtDQOvshNlD5","name":"Not Received",
+  VOM (Verification of Mortgage)            singleSelect options={"choices":[{"id":"selObv8VVJSpHVUPv","name":"Not Received",
+  Proof of Rent                             singleSelect options={"choices":[{"id":"selID7O0DBycD1X1l","name":"Not Received",
+  Loan Application Notes                    singleLineText
+  Credit Report Notes                       singleLineText
+  Background Check Notes                    singleLineText
+  Letter of Explanation (LOE) Notes         singleLineText
+  Desk Review (CDA) Notes                   singleLineText
+  Feasibility Report Notes                  singleLineText
+  Flood Insurance (Condition) Notes         singleLineText
+  Short Sale Approval Documentation Notes   singleLineText
+  Flood Cert Notes                          singleLineText
+  OFAC Search Notes                         singleLineText
+  Settlement Statement Notes                singleLineText
+  Third-Party Rent Estimate Notes           singleLineText
+  VOM (Verification of Mortgage) Notes      singleLineText
+  Proof of Rent Notes                       singleLineText
+  Flood Insurance Invoice/Paid Receipt Notes  singleLineText
+  Homeowners Insurance Invoice/Paid Receipt Notes  singleLineText
+  Certificate of Good Standing Notes        singleLineText
+  Background - Proof of Lien(s) Paid Notes  singleLineText
+  Background - Proof of Judgement(s) Paid Notes  singleLineText
+  Social Security Card                      multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Closing Notes                             richText
+  Collateral Sent Date                      date options={"dateFormat":{"name":"local","format":"l"}}
+  Loan Age                                  formula options={"isValid":true,"formula":"IF({fldLl7blZXB1aVH0i} = \"Closed
+  Servicer ID #                             singleLineText
+  Full Address                              formula options={"isValid":true,"formula":"{fldaA7TYY4aSISrPM} & \", \" & {f
+  CJA's Locked Pricing                      number options={"precision":3}
+  Submitted                                 date options={"dateFormat":{"name":"local","format":"l"}}
+  Insurance copy                            singleLineText
+  Condo Questionnaire                       singleSelect options={"choices":[{"id":"sel4h7hILDej2ySbU","name":"Not Received",
+  HOA Contact                               multipleRecordLinks options={"linkedTableId":"tblW7s2SVcLKFmMWS","isReversed":false,"pre
+  Last Modified Time (Status, Amount, Closing Date, Rate, Points)  lastModifiedTime options={"isValid":true,"referencedFieldIds":["fldLl7blZXB1aVH0i","f
+  Rate Lock Extended                        singleSelect options={"choices":[{"id":"sel6xvIgPynnD5HiW","name":"Yes","color":"
+  Days Extended                             singleSelect options={"choices":[{"id":"selKPrI4m6eMCHVx9","name":"1","color":"pu
+  Extension Cost - Points                   number options={"precision":3}
+  Extension Cost - $                        formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip} * 0.01 * {fld
+  Loan Repayment Date                       date options={"dateFormat":{"name":"local","format":"l"}}
+  Buyer Rate                                percent options={"precision":2}
+  Legacy Loan Officer                       singleLineText
+  Original Term                             formula options={"isValid":true,"formula":"DATETIME_DIFF(\r\n  {fld7bbvfg4Ua
+  Days to Sell                              formula options={"isValid":true,"formula":"DATETIME_DIFF(\r\n  {flde9MvQjEbF
+  Pipedrive Deal ID                         singleLineText
+  Last Modified Time (All Fields)           lastModifiedTime options={"isValid":true,"referencedFieldIds":[],"result":{"type":"da
+  Source (from Borrower)                    multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Email (from Borrower)                     multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Reason Canceled                           singleSelect options={"choices":[{"id":"selpPnte01bn481rE","name":"Appraisal Issu
+  Loan Status Update Time                   lastModifiedTime options={"isValid":true,"referencedFieldIds":["fldLl7blZXB1aVH0i"],"
+  Roman's Notes                             richText
+  Roman's Loans                             checkbox options={"icon":"check","color":"greenBright"}
+  Ins Doc                                   formula options={"isValid":true,"formula":"\"https://app.documint.me/integra
+  Broker Points                             percent options={"precision":2}
+  Broker Fee                                formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip} * {fldR7y5qAr
+  Yearly Property Tax                       formula options={"isValid":true,"formula":"{fldgJZ4QtbHl4TAby} * 12","refere
+  Verified Assets                           currency options={"precision":2,"symbol":"$"}
+  Monthly HOI                               formula options={"isValid":true,"formula":"{fldWA5mv5Ya3H5Y3N}/12","referenc
+  Yearly HOA                                currency options={"precision":2,"symbol":"$"}
+  Monthly HOA                               formula options={"isValid":true,"formula":"{fldYA4z4FvgGgc2wP}/12","referenc
+  PITIA                                     formula options={"isValid":true,"formula":"{fldN68bgsSUPR2exT}+{fldgJZ4QtbHl
+  Payoff                                    singleSelect options={"choices":[{"id":"sel2xuWKG0a5STf9E","name":"Not Received",
+  Loan Officer Email                        formula options={"isValid":true,"formula":"SWITCH({fldUsEgQNtyUPR78c}, 'Anth
+  Min #                                     singleLineText
+  Non-Performing                            checkbox options={"icon":"check","color":"orangeBright"}
+  Lender YSP                                percent options={"precision":3}
+  Broker YSP                                percent options={"precision":3}
+  NET YSP                                   formula options={"isValid":true,"formula":"{fldmtIg33wcRGS8o5} - {fldteSaN5F
+  SLV/Exception Points                      percent options={"precision":3}
+  Lender Paid Exception Fee?                checkbox options={"icon":"check","color":"greenBright"}
+  Investor Bonus                            percent options={"precision":3}
+  Lender Paid Extension?                    checkbox options={"icon":"check","color":"greenBright"}
+  NET FE Spread                             formula options={"isValid":true,"formula":"{fldxEJakkLYOh7L5z} - {fldqNOUapP
+  Investor Bonus?                           checkbox options={"icon":"check","color":"greenBright"}
+  Total FE Comp                             formula options={"isValid":true,"formula":"{fldENUZ7LOZpl3pP7} + {fld9y4m6P1
+  Grand Total                               formula options={"isValid":true,"formula":"{fldDXHZATAjsWO2U1}+{fldC0t8f19jw
+  Investor Cost                             percent options={"precision":3}
+  Field 252                                 singleLineText
+  Investor Loan Number                      singleLineText
+  Days to Close                             formula options={"isValid":true,"formula":"DATETIME_DIFF({fldWOrNQRRydIuK9l}
+  Funding Date                              date options={"dateFormat":{"name":"local","format":"l"}}
+  Phone (from Borrower)                     multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Email (from Broker)                       multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldc3PlDG2eWgDAlT","fie
+  Phone (from Broker)                       multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldc3PlDG2eWgDAlT","fie
+  Email (From Title)                        multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldEx5ZC7TEA3QGlF","fie
+  Phone (From Title)                        multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldEx5ZC7TEA3QGlF","fie
+  Email (From Insurance)                    multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldFtXV0GdiGUSK6T","fie
+  Phone (From Insurance)                    multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldFtXV0GdiGUSK6T","fie
+  Email (From HOA)                          multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldze3DzY9FHFBBDD","fie
+  Phone (From HOA)                          multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldze3DzY9FHFBBDD","fie
+  Entered Pre-Underwriting Date             date options={"dateFormat":{"name":"local","format":"l"}}
+  Entered Underwriting Date                 date options={"dateFormat":{"name":"local","format":"l"}}
+  Entered Submitted Date                    date options={"dateFormat":{"name":"local","format":"l"}}
+  Processing Time                           formula options={"isValid":true,"formula":"IF(AND({fldbwJF5w7imhn38b}, {fldy
+  Pre-Underwriting Time                     formula options={"isValid":true,"formula":"IF(AND({fldtOZbtntME3zEDV}, {fldb
+  Underwriting Time                         formula options={"isValid":true,"formula":"IF(AND({fldHmdlfqA4iPVYra}, {fldt
+  Submitted Time                            formula options={"isValid":true,"formula":"IF(AND({fldWOrNQRRydIuK9l}, {fldH
+  Appraisal Received to Closing Time        formula options={"isValid":true,"formula":"IF(AND({fldWOrNQRRydIuK9l}, {fldg
+  Appraisal Received Date Extractor         aiText options={"referencedFieldIds":["fld7rVQIgg1FiU5Ar"],"prompt":["You a
+  Appraisal Received to Closing Time (AI)   formula options={"isValid":true,"formula":"IF(AND({fldWOrNQRRydIuK9l}, {fldp
+  Import Prelim Sizer Data                  button
+  Small Balance Fee                         formula options={"isValid":true,"formula":"IF(\r\n  {fldQdYo34R3OkA60r},\r\n
+  Diligence Fee                             formula options={"isValid":true,"formula":"0 + {fldwABvIeepU60AFy}\r\n","ref
+  Additional Diligence Fee                  currency options={"precision":2,"symbol":"$"}
+  Additional Legal Fee                      currency options={"precision":2,"symbol":"$"}
+  Attorney Fee                              formula options={"isValid":true,"formula":"995 + {fld0lS0YUtPTsaum0} + {fldb
+  Additional Commitment Fee                 currency options={"precision":2,"symbol":"$"}
+  Commitment Fee                            formula options={"isValid":true,"formula":"1695 + {fld79iAbRTAJdtYRf} + {fld
+  Draw Fee                                  formula options={"isValid":true,"formula":"IF(\r\n  OR({fldTH2ZqE2vLvFjtm} =
+  Title Search Fee                          formula options={"isValid":true,"formula":"IF(\r\n  AND({fld0AXKYA7mE8lZQ7} 
+  Additional Credit Pull Fee                currency options={"precision":2,"symbol":"$"}
+  Chargeable VOM Fee                        currency options={"precision":2,"symbol":"$"}
+  Feasibility Fee                           currency options={"precision":2,"symbol":"$"}
+  SLV/Exception Fee                         formula options={"isValid":true,"formula":"{fld1nBccnIlWbUeip} * {fldqNOUapP
+  Delayed Closing Reason                    singleSelect options={"choices":[{"id":"sel7AbGwqvXleenG5","name":"Third Party De
+  Prelim Sizer                              multipleAttachments options={"isReversed":false}
+  Guarantor and Property Details Extractor  aiText options={"referencedFieldIds":["fld5wKhThnrRYYYkR"],"prompt":["You a
+  Desk Review Fee                           formula options={"isValid":true,"formula":"300 + {fldzoq9lIuQNMNFxp} + IF({f
+  Additional Desk Review Fee                currency options={"precision":2,"symbol":"$"}
+  Blanket Loan Processing Fee               formula options={"isValid":true,"formula":"IF({fldNEEoB8PNQadjNW} >= 2, (({f
+  Blanket Loan Legal Fee                    formula options={"isValid":true,"formula":"IF({fldNEEoB8PNQadjNW} >= 2, (({f
+  Investor Program                          singleSelect options={"choices":[{"id":"sels8WwGNRHSYp8R7","name":"Eastview - Inv
+  Processor                                 singleSelect options={"choices":[{"id":"selH8nnFV7ifA2BSb","name":"Mariel","color
+  Title Requirements                        button
+  Exclusionary List                         formula options={"isValid":true,"formula":"IF(\r\n  OR(\r\n    FIND(\"2MC Es
+  Tasks                                     singleLineText
+  Misc. Conditions                          singleSelect options={"choices":[{"id":"selRnczPwymSHcDXW","name":"Not Received",
+  Misc. Conditions Notes                    richText
+  Field 306                                 singleLineText
+  Static Origination Cost                   currency options={"precision":2,"symbol":"$"}
+  Days to Fund                              formula options={"isValid":true,"formula":"DATETIME_DIFF({fldtj9umjx3y0aPTc}
+  SSN (from Borrower)                       multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Borrower Address (from Borrower)          multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldE24nSRMrwUutbQ","fie
+  Phone (from Coborrowers)                  multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldez5jVe6I0Zm6gd","fie
+  Email (from Coborrowers)                  multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldez5jVe6I0Zm6gd","fie
+  Co-Borrower Address (from Coborrowers)    multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldez5jVe6I0Zm6gd","fie
+  Insurance Address (from Insurance)        multipleLookupValues options={"isValid":true,"recordLinkFieldId":"fldFtXV0GdiGUSK6T","fie
+  Small Balance Fee Waived?                 checkbox options={"icon":"check","color":"greenBright"}
+  Loan Number (Computed)                    formula options={"isValid":true,"formula":"IF(\r\n  {fldTH2ZqE2vLvFjtm} = \"
+
+Likely Pipedrive-deal-id column candidates:
+  - Pipedrive Deal ID  (singleLineText)

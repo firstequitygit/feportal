@@ -1,15 +1,31 @@
-import nodemailer from 'nodemailer'
 import { createAdminClient } from './supabase/admin'
 import { PORTAL_URL, PORTAL_DOMAIN } from './portal-url'
+import { getLoanContacts } from './loan-contact'
+import { sendEmail } from './mailer'
 
+/**
+ * Back-compat shim. Earlier this file exposed a nodemailer transporter via
+ * getTransporter(); some routes still call `getTransporter().sendMail(...)`.
+ * Keep the surface but route everything through the new sendEmail() helper
+ * (Resend). Accepts and ignores `from` so existing callers compile.
+ */
 export function getTransporter() {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+  return {
+    async sendMail(opts: {
+      from?: string
+      to: string | string[]
+      subject: string
+      html: string
+      attachments?: Array<{ filename: string; content: Buffer }>
+    }) {
+      await sendEmail({
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        attachments: opts.attachments,
+      })
     },
-  })
+  }
 }
 
 function shortStage(s: string | null): string {
@@ -18,10 +34,14 @@ function shortStage(s: string | null): string {
 }
 
 /**
- * Generic stage-change notification sent to borrower + LO + LP for any
- * pipeline stage transition that isn't covered by the specialized
- * Loan Approved / Loan Funded emails. Each recipient gets their
- * own message so the To: header is personalized.
+ * Generic stage-change notification for any pipeline stage transition that
+ * isn't covered by the specialized Loan Approved / Loan Funded emails.
+ *
+ * Recipients:
+ *   - The loan's outside contacts via getLoanContacts() — broker if a broker
+ *     is assigned, else every borrower slot. Each contact gets a personalized
+ *     "Hi {name}" greeting.
+ *   - Staff (LO + both LP slots) — get the same email with a generic greeting.
  */
 export async function sendStageUpdateEmail(
   loanId: string,
@@ -32,19 +52,19 @@ export async function sendStageUpdateEmail(
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
 
-  const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
-  const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
-  ))
+  const contacts = await getLoanContacts(loanId)
+  const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
+
+  const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
 
   const property = loan.property_address ?? 'this property'
@@ -52,13 +72,13 @@ export async function sendStageUpdateEmail(
   const toLabel = shortStage(toStage)
 
   const subject = `Loan stage updated — ${property}`
-  const html = `
+  const bodyHtml = (greeting: string) => `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
       <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
         <h1 style="margin: 0; color: white; font-size: 18px;">Loan stage updated</h1>
       </div>
       <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-        <p style="font-size: 15px; margin-top: 0;">Hi ${borrower?.full_name ?? 'there'},</p>
+        <p style="font-size: 15px; margin-top: 0;">Hi ${greeting},</p>
         <p style="font-size: 15px;">
           The loan for <strong>${property}</strong> has moved to
           <strong style="color: #1F5D8F;">${toLabel}</strong>${fromStage ? ` (from ${fromLabel})` : ''}.
@@ -77,14 +97,40 @@ export async function sendStageUpdateEmail(
   `
 
   const transporter = getTransporter()
-  await Promise.all(recipients.map(email =>
+  await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-      to: email,
+      to: r.email,
       subject,
-      html,
-    }).catch(err => console.error(`Stage update email to ${email} failed:`, err))
+      html: bodyHtml(r.greetingName),
+    }).catch(err => console.error(`Stage update email to ${r.email} failed:`, err))
   ))
+}
+
+/**
+ * Merge outside contacts (broker or borrowers) with staff emails into a
+ * single, deduplicated recipient list. External contacts get a personalized
+ * "Hi {first name}" greeting; staff get "there".
+ */
+function buildRecipients(
+  contacts: Array<{ email: string; name: string | null }>,
+  staffEmails: string[],
+): Array<{ email: string; greetingName: string }> {
+  const seen = new Set<string>()
+  const out: Array<{ email: string; greetingName: string }> = []
+  for (const c of contacts) {
+    const k = c.email.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    const first = c.name ? c.name.split(/\s+/)[0] : null
+    out.push({ email: c.email, greetingName: first ?? 'there' })
+  }
+  for (const e of staffEmails) {
+    const k = e.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push({ email: e, greetingName: 'there' })
+  }
+  return out
 }
 
 export async function sendLoanFundedEmail(loanId: string) {
@@ -92,32 +138,30 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
-
   if (!loan) return
 
-  const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
-  const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
-  ))
+  const contacts = await getLoanContacts(loanId)
+  const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
+  const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
 
   const subject = `🏠 Loan funded — ${loan.property_address ?? 'property'}`
-  const html = `
+  const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
           <h1 style="margin: 0; color: white; font-size: 22px;">Loan Funded!</h1>
         </div>
         <div style="background-color: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="font-size: 15px; margin-top: 0;">Hi ${borrower?.full_name ?? 'there'},</p>
+          <p style="font-size: 15px; margin-top: 0;">Hi ${greeting},</p>
           <p style="font-size: 15px;">
-            Congratulations — your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
+            Congratulations, your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
             <strong style="color: #1F5D8F;">successfully funded and closed!</strong>
           </p>
           <p style="font-size: 15px;">
@@ -144,13 +188,12 @@ export async function sendLoanFundedEmail(loanId: string) {
     `
 
   const transporter = getTransporter()
-  await Promise.all(recipients.map(email =>
+  await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-      to: email,
+      to: r.email,
       subject,
-      html,
-    }).catch(err => console.error(`Loan Funded email to ${email} failed:`, err))
+      html: bodyHtml(r.greetingName),
+    }).catch(err => console.error(`Loan Funded email to ${r.email} failed:`, err))
   ))
 }
 
@@ -159,32 +202,30 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name, email), loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
-
   if (!loan) return
 
-  const borrower = loan.borrowers as unknown as { full_name: string | null; email: string } | null
   const lo = loan.loan_officers as unknown as { email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
 
-  const recipients = Array.from(new Set(
-    [borrower?.email, lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e),
-  ))
+  const contacts = await getLoanContacts(loanId)
+  const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
+  const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
 
   const subject = `🎉 Loan Approved — ${loan.property_address ?? 'property'}`
-  const html = `
+  const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
           <h1 style="margin: 0; color: white; font-size: 22px;">Loan Approved!</h1>
         </div>
         <div style="background-color: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          <p style="font-size: 15px; margin-top: 0;">Hi ${borrower?.full_name ?? 'there'},</p>
+          <p style="font-size: 15px; margin-top: 0;">Hi ${greeting},</p>
           <p style="font-size: 15px;">
-            Great news — your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
+            Great news, your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
             <strong style="color: #1F5D8F;">Loan Approved!</strong>
           </p>
           <p style="font-size: 15px;">
@@ -211,13 +252,12 @@ export async function sendLoanApprovedEmail(loanId: string) {
     `
 
   const transporter = getTransporter()
-  await Promise.all(recipients.map(email =>
+  await Promise.all(recipients.map(r =>
     transporter.sendMail({
-      from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-      to: email,
+      to: r.email,
       subject,
-      html,
-    }).catch(err => console.error(`Loan Approved email to ${email} failed:`, err))
+      html: bodyHtml(r.greetingName),
+    }).catch(err => console.error(`Loan Approved email to ${r.email} failed:`, err))
   ))
 }
 

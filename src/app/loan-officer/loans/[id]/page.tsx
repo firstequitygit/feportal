@@ -30,35 +30,52 @@ import { LoanType } from '@/lib/types'
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { ViewAsDropdown } from '@/components/view-as-dropdown'
+import { buildViewAsOptions } from '@/lib/view-as-options'
+import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
 }
 
-export default async function LoanOfficerLoanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LoanOfficerLoanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
 
-  const { data: lo } = await adminClient
-    .from('loan_officers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
+  // Admin "View as Loan Officer" support — admin-only. Bypasses the LO
+  // lookup-by-auth_user_id and the loan-assignment filter.
+  const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
+  const isImpersonating = impersonation?.kind === 'loan_officer'
+
+  const { data: lo } = isImpersonating
+    ? await adminClient.from('loan_officers').select('*').eq('id', impersonation.id).maybeSingle()
+    : await adminClient.from('loan_officers').select('*').eq('auth_user_id', user.id).maybeSingle()
 
   if (!lo) redirect('/login')
 
-  // Verify this loan is assigned to this LO
-  const { data: loan } = await adminClient
-    .from('loans')
-    .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
-    .eq('id', id)
-    .eq('loan_officer_id', lo.id)
-    .single()
+  // Verify this loan is assigned to this LO (admins previewing bypass)
+  const loanQuery = isImpersonating
+    ? adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .eq('id', id).single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .eq('id', id)
+        .eq('loan_officer_id', lo.id).single()
+  const { data: loan } = await loanQuery
 
   if (!loan) notFound()
 
@@ -107,6 +124,9 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
 
   return (
     <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer">
+      {isImpersonating && impersonation && (
+        <ImpersonationBanner kind="loan_officer" name={lo.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
+      )}
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/loan-officer/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans
@@ -123,6 +143,7 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan)} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"
@@ -157,15 +178,44 @@ export default async function LoanOfficerLoanPage({ params }: { params: Promise<
               <FieldRow label="Interest Rate">
                 <EditableLoanField loanId={id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={formatInterestRate(loan.interest_rate)} placeholder="6.5" step="0.001" />
               </FieldRow>
+              <FieldRow label="Interest Only">
+                <EditableLoanField loanId={id} field="interest_only" type="enum" options={['Yes', 'No']} currentValue={loan.interest_only} display={loan.interest_only ?? '—'} />
+              </FieldRow>
+              <FieldRow label="Rate Locked / Days">
+                <EditableLoanField loanId={id} field="rate_locked_days" type="enum" options={['No', '15 days', '30 days', '45 days']} currentValue={loan.rate_locked_days} display={loan.rate_locked_days ?? '—'} />
+              </FieldRow>
+              <FieldRow label="Rate Lock Expiration">
+                <EditableLoanField loanId={id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
+              </FieldRow>
+              <FieldRow label="Value (As-Is)">
+                <EditableLoanField
+                  loanId={id}
+                  field="value_as_is"
+                  type="currency"
+                  currentValue={(loanDetails as LoanDetails | null)?.value_as_is ?? null}
+                  display={formatCurrency((loanDetails as LoanDetails | null)?.value_as_is ?? null)}
+                  placeholder="500000"
+                />
+              </FieldRow>
               <FieldRow label="LTV">
-                <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                {loan.loan_type === 'Rental (DSCR)' ? (
+                  <span className="font-medium text-gray-700" title="Auto-calculated from Loan Amount ÷ Value (As-Is)">
+                    {loan.ltv ? `${loan.ltv}%` : '—'}
+                  </span>
+                ) : (
+                  <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                )}
               </FieldRow>
-              <FieldRow label="ARV">
-                <EditableLoanField loanId={id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
-              </FieldRow>
-              <FieldRow label="Construction Budget">
-                <EditableLoanField loanId={id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
-              </FieldRow>
+              {loan.loan_type !== 'Rental (DSCR)' && (
+                <>
+                  <FieldRow label="Value (ARV)">
+                    <EditableLoanField loanId={id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
+                  </FieldRow>
+                  <FieldRow label="Construction Budget">
+                    <EditableLoanField loanId={id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
+                  </FieldRow>
+                </>
+              )}
               <FieldRow label="Term">
                 <EditableLoanField loanId={id} field="term_months" type="number" currentValue={loan.term_months} display={loan.term_months ? `${loan.term_months} months` : '—'} placeholder="360" step="1" />
               </FieldRow>

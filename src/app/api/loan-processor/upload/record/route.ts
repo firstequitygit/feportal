@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { sendEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Fetch loan (verify ownership) + LO contact info in one query
+  // Fetch loan (verify ownership). Notify-recipients via shared helper below.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_officers(full_name, email)')
+    .select('id, property_address')
     .eq('id', loanId)
     .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .single()
@@ -66,22 +67,25 @@ export async function POST(req: NextRequest) {
     console.error('File download error:', err)
   }
 
-  // Notify the assigned loan officer
-  const lo = loan.loan_officers as unknown as { full_name: string; email: string | null } | null
-  if (lo?.email) {
-    try {
-      await sendNotification({
-        toEmail: lo.email,
-        toName: lo.full_name,
+  // Notify LO + primary LP. Per FE policy: any condition-received event
+  // notifies both staff roles, regardless of who triggered it.
+  try {
+    const recipients = await getStaffRecipientsForLoan(loanId)
+    if (recipients.recipients.length === 0) {
+      console.warn(`LP upload: no staff recipients for loan ${loanId} — email skipped.`)
+    } else {
+      await Promise.all(recipients.recipients.map(r => sendNotification({
+        toEmail: r.email,
+        toName: r.name ?? (r.role === 'loan_officer' ? 'Loan Officer' : 'Loan Processor'),
         uploaderName: lp.full_name,
         propertyAddress: loan.property_address ?? 'Unknown property',
         conditionTitle: condition?.title ?? 'Unknown condition',
         fileName,
         fileBuffer,
-      })
-    } catch (err) {
-      console.error('Email notification error:', err)
+      })))
     }
+  } catch (err) {
+    console.error('Email notification error:', err)
   }
 
   return NextResponse.json({ success: true })
@@ -104,23 +108,9 @@ async function sendNotification({
   fileName: string
   fileBuffer: Buffer | null
 }) {
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_APP_PASSWORD
-  if (!gmailUser || !gmailPass) {
-    console.warn('Gmail credentials not configured')
-    return
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: gmailUser, pass: gmailPass },
-  })
-
   const BASE_URL = PORTAL_URL
 
-  await transporter.sendMail({
-    from: `First Equity Funding <${gmailUser}>`,
-    to: toEmail,
+  await sendEmail({    to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `
       <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">

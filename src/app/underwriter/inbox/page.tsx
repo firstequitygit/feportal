@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { InboxView, type InboxItem } from '@/components/inbox-view'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 
 export default async function UnderwriterInbox() {
   const supabase = await createClient()
@@ -24,13 +26,28 @@ export default async function UnderwriterInbox() {
 
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number')
+    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
     .eq('underwriter_id', uw.id)
     .eq('archived', false)
 
-  const activeLoans = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
+  // Closed-in-last-12-months — archived OR not.
+  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: closedTrailing } = await adminClient
+    .from('loans')
+    .select('loan_amount')
+    .eq('underwriter_id', uw.id)
+    .eq('pipeline_stage', 'Closed')
+    .gte('closed_at', oneYearAgoIso)
+
+  const activeLoans = (loans ?? []).filter(l => l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)
   const loanMap = new Map(activeLoans.map(l => [l.id, l]))
+
+  const metrics = await computeDashboardMetrics(adminClient, {
+    activeLoans: loans ?? [],
+    closedLoansTrailing12: closedTrailing ?? [],
+    conditionAssignee: 'underwriter',
+  })
 
   // UW sees: anything assigned to them (their direct work)
   // PLUS any condition currently "Received" across the loan (the review queue)
@@ -67,6 +84,8 @@ export default async function UnderwriterInbox() {
       dashboardHref="/underwriter/inbox"
       variant="underwriter"
     >
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <DashboardStats {...metrics} />
       <InboxView items={items} role="underwriter" linkPrefix="/underwriter" />
     </PortalShell>
   )

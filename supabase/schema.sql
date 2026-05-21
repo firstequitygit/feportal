@@ -368,6 +368,9 @@ create table if not exists loan_details (
   insurance_company text,
   insurance_email text,
   insurance_phone text,
+  appraisal_company text,
+  appraisal_email text,
+  appraisal_phone text,
 
   -- Entity
   vesting_in_entity boolean,

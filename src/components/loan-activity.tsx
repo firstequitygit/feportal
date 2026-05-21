@@ -1,4 +1,5 @@
 import { CollapsibleCard } from '@/components/collapsible-card'
+import { redactStaffNames } from '@/lib/redact-activity'
 
 export interface LoanEvent {
   id: string
@@ -11,6 +12,10 @@ export interface LoanEvent {
 interface Props {
   events: LoanEvent[]
   title?: string
+  /** When true, strip internal-staff names from descriptions. Set on
+   *  borrower + broker views; staff (admin/LO/LP/UW) leave it false to see
+   *  full attribution. */
+  hideStaffNames?: boolean
 }
 
 function eventIcon(type: string): string {
@@ -29,7 +34,7 @@ function formatDateTime(val: string): string {
   })
 }
 
-export function LoanActivity({ events, title = 'Recent Activity' }: Props) {
+export function LoanActivity({ events, title = 'Recent Activity', hideStaffNames = false }: Props) {
   return (
     <CollapsibleCard title={title}>
       {events.length === 0 ? (
@@ -45,7 +50,9 @@ export function LoanActivity({ events, title = 'Recent Activity' }: Props) {
                   {eventIcon(event.event_type)}
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
-                  <p className="text-sm text-gray-900">{event.description}</p>
+                  <p className="text-sm text-gray-900">
+                    {hideStaffNames ? redactStaffNames(event.description) : event.description}
+                  </p>
                   <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(event.created_at)}</p>
                 </div>
               </div>

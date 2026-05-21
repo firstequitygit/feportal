@@ -28,6 +28,8 @@ import { EditableClosingDate } from '@/components/editable-closing-date'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { DocumentsList } from '@/components/documents-list'
 import { formatDate } from '@/lib/format-date'
+import { ViewAsDropdown } from '@/components/view-as-dropdown'
+import { buildViewAsOptions } from '@/lib/view-as-options'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
@@ -142,6 +144,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan, { includeStaff: true })} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"
@@ -173,23 +176,44 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
                 <EditableLoanField loanId={id} field="interest_rate" type="percent" currentValue={loan.interest_rate} display={formatInterestRate(loan.interest_rate)} placeholder="6.5" step="0.001" />
               </FieldRow>
               <FieldRow label="Interest Only">
-                <span className="font-medium">{loan.interest_only ?? '—'}</span>
+                <EditableLoanField loanId={id} field="interest_only" type="enum" options={['Yes', 'No']} currentValue={loan.interest_only} display={loan.interest_only ?? '—'} />
               </FieldRow>
               <FieldRow label="Rate Locked / Days">
-                <span className="font-medium">{loan.rate_locked_days ?? '—'}</span>
+                <EditableLoanField loanId={id} field="rate_locked_days" type="enum" options={['No', '15 days', '30 days', '45 days']} currentValue={loan.rate_locked_days} display={loan.rate_locked_days ?? '—'} />
               </FieldRow>
               <FieldRow label="Rate Lock Expiration">
-                <span className="font-medium">{formatDate(loan.rate_lock_expiration_date)}</span>
+                <EditableLoanField loanId={id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
+              </FieldRow>
+              <FieldRow label="Value (As-Is)">
+                <EditableLoanField
+                  loanId={id}
+                  field="value_as_is"
+                  type="currency"
+                  currentValue={(loanDetails as LoanDetails | null)?.value_as_is ?? null}
+                  display={formatCurrency((loanDetails as LoanDetails | null)?.value_as_is ?? null)}
+                  placeholder="500000"
+                />
               </FieldRow>
               <FieldRow label="LTV">
-                <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                {loan.loan_type === 'Rental (DSCR)' ? (
+                  <span className="font-medium text-gray-700" title="Auto-calculated from Loan Amount ÷ Value (As-Is)">
+                    {loan.ltv ? `${loan.ltv}%` : '—'}
+                  </span>
+                ) : (
+                  <EditableLoanField loanId={id} field="ltv" type="percent" currentValue={loan.ltv} display={loan.ltv ? `${loan.ltv}%` : '—'} placeholder="75" step="0.01" />
+                )}
               </FieldRow>
-              <FieldRow label="ARV">
-                <EditableLoanField loanId={id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
-              </FieldRow>
-              <FieldRow label="Construction Budget">
-                <EditableLoanField loanId={id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
-              </FieldRow>
+              {/* ARV + Construction Budget are not relevant for DSCR rentals */}
+              {loan.loan_type !== 'Rental (DSCR)' && (
+                <>
+                  <FieldRow label="Value (ARV)">
+                    <EditableLoanField loanId={id} field="arv" type="currency" currentValue={loan.arv} display={formatCurrency(loan.arv)} placeholder="600000" />
+                  </FieldRow>
+                  <FieldRow label="Construction Budget">
+                    <EditableLoanField loanId={id} field="rehab_budget" type="currency" currentValue={loan.rehab_budget} display={formatCurrency(loan.rehab_budget)} placeholder="50000" />
+                  </FieldRow>
+                </>
+              )}
               <FieldRow label="Term">
                 <EditableLoanField loanId={id} field="term_months" type="number" currentValue={loan.term_months} display={loan.term_months ? `${loan.term_months} months` : '—'} placeholder="360" step="1" />
               </FieldRow>
@@ -340,3 +364,6 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     </PortalShell>
   )
 }
+
+// buildViewAsOptions lives in src/components/view-as-dropdown.tsx so the
+// LO and LP pages can reuse it.

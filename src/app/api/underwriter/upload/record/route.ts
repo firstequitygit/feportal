@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
+import { sendEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
+    .select('id, property_address')
     .eq('id', loanId)
     .eq('underwriter_id', uw.id)
     .single()
@@ -65,24 +66,22 @@ export async function POST(req: NextRequest) {
     if (fileData) fileBuffer = Buffer.from(await fileData.arrayBuffer())
   } catch (err) { console.error('File download error:', err) }
 
-  // Notify both assigned loan processors (FE supports up to 2 LPs per loan)
-  const lp1 = loan.loan_processors as unknown as { full_name: string; email: string | null } | null
-  const lp2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null } | null }).loan_processor_2
-  const recipients = [lp1, lp2]
-    .filter((p): p is { full_name: string; email: string } => !!p?.email)
-    .map(p => ({ toEmail: p.email, toName: p.full_name ?? 'Loan Processor' }))
-  if (recipients.length === 0) {
-    recipients.push({ toEmail: 'fefprocessing@gmail.com', toName: 'Loan Processor' })
-  }
-
+  // Notify LO + primary LP. Skip the email if neither role is assigned
+  // (no general-inbox fallback).
   try {
-    await Promise.all(recipients.map(r => sendNotification({
-      toEmail: r.toEmail, toName: r.toName,
-      uploaderName: uw.full_name,
-      propertyAddress: loan.property_address ?? 'Unknown property',
-      conditionTitle: condition?.title ?? 'Unknown condition',
-      fileName, fileBuffer, actionToken,
-    })))
+    const recipients = await getStaffRecipientsForLoan(loanId)
+    if (recipients.recipients.length === 0) {
+      console.warn(`UW upload: no staff recipients for loan ${loanId} — email skipped.`)
+    } else {
+      await Promise.all(recipients.recipients.map(r => sendNotification({
+        toEmail: r.email,
+        toName: r.name ?? (r.role === 'loan_officer' ? 'Loan Officer' : 'Loan Processor'),
+        uploaderName: uw.full_name,
+        propertyAddress: loan.property_address ?? 'Unknown property',
+        conditionTitle: condition?.title ?? 'Unknown condition',
+        fileName, fileBuffer, actionToken,
+      })))
+    }
   } catch (err) { console.error('Email notification error:', err) }
 
   return NextResponse.json({ success: true })
@@ -100,19 +99,11 @@ async function sendNotification({ toEmail, toName, uploaderName, propertyAddress
   propertyAddress: string; conditionTitle: string; fileName: string
   fileBuffer: Buffer | null; actionToken: string | null
 }) {
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_APP_PASSWORD
-  if (!gmailUser || !gmailPass) { console.warn('Gmail credentials not configured'); return }
-
-  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } })
-
   const actionButtons = actionToken
     ? `<div style="margin-top:24px;"><p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin:0 0 12px;">Update this condition directly from your email:</p><div>${actionButton('📥 Mark Received', 'received', actionToken, '#2563eb')}${actionButton('✅ Mark Satisfied', 'satisfied', actionToken, '#16a34a')}${actionButton('❌ Mark Rejected', 'rejected', actionToken, '#dc2626')}</div><p style="font-family:Arial,sans-serif;font-size:11px;color:#aaa;margin-top:12px;">These links expire in 7 days.</p></div>`
     : ''
 
-  await transporter.sendMail({
-    from: `First Equity Funding <${gmailUser}>`,
-    to: toEmail,
+  await sendEmail({    to: toEmail,
     subject: `Document uploaded — ${propertyAddress}`,
     html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${toName},<br/><br/><strong>${uploaderName}</strong> (Underwriter) has uploaded a document to the First Equity Funding portal.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;"><tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr><tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr></table>${actionButtons}<p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">Or log in to the <a href="${BASE_URL}/loan-processor" style="color:#1F5D8F;">processor portal</a> to review.</p>`,
     attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : [],

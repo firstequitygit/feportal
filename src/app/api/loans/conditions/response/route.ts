@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyContactAccess } from '@/lib/contact-access'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { PORTAL_URL } from '@/lib/portal-url'
-import nodemailer from 'nodemailer'
+import { sendEmail } from '@/lib/mailer'
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
@@ -65,18 +65,10 @@ export async function PATCH(req: NextRequest) {
   // Notify the primary LP + LO on the loan (matches the document-upload flow)
   try {
     const recipients = await getStaffRecipientsForLoan(condition.loan_id)
-    const gmailUser = process.env.GMAIL_USER
-    const gmailPass = process.env.GMAIL_APP_PASSWORD
-    if (recipients.emails.length > 0 && gmailUser && gmailPass) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: gmailUser, pass: gmailPass },
-      })
+    if (recipients.emails.length > 0) {
       const addr = recipients.property_address ?? 'a loan'
       const responderLabel = responderName ? `${responderRole} ${responderName}` : responderRole
-      await transporter.sendMail({
-        from: `First Equity Funding <${gmailUser}>`,
-        to: recipients.emails.join(', '),
+      await sendEmail({        to: recipients.emails.join(', '),
         subject: `Condition response — ${addr}`,
         html: `
           <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
