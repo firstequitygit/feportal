@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealStage } from '@/lib/pipedrive'
-import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 import { PIPEDRIVE_STAGE_MAP, PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
 
@@ -126,6 +126,13 @@ export async function PATCH(req: NextRequest) {
     }
   } catch (err) {
     console.error('Stage transition email error:', err)
+  }
+
+  // Pre-Underwriting transition: blast the underwriter team so one of
+  // them can claim the loan from /underwriter/loans.
+  if (stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
+    try { await sendPreUnderwritingClaimEmail(loanId) }
+    catch (err) { console.error('Pre-UW claim email error:', err) }
   }
 
   return NextResponse.json({ success: true, previousStage, stage })

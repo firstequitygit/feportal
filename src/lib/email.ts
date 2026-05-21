@@ -260,3 +260,78 @@ export async function sendLoanApprovedEmail(loanId: string) {
     }).catch(err => console.error(`Loan Approved email to ${r.email} failed:`, err))
   ))
 }
+
+/**
+ * Notify every active underwriter that a loan just moved into
+ * Pre-Underwriting so one of them can claim it from /underwriter/loans.
+ *
+ * Skipped automatically if the loan already has an underwriter assigned
+ * (no point pinging the team for a loan that's already spoken for).
+ */
+export async function sendPreUnderwritingClaimEmail(loanId: string) {
+  const adminClient = createAdminClient()
+
+  const { data: loan } = await adminClient
+    .from('loans')
+    .select('id, property_address, loan_number, loan_amount, loan_type, underwriter_id')
+    .eq('id', loanId)
+    .single()
+  if (!loan) return
+  if (loan.underwriter_id) {
+    // Already claimed — no team-wide blast needed.
+    return
+  }
+
+  const { data: underwriters } = await adminClient
+    .from('underwriters')
+    .select('full_name, email')
+  const recipients = (underwriters ?? [])
+    .filter((u): u is { full_name: string | null; email: string } => !!u.email)
+  if (recipients.length === 0) return
+
+  const property = loan.property_address ?? 'a new loan'
+  const subject = `New loan ready for underwriting — ${property}`
+
+  const detailRows = [
+    loan.loan_number ? ['Loan #', loan.loan_number] : null,
+    loan.loan_type ? ['Type', loan.loan_type] : null,
+    loan.loan_amount ? ['Amount', new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(loan.loan_amount)] : null,
+  ].filter((r): r is [string, string] => !!r)
+
+  const bodyHtml = (greetingName: string) => `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+      <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; color: white; font-size: 18px;">Ready for Underwriting</h1>
+      </div>
+      <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 15px; margin-top: 0;">Hi ${greetingName},</p>
+        <p style="font-size: 15px;">
+          A loan has moved into <strong style="color: #1F5D8F;">Pre-Underwriting</strong> and is
+          available to claim.
+        </p>
+        <table style="font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+          <tr><td style="padding: 4px 16px 4px 0; color: #666;">Property</td><td><strong>${property}</strong></td></tr>
+          ${detailRows.map(([k, v]) => `<tr><td style="padding: 4px 16px 4px 0; color: #666;">${k}</td><td><strong>${v}</strong></td></tr>`).join('')}
+        </table>
+        <p style="margin-top: 24px;">
+          <a href="${PORTAL_URL}/underwriter/loans"
+             style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
+            Claim Loan
+          </a>
+        </p>
+        <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+        <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+      </div>
+    </div>
+  `
+
+  await Promise.all(recipients.map(r => {
+    const first = r.full_name ? r.full_name.split(/\s+/)[0] : 'there'
+    return getTransporter().sendMail({
+      to: r.email,
+      subject,
+      html: bodyHtml(first),
+    }).catch(err => console.error(`Pre-Underwriting claim email to ${r.email} failed:`, err))
+  }))
+}

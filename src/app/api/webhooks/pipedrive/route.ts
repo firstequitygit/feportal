@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeDeal, type PipedriveDeal } from '@/lib/pipedrive'
-import { sendLoanApprovedEmail, sendLoanFundedEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -59,6 +59,8 @@ export async function POST(request: Request) {
     const isNowApproved = deal.pipeline_stage === 'Submitted'
     const wasClosed = existingLoan?.pipeline_stage === 'Closed'
     const isNowClosed = deal.pipeline_stage === 'Closed'
+    const wasPreUW = existingLoan?.pipeline_stage === 'Pre-Underwriting'
+    const isNowPreUW = deal.pipeline_stage === 'Pre-Underwriting'
 
     // Skip non-Pipeline-2 deals — only the Deals Pipeline syncs to the portal.
     if (deal.pipedrive_pipeline_id !== 2) {
@@ -116,6 +118,16 @@ export async function POST(request: Request) {
         console.log(`Loan Funded email sent for deal ${dealId}`)
       } catch (err) {
         console.error(`Loan Funded email failed for deal ${dealId}:`, err)
+      }
+    }
+
+    // Pre-Underwriting: blast the underwriter team to claim.
+    if (isNowPreUW && !wasPreUW && existingLoan?.id) {
+      try {
+        await sendPreUnderwritingClaimEmail(existingLoan.id)
+        console.log(`Pre-UW claim email sent for deal ${dealId}`)
+      } catch (err) {
+        console.error(`Pre-UW claim email failed for deal ${dealId}:`, err)
       }
     }
 

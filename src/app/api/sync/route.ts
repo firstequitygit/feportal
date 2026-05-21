@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
-import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
 
@@ -144,6 +144,11 @@ export async function POST() {
             }
           } catch (err) {
             console.error(`Stage email failed for deal ${deal.pipedrive_deal_id}:`, err)
+          }
+          // Pre-Underwriting: notify the whole UW team so one can claim.
+          if (deal.pipeline_stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
+            try { await sendPreUnderwritingClaimEmail(existing.id) }
+            catch (err) { console.error(`Pre-UW claim email failed for deal ${deal.pipedrive_deal_id}:`, err) }
           }
         }
       }
