@@ -59,7 +59,7 @@ const INVESTOR_OPTIONS = [
 ] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
-const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
+const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
 const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
@@ -413,6 +413,26 @@ export async function PATCH(req: NextRequest) {
       if (current?.loan_amount) {
         const computed = await computeDscrLtv(adminClient, loanId, current.loan_amount as number)
         if (computed != null) patch.ltv = computed
+      }
+    }
+
+    // Amortization Schedule default based on loan_type. Lives on loan_details
+    // (separate upsert from the loans-table patch). Only fills the field if
+    // it's currently null so manual selections aren't clobbered.
+    if (field === 'loan_type') {
+      const defaultAmort =
+        dbValue === 'Rental (DSCR)' ? '30-yr' :
+        (dbValue === 'Fix & Flip (Bridge)' || dbValue === 'New Construction') ? 'Interest Only' :
+        null
+      if (defaultAmort) {
+        const { data: existing } = await adminClient
+          .from('loan_details').select('amortization_schedule').eq('loan_id', loanId).maybeSingle()
+        if (!existing?.amortization_schedule) {
+          await adminClient.from('loan_details').upsert(
+            { loan_id: loanId, amortization_schedule: defaultAmort, updated_at: new Date().toISOString() },
+            { onConflict: 'loan_id' },
+          )
+        }
       }
     }
 

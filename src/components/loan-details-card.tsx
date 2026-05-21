@@ -153,7 +153,7 @@ const INVESTOR_OPTIONS = [
 ] as const
 const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
 const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
-const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr'] as const
+const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
 const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
