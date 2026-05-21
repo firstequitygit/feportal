@@ -2,39 +2,31 @@
 import { EXPERIENCE_FIELDS, type ApplicationData } from '@/lib/application-fields'
 import { FieldRenderer } from '../_components/field-renderer'
 
+// NOTE: Experience fields are now stored at the root of `data` (e.g., data.flips_last_3y),
+// not per-borrower (e.g., data.primary.flips_last_3y). In-flight drafts saved before this
+// change will read empty experience values — that is acceptable; borrowers can re-enter.
+
 export function Step3Experience({ data, set, missingFields }: {
   data: ApplicationData
   set: (patch: Record<string, unknown>) => void
   missingFields?: string[]
 }) {
-  const primary = (data.primary as Record<string, unknown>) ?? {}
-  const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as Record<string, unknown>[]) : []
   return (
     <div className="space-y-8">
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-base font-semibold text-gray-900">Primary Borrower</h3>
+        <h3 className="mb-4 text-base font-semibold text-gray-900">Real Estate Experience</h3>
+        <p className="mb-4 text-sm text-gray-500">
+          Tell us about the combined real estate experience across all borrowers.
+        </p>
         <FieldRenderer
           fields={EXPERIENCE_FIELDS}
           data={data}
-          scope={primary}
-          onChange={(n, v) => set({ primary: { ...primary, [n]: v } })}
-          idPrefix="primary."
+          scope={data as Record<string, unknown>}
+          onChange={(n, v) => set({ [n]: v })}
+          idPrefix=""
           missingFields={missingFields}
         />
       </div>
-      {cobs.map((c, i) => (
-        <div key={i} className="rounded-lg border border-gray-200 bg-white p-6">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">Co-Borrower {i + 1}</h3>
-          <FieldRenderer
-            fields={EXPERIENCE_FIELDS}
-            data={data}
-            scope={c}
-            onChange={(n, v) => set({ co_borrowers: cobs.map((x, idx) => idx === i ? { ...x, [n]: v } : x) })}
-            idPrefix={`coborrower${i + 1}.`}
-            missingFields={missingFields}
-          />
-        </div>
-      ))}
     </div>
   )
 }

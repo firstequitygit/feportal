@@ -20,8 +20,8 @@ function missingRequired(data: ApplicationData): string[] {
   const miss: string[] = []
   const primary = (data.primary as Record<string, unknown>) ?? {}
 
-  // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS + DECLARATION_FIELDS + HMDA_FIELDS
-  for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS, ...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+  // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS
+  for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]) {
     if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
       miss.push(`primary.${f.name}`)
     }
@@ -34,19 +34,31 @@ function missingRequired(data: ApplicationData): string[] {
     }
   }
 
-  // Co-borrowers: BORROWER_FIELDS + DECLARATION_FIELDS + HMDA_FIELDS (no PRIMARY_EXTRA_FIELDS)
-  // EXPERIENCE_FIELDS are all optional — skip.
+  // Co-borrowers: BORROWER_FIELDS only (no PRIMARY_EXTRA_FIELDS, DECLARATION_FIELDS, or HMDA_FIELDS).
+  // Declarations, HMDA, and Experience are application-level, not per-borrower — validated below.
   const cobs: Record<string, unknown>[] = Array.isArray(data.co_borrowers)
     ? (data.co_borrowers as Record<string, unknown>[])
     : []
   for (let i = 0; i < cobs.length; i++) {
     const scope = cobs[i]
     const prefix = `coborrower${i + 1}`
-    for (const f of [...BORROWER_FIELDS, ...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+    for (const f of BORROWER_FIELDS) {
       if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
         miss.push(`${prefix}.${f.name}`)
       }
     }
+  }
+
+  // Declaration + HMDA fields at root scope — one set for the whole application
+  for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
+    if (isRequired(f, data) && isEmpty(data[f.name])) {
+      miss.push(f.name)
+    }
+  }
+
+  // Authorization signature (primary borrower)
+  if (!data.auth_signature || data.auth_signature === "") {
+    miss.push("auth_signature")
   }
 
   return miss

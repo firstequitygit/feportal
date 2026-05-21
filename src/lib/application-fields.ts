@@ -231,22 +231,23 @@ export const ALL_FIELDS: readonly FieldDef[] = [
 // ---- Per-step required-field gating ----
 //
 // Step → field-array mapping is derived by inspecting each step component:
-//   Step 1 (borrower):    BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS for primary;
-//                         BORROWER_FIELDS for each co-borrower.
-//   Step 2 (deal):        DEAL_FIELDS — scope is the form root (no prefix).
-//   Step 3 (experience):  EXPERIENCE_FIELDS — none are required; returns [].
-//   Step 4 (disclosures): DECLARATION_FIELDS + HMDA_FIELDS per borrower.
-//   Step 5 (payment):     No required-field validation — returns [].
+//   Step 1 (borrower):      BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS for primary;
+//                           BORROWER_FIELDS for each co-borrower.
+//   Step 2 (deal):          DEAL_FIELDS — scope is the form root (no prefix).
+//   Step 3 (experience):    EXPERIENCE_FIELDS at the form root — none are required; returns [].
+//   Step 4 (declarations):  DECLARATION_FIELDS + HMDA_FIELDS at the form root (no prefix).
+//   Step 5 (authorization): signature field at the form root.
+//   Step 6 (payment):       payment_signature + save_card_agree at the form root.
 //
 // Prefix convention mirrors submit/route.ts exactly:
 //   primary fields  → "primary.<name>"
 //   co-borrower N   → "coborrower<N>.<name>"  (1-indexed, no space)
-//   deal fields     → "<name>"  (no prefix)
+//   deal / root     → "<name>"  (no prefix)
 //
 // Empty check: undefined | null | "" counts as empty.
 // false and 0 are NOT empty (valid boolean/number answers).
 
-export type StepId = "borrower" | "deal" | "experience" | "disclosures" | "payment"
+export type StepId = "borrower" | "deal" | "experience" | "declarations" | "authorization" | "payment"
 
 function isEmpty(v: unknown): boolean {
   if (v === undefined || v === null || v === "") return true
@@ -289,25 +290,22 @@ export function getMissingRequiredFields(
       }
     }
   } else if (stepId === "experience") {
-    // No EXPERIENCE_FIELDS are required — always returns []
-  } else if (stepId === "disclosures") {
-    // DECLARATION_FIELDS + HMDA_FIELDS per borrower
+    // EXPERIENCE_FIELDS are all optional — always returns []
+    // Fields stored at root: data.flips_last_3y, data.rental_units_owned, etc.
+  } else if (stepId === "declarations") {
+    // DECLARATION_FIELDS + HMDA_FIELDS at root scope — one set for the whole application
     for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
-      if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
-        miss.push(`primary.${f.name}`)
+      if (isRequired(f, data) && isEmpty(data[f.name])) {
+        miss.push(f.name)
       }
     }
-    for (let i = 0; i < cobs.length; i++) {
-      const scope = cobs[i]
-      const prefix = `coborrower${i + 1}`
-      for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
-        if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
-          miss.push(`${prefix}.${f.name}`)
-        }
-      }
+  } else if (stepId === "authorization") {
+    // Primary borrower signs once. Signature stored at root: data.auth_signature
+    if (isEmpty(data.auth_signature)) {
+      miss.push("auth_signature")
     }
   }
-  // stepId === "payment": no required-field validation
+  // stepId === "payment": no required-field validation (Square handles card; save_card_agree gated in UI)
 
   return miss
 }
