@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
@@ -46,19 +47,21 @@ export function ColumnVisibilityMenu({
         Columns
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {columns.map(c => (
-          <DropdownMenuCheckboxItem
-            key={c.id}
-            checked={visible.has(c.id)}
-            onCheckedChange={() => toggle(c.id)}
-            closeOnClick={false}
-            disabled={c.alwaysVisible}
-          >
-            {c.label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {columns.map(c => (
+            <DropdownMenuCheckboxItem
+              key={c.id}
+              checked={visible.has(c.id)}
+              onCheckedChange={() => toggle(c.id)}
+              closeOnClick={false}
+              disabled={c.alwaysVisible}
+            >
+              {c.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onChange(defaults)}>
           Reset to defaults

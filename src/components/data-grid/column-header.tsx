@@ -57,7 +57,7 @@ export function ColumnHeader({
       {filterKind !== 'none' && (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger
-            className={`inline-flex items-center justify-center rounded-lg border border-transparent h-6 w-6 p-0 text-sm font-medium transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground ${filter ? 'text-primary' : 'text-gray-400 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100'}`}
+            className={`inline-flex items-center justify-center rounded-lg border border-transparent h-6 w-6 p-0 text-sm font-medium transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground ${filter ? 'text-primary' : 'text-gray-400 hover:text-gray-700'}`}
           >
             <Filter className="w-3 h-3" />
           </PopoverTrigger>
