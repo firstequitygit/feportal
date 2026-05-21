@@ -26,7 +26,7 @@ export default async function AdminBorrowerDetailPage({ params }: { params: Prom
   // Find loans this borrower is on (any of the 4 borrower slots)
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_stage, updated_at')
+    .select('id, property_address, pipeline_stage, updated_at')
     .or(`borrower_id.eq.${id},borrower_id_2.eq.${id},borrower_id_3.eq.${id},borrower_id_4.eq.${id}`)
     .order('updated_at', { ascending: false })
 
@@ -70,7 +70,7 @@ export default async function AdminBorrowerDetailPage({ params }: { params: Prom
                   <Link href={`/admin/loans/${l.id}`} className="text-sm text-primary hover:underline truncate">
                     {l.property_address ?? '(no address)'}
                   </Link>
-                  <span className="text-xs text-gray-500 shrink-0">{l.loan_stage ?? '—'}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{l.pipeline_stage ?? '—'}</span>
                 </li>
               ))}
             </ul>

@@ -13,6 +13,7 @@ export interface AdminBorrowerRow {
   created_at: string | null
   has_auth: boolean
   loan_count: number
+  loan_officers: string[]
 }
 
 export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrowerRow[] }) {
@@ -94,6 +95,16 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
       width: 'w-20',
     },
     {
+      id: 'loan_officers', label: 'Loan Officer', filterKind: 'contains',
+      accessor: (r) => r.loan_officers.join(', '),
+      cell: (r) => (
+        <span className="text-sm text-gray-700">
+          {r.loan_officers.length === 0 ? <span className="text-gray-400">—</span> : r.loan_officers.join(', ')}
+        </span>
+      ),
+      width: 'w-48',
+    },
+    {
       id: 'has_auth', label: 'Status', filterKind: 'multi',
       filterOptions: [{ label: 'Active', value: 'active' }, { label: 'Invited', value: 'invited' }],
       accessor: (r) => r.has_auth ? 'active' : 'invited',
@@ -131,7 +142,7 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
     <DataGrid
       rows={rows}
       columns={columns}
-      defaultVisibleColumns={['full_name', 'email', 'phone', 'loan_count', 'has_auth', 'actions']}
+      defaultVisibleColumns={['full_name', 'email', 'phone', 'loan_count', 'loan_officers', 'has_auth', 'actions']}
       rowHref={(r) => `/admin/borrowers/${r.id}`}
       emptyState="No borrowers yet."
     />
