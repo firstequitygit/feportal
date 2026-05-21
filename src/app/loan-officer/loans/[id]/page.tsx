@@ -20,7 +20,6 @@ import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
-import { UnclaimButton } from '@/components/unclaim-button'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
@@ -150,12 +149,6 @@ export default async function LoanOfficerLoanPage({
             >
               Generate Approval Letter
             </Link>
-            <UnclaimButton
-              loanId={id}
-              apiEndpoint="/api/loan-officer/unclaim"
-              redirectTo="/loan-officer/loans"
-              roleLabel="loan officer"
-            />
           </div>
         </div>
 

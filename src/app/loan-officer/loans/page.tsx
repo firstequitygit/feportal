@@ -4,7 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
-import { AvailableLoans } from '@/components/available-loans'
 import { Building2, Users, AlertCircle } from 'lucide-react'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 
@@ -26,21 +25,15 @@ export default async function LoanOfficerLoansPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
-  const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
-    adminClient
-      .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email)')
-      .eq('loan_officer_id', lo.id)
-      .eq('archived', false)
-      .order('created_at', { ascending: false }),
-    adminClient
-      .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email), loan_processors!loan_processor_id(full_name)')
-      .is('loan_officer_id', null)
-      .neq('pipeline_stage', 'Closed')
-      .eq('archived', false)
-      .order('created_at', { ascending: false }),
-  ])
+  // LOs are auto-assigned at Pipedrive sync time (deal owner → loan_officer_id),
+  // so there's no "Available to Claim" pool for them — they just see what
+  // they own. LPs and UWs still go through the claim flow.
+  const { data: loans } = await adminClient
+    .from('loans')
+    .select('*, borrowers!borrower_id(full_name, email)')
+    .eq('loan_officer_id', lo.id)
+    .eq('archived', false)
+    .order('created_at', { ascending: false })
 
   const loanIds = (loans ?? []).map((l: Loan) => l.id)
 
@@ -128,11 +121,6 @@ export default async function LoanOfficerLoansPage() {
           </CardContent>
         </Card>
       </div>
-      <AvailableLoans
-        loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
-        claimEndpoint="/api/loan-officer/claim"
-        role="loan_officer"
-      />
       <LoanListSorted
         activeLoans={activeLoans}
         closedLoans={closedLoans}
