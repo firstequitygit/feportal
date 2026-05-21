@@ -3,7 +3,11 @@
 // Rules:
 //  - If a broker is assigned, the broker is the single contact and the
 //    borrowers receive nothing (existing brokered-loan rule).
-//  - Otherwise, all four borrower slots get notified — primary + co-borrowers.
+//  - Otherwise, all four borrower slots get notified — primary + co-borrowers —
+//    BUT only borrowers who have actually registered in the portal (i.e. have
+//    an auth_user_id linked). Borrowers synced from Pipedrive without a
+//    portal login don't get update emails; they only get the one-time invite
+//    email (sent directly by invite-borrower.ts, which bypasses this helper).
 //
 // Used by the staff condition routes so adding a broker to a loan
 // automatically redirects all borrower-facing emails to the broker, and
@@ -78,12 +82,16 @@ export async function getLoanContacts(loanId: string): Promise<LoanContact[]> {
 
   const { data: borrowers } = await adminClient
     .from('borrowers')
-    .select('id, full_name, email')
+    .select('id, full_name, email, auth_user_id')
     .in('id', borrowerIds)
 
   const out: LoanContact[] = []
   for (const b of borrowers ?? []) {
     if (!b.email) continue
+    // Skip borrowers who haven't accepted their portal invite yet —
+    // we don't want to spam someone with stage/condition updates for an
+    // account they don't know how to access.
+    if (!b.auth_user_id) continue
     pushUnique(out, {
       name: b.full_name,
       email: b.email,
