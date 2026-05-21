@@ -123,7 +123,7 @@ export default async function LoanOfficerLoanPage({
   const underwriter = loan.underwriters as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
 
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer">
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-7xl">
       {isImpersonating && impersonation && (
         <ImpersonationBanner kind="loan_officer" name={lo.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
       )}

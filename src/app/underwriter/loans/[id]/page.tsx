@@ -106,7 +106,7 @@ export default async function UnderwriterLoanPage({
 
 
   return (
-    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter">
+    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" maxWidth="max-w-7xl">
       {isImpersonating && impersonation && (
         <ImpersonationBanner kind="underwriter" name={uw.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
       )}

@@ -106,6 +106,7 @@ export default async function BrokerLoanPage({
       userRole="Broker"
       dashboardHref="/broker"
       variant="broker"
+      maxWidth="max-w-7xl"
     >
       {isImpersonating && impersonation && (
         <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />

@@ -121,7 +121,7 @@ export default async function LoanProcessorLoanPage({
 
 
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor">
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-7xl">
       {isImpersonating && impersonation && (
         <ImpersonationBanner kind="loan_processor" name={lp.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
       )}
