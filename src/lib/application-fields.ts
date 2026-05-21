@@ -288,6 +288,12 @@ export function getMissingRequiredFields(
       }
     }
   } else if (stepId === "deal") {
+    // If has_deal is explicitly No, block Next with a synthetic entry so the
+    // wizard shows the amber banner but does not scroll to a specific field.
+    if (data.has_deal === false) {
+      miss.push("has_deal")
+      return miss
+    }
     // Deal fields: scope is the form root — no borrower prefix
     for (const f of DEAL_FIELDS) {
       if (isRequired(f, data) && isEmpty(data[f.name])) {
