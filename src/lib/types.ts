@@ -1,10 +1,16 @@
 export type LoanType = 'Fix & Flip (Bridge)' | 'Rental (DSCR)' | 'New Construction'
 
+// Portal-side pipeline stages. 'Conditionally Approved' is a portal-only
+// stage that does NOT exist in Pipedrive or Airtable — those systems keep
+// the loan in 'Underwriting' until it advances to 'Submitted'. See the
+// Pipedrive sync logic (src/app/api/sync/route.ts and webhook) for how
+// we avoid overwriting a Conditionally Approved loan back to Underwriting.
 export type PipelineStage =
   | 'New Application'
   | 'Processing'
   | 'Pre-Underwriting'
   | 'Underwriting'
+  | 'Conditionally Approved'
   | 'Submitted'
   | 'Closed'
 
@@ -153,6 +159,7 @@ export const PIPELINE_STAGES: PipelineStage[] = [
   'Processing',
   'Pre-Underwriting',
   'Underwriting',
+  'Conditionally Approved',
   'Submitted',
   'Closed',
 ]

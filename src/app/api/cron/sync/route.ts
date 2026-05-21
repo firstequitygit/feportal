@@ -15,6 +15,20 @@ export async function GET(request: Request) {
     const supabase = createAdminClient()
     const deals = await fetchAllDeals()
 
+    // Pre-fetch current portal stages keyed by pipedrive_deal_id. Lets us
+    // protect the portal-only 'Conditionally Approved' stage from being
+    // clobbered by a Pipedrive 'Underwriting' on the same loan.
+    const portalStageByDealId = new Map<string, string | null>()
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase
+        .from('loans').select('pipedrive_deal_id, pipeline_stage')
+        .not('pipedrive_deal_id', 'is', null)
+        .range(from, from + 999)
+      if (!data?.length) break
+      for (const r of data) portalStageByDealId.set(String(r.pipedrive_deal_id), r.pipeline_stage)
+      if (data.length < 1000) break
+    }
+
     let synced = 0
     let errors = 0
     let borrowersLinked = 0
@@ -34,12 +48,20 @@ export async function GET(request: Request) {
         if (borrowerId) borrowersLinked++
       }
 
+      // 'Conditionally Approved' is portal-only. Pipedrive keeps such loans
+      // in 'Underwriting' — don't let that overwrite the portal value.
+      const portalStage = portalStageByDealId.get(String(deal.pipedrive_deal_id))
+      const effectivePipedriveStage =
+        portalStage === 'Conditionally Approved' && deal.pipeline_stage === 'Underwriting'
+          ? 'Conditionally Approved'
+          : deal.pipeline_stage
+
       // Lost deals are non-claimable historical records — set archived=true.
       // Open / won are left alone (won goes through the 30-day auto-archive cron once stage flips to Closed).
       const payload: Record<string, unknown> = {
         pipedrive_deal_id:  deal.pipedrive_deal_id,
         property_address:   deal.property_address,
-        pipeline_stage:     deal.pipeline_stage,
+        pipeline_stage:     effectivePipedriveStage,
         loan_type:          deal.loan_type,
         loan_amount:        deal.loan_amount,
         interest_rate:      deal.interest_rate,

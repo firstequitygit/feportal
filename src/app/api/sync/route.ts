@@ -65,7 +65,14 @@ export async function POST() {
       const isNowApproved = deal.pipeline_stage === 'Submitted'
       const wasClosed = previousStage === 'Closed'
       const isNowClosed = deal.pipeline_stage === 'Closed'
-      const stageChanged = !!existing && deal.pipeline_stage !== null && previousStage !== deal.pipeline_stage
+      // 'Conditionally Approved' (portal-only) is treated as equivalent to
+      // Pipedrive's 'Underwriting' — Pipedrive sending Underwriting on a
+      // loan already in Conditionally Approved is not a real transition.
+      const effectivePipedriveStage =
+        previousStage === 'Conditionally Approved' && deal.pipeline_stage === 'Underwriting'
+          ? 'Conditionally Approved'
+          : deal.pipeline_stage
+      const stageChanged = !!existing && effectivePipedriveStage !== null && previousStage !== effectivePipedriveStage
 
       // Resolve / create the borrower row from Pipedrive Person data.
       let borrowerId: string | null = null
@@ -88,7 +95,7 @@ export async function POST() {
       const payload: Record<string, unknown> = {
         pipedrive_deal_id:         deal.pipedrive_deal_id,
         property_address:          deal.property_address,
-        pipeline_stage:            deal.pipeline_stage,
+        pipeline_stage:            effectivePipedriveStage,
         loan_type:                 deal.loan_type,
         loan_amount:               deal.loan_amount,
         interest_rate:             deal.interest_rate,

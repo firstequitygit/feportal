@@ -37,7 +37,7 @@ export default async function UnderwriterLoansPage() {
       .from('loans')
       .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name), loan_processors!loan_processor_id(full_name)')
       .is('underwriter_id', null)
-      .in('pipeline_stage', ['Pre-Underwriting', 'Underwriting', 'Submitted'])
+      .in('pipeline_stage', ['Pre-Underwriting', 'Underwriting', 'Conditionally Approved', 'Submitted'])
       .eq('archived', false)
       .order('created_at', { ascending: false }),
   ])

@@ -62,6 +62,13 @@ export async function POST(request: Request) {
     const wasPreUW = existingLoan?.pipeline_stage === 'Pre-Underwriting'
     const isNowPreUW = deal.pipeline_stage === 'Pre-Underwriting'
 
+    // 'Conditionally Approved' is portal-only — Pipedrive keeps the loan in
+    // 'Underwriting'. Preserve the portal value when that's what's happening.
+    const effectivePipedriveStage =
+      existingLoan?.pipeline_stage === 'Conditionally Approved' && deal.pipeline_stage === 'Underwriting'
+        ? 'Conditionally Approved'
+        : deal.pipeline_stage
+
     // Skip non-Pipeline-2 deals — only the Deals Pipeline syncs to the portal.
     if (deal.pipedrive_pipeline_id !== 2) {
       console.log(`Skipping deal ${dealId} — pipeline_id=${deal.pipedrive_pipeline_id}, not Deals Pipeline`)
@@ -79,7 +86,7 @@ export async function POST(request: Request) {
         {
           pipedrive_deal_id:  deal.pipedrive_deal_id,
           property_address:   deal.property_address,
-          pipeline_stage:     deal.pipeline_stage,
+          pipeline_stage:     effectivePipedriveStage,
           loan_type:          deal.loan_type,
           loan_amount:        deal.loan_amount,
           interest_rate:      deal.interest_rate,
