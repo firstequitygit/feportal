@@ -1,7 +1,6 @@
 'use client'
 
 import { Columns3 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -42,11 +41,9 @@ export function ColumnVisibilityMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button type="button" variant="outline" size="sm" className="gap-2">
-          <Columns3 className="w-4 h-4" />
-          Columns
-        </Button>
+      <DropdownMenuTrigger className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-input bg-background text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-accent">
+        <Columns3 className="w-4 h-4" />
+        Columns
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
@@ -56,13 +53,14 @@ export function ColumnVisibilityMenu({
             key={c.id}
             checked={visible.has(c.id)}
             onCheckedChange={() => toggle(c.id)}
+            closeOnClick={false}
             disabled={c.alwaysVisible}
           >
             {c.label}
           </DropdownMenuCheckboxItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onChange(defaults)}>
+        <DropdownMenuItem onClick={() => onChange(defaults)}>
           Reset to defaults
         </DropdownMenuItem>
       </DropdownMenuContent>
