@@ -55,8 +55,8 @@ export async function POST(request: Request) {
       .eq('pipedrive_deal_id', dealId)
       .single()
 
-    const wasApproved = existingLoan?.pipeline_stage === 'Submitted'
-    const isNowApproved = deal.pipeline_stage === 'Submitted'
+    const wasApproved = existingLoan?.pipeline_stage === 'Approved'
+    const isNowApproved = deal.pipeline_stage === 'Approved'
     const wasClosed = existingLoan?.pipeline_stage === 'Closed'
     const isNowClosed = deal.pipeline_stage === 'Closed'
     const wasPreUW = existingLoan?.pipeline_stage === 'Pre-Underwriting'

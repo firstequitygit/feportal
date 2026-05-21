@@ -61,8 +61,8 @@ export async function POST() {
     for (const deal of deals) {
       const existing = currentStageMap[deal.pipedrive_deal_id]
       const previousStage = existing?.stage ?? null
-      const wasApproved = previousStage === 'Submitted'
-      const isNowApproved = deal.pipeline_stage === 'Submitted'
+      const wasApproved = previousStage === 'Approved'
+      const isNowApproved = deal.pipeline_stage === 'Approved'
       const wasClosed = previousStage === 'Closed'
       const isNowClosed = deal.pipeline_stage === 'Closed'
       // 'Conditionally Approved' (portal-only) is treated as equivalent to

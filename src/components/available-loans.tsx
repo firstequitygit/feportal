@@ -30,7 +30,7 @@ function stageBadgeColor(stage: PipelineStage | null): string {
     case 'Pre-Underwriting': return 'bg-yellow-100 text-yellow-700'
     case 'Underwriting':     return 'bg-orange-100 text-orange-700'
     case 'Conditionally Approved': return 'bg-teal-100 text-teal-700'
-    case 'Submitted':        return 'bg-green-100 text-green-700'
+    case 'Approved':         return 'bg-green-100 text-green-700'
     case 'Closed':           return 'bg-purple-100 text-purple-700'
     default:                        return 'bg-gray-100 text-gray-600'
   }

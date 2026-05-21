@@ -1,17 +1,25 @@
 export type LoanType = 'Fix & Flip (Bridge)' | 'Rental (DSCR)' | 'New Construction'
 
-// Portal-side pipeline stages. 'Conditionally Approved' is a portal-only
-// stage that does NOT exist in Pipedrive or Airtable — those systems keep
-// the loan in 'Underwriting' until it advances to 'Submitted'. See the
-// Pipedrive sync logic (src/app/api/sync/route.ts and webhook) for how
-// we avoid overwriting a Conditionally Approved loan back to Underwriting.
+// Portal-side pipeline stages.
+//
+// Two values diverge from Pipedrive/Airtable for now:
+//   - 'Conditionally Approved' is a portal-only stage that does NOT exist
+//     in Pipedrive or Airtable — those systems keep the loan in
+//     'Underwriting' until it advances. The Pipedrive sync logic
+//     (src/app/api/sync/route.ts and webhook) avoids overwriting a
+//     Conditionally Approved loan back to Underwriting.
+//   - 'Approved' is the portal label for what Pipedrive + Airtable still
+//     call 'Submitted'. PIPEDRIVE_STAGE_MAP translates Pipedrive's
+//     'Submitted' (stage id 14) to 'Approved' so the value lands in the
+//     portal under the new name. Existing data was migrated by
+//     supabase/migrations/20260521-rename-submitted-to-approved.sql.
 export type PipelineStage =
   | 'New Application'
   | 'Processing'
   | 'Pre-Underwriting'
   | 'Underwriting'
   | 'Conditionally Approved'
-  | 'Submitted'
+  | 'Approved'
   | 'Closed'
 
 export type ConditionStatus = 'Outstanding' | 'Received' | 'Satisfied' | 'Waived' | 'Rejected'
@@ -160,7 +168,7 @@ export const PIPELINE_STAGES: PipelineStage[] = [
   'Pre-Underwriting',
   'Underwriting',
   'Conditionally Approved',
-  'Submitted',
+  'Approved',
   'Closed',
 ]
 
@@ -170,7 +178,7 @@ export const PIPEDRIVE_STAGE_MAP: Record<number, PipelineStage> = {
   8:  'Processing',
   21: 'Pre-Underwriting',
   13: 'Underwriting',
-  14: 'Submitted',
+  14: 'Approved',         // Pipedrive still calls this stage "Submitted"; the portal renamed it.
   15: 'Closed',
 }
 

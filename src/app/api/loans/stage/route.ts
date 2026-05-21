@@ -117,7 +117,7 @@ export async function PATCH(req: NextRequest) {
   // specialized celebratory emails; everything else gets the generic
   // stage-update email.
   try {
-    if (stage === 'Submitted' && previousStage !== 'Submitted') {
+    if (stage === 'Approved' && previousStage !== 'Approved') {
       await sendLoanApprovedEmail(loanId)
     } else if (stage === 'Closed' && previousStage !== 'Closed') {
       await sendLoanFundedEmail(loanId)
