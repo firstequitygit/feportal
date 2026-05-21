@@ -14,6 +14,8 @@ export interface FieldDef {
   type: FieldType
   required?: boolean
   options?: readonly string[]
+  /** Dynamic options resolver — takes precedence over `options` when present. */
+  optionsWhen?: (d: ApplicationData, scope?: ApplicationData) => readonly string[]
   placeholder?: string
   help?: string
   /** Show only when this predicate is true. Absent = always visible. */
@@ -28,6 +30,16 @@ export interface FieldDef {
 export const CREDIT_SCORE_OPTIONS = ['> 780','760-779','740-759','720-739','700-719','680-699','660-679','640-659','620-639','600-619','< 599'] as const
 export const LOAN_TYPE_OPTIONS = ['Fix & Flip/Renovation','New Construction','DSCR Rental Loan'] as const
 export const PROPERTY_TYPE_OPTIONS = ['Single Family','Condo','Multifamily (2-4 Units)','Multifamily (5+ Units)','Mixed Use','Other Commercial'] as const
+export const PROPERTY_TYPE_OPTIONS_BRIDGE = [
+  'Single Family', 'Condo',
+  'Multifamily (2-4 Units)', 'Multifamily (5+ Units)',
+  'Mixed Use', 'Other Commercial',
+] as const
+export const PROPERTY_TYPE_OPTIONS_DSCR = [
+  'Single Family', 'Condo',
+  'Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (5+ Units)',
+  'Mixed Use',
+] as const
 export const EXIT_STRATEGY_OPTIONS = ['Sell','Refinance','Other (Explain Below)'] as const
 export const DEAL_SOURCE_OPTIONS = ['Short Sale','Bank Owned (REO)','Sheriff Sale','MLS','Foreclosure Auction','Wholesaler','Direct from Seller','Other'] as const
 export const HEAR_ABOUT_OPTIONS = ['Internet Search (Google, Bing, etc.)','Social Media (Facebook, Instagram, etc.)','YouTube','Email Marketing','Text Message','Phone Call','Direct Mail','Networking Event','Realtor Referral','Broker Referral','Other Referral','3rd Party Website','3rd Party Publication','Other'] as const
@@ -117,7 +129,8 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'has_deal', label: 'Do you have a deal?', type: 'yesno', required: true },
   { name: 'purchase_or_refi', label: 'Purchase or Refi', type: 'select', options: PURCHASE_REFI_OPTIONS, required: true },
   { name: 'loan_type', label: 'Loan Type', type: 'select', options: LOAN_TYPE_OPTIONS, required: true },
-  { name: 'property_type', label: 'Property Type', type: 'select', options: PROPERTY_TYPE_OPTIONS, required: true },
+  { name: 'property_type', label: 'Property Type', type: 'select', required: true,
+    optionsWhen: (d) => isDSCR(d) ? PROPERTY_TYPE_OPTIONS_DSCR : PROPERTY_TYPE_OPTIONS_BRIDGE },
   { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true },
   { name: 'property_city', label: 'City', type: 'text', required: true },
   { name: 'property_state', label: 'State', type: 'text', required: true },
@@ -139,11 +152,23 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency', help: 'How much cash do the borrowers have available for a downpayment?' },
   { name: 'reserves_post_closing', label: 'Reserves Post Closing', type: 'currency', help: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
   { name: 'number_of_units', label: 'Number of Units', type: 'number',
-    visibleWhen: (d) => d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)',
-    requiredWhen: (d) => d.property_type === 'Multifamily (2-4 Units)' || d.property_type === 'Multifamily (5+ Units)' },
+    visibleWhen: (d) =>
+      d.property_type === 'Multifamily (2-4 Units)' ||
+      d.property_type === 'Multifamily (5+ Units)',
+    requiredWhen: (d) =>
+      d.property_type === 'Multifamily (2-4 Units)' ||
+      d.property_type === 'Multifamily (5+ Units)' },
   { name: 'total_monthly_rents', label: 'Total Monthly Rents (All Units)', type: 'currency',
-    visibleWhen: (d) => (isDSCR(d) || d.property_type === 'Multifamily (5+ Units)') && d.property_type !== 'Multifamily (2-4 Units)',
-    requiredWhen: (d) => (isDSCR(d) || d.property_type === 'Multifamily (5+ Units)') && d.property_type !== 'Multifamily (2-4 Units)' },
+    visibleWhen: (d) => {
+      const pt = d.property_type as string | undefined
+      const dscrMulti = ['Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (2-4 Units)']
+      return (isDSCR(d) || pt === 'Multifamily (5+ Units)') && !dscrMulti.includes(pt ?? '')
+    },
+    requiredWhen: (d) => {
+      const pt = d.property_type as string | undefined
+      const dscrMulti = ['Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (2-4 Units)']
+      return (isDSCR(d) || pt === 'Multifamily (5+ Units)') && !dscrMulti.includes(pt ?? '')
+    } },
   { name: 'annual_property_taxes', label: 'Annual Property Taxes', type: 'currency' },
   { name: 'annual_property_insurance', label: 'Annual Property Insurance', type: 'currency' },
   { name: 'monthly_flood_insurance', label: 'Monthly Flood Insurance', type: 'currency' },

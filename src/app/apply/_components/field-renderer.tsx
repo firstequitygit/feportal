@@ -40,6 +40,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
         const isInvalid = missingFields?.includes(fullName) ?? false
         const wide = f.type === 'textarea' || f.type === 'radio' || f.type === 'file' || f.type === 'signature'
         const blurErr = blurErrors[f.name] ?? null
+        const options = f.optionsWhen ? f.optionsWhen(data, scope) : f.options
         return (
           <FieldReveal key={f.name} show={visible}>
             <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
@@ -62,7 +63,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   aria-invalid={isInvalid || undefined}
                   value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}>
                   <option value="">{'—'} Select {'—'}</option>
-                  {f.options!.map(o => <option key={o} value={o}>{o}</option>)}
+                  {(options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               ) : f.type === 'yesno' ? (
                 <div
@@ -85,7 +86,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   tabIndex={-1}
                   className={`flex flex-col gap-1.5 pt-1 ${isInvalid ? 'rounded-md border border-red-500 p-2' : ''}`}
                   aria-invalid={isInvalid || undefined}>
-                  {f.options!.map(o => (
+                  {(options ?? []).map(o => (
                     <label key={o} className="flex items-center gap-1.5 text-sm text-gray-600">
                       <input type="radio" name={id} checked={v === o}
                         onChange={() => onChange(f.name, o)} /> {o}
