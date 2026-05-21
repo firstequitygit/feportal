@@ -9,8 +9,9 @@ function statusBadge(status: string | null) {
   switch (status) {
     case 'Outstanding': return 'bg-red-100 text-red-700'
     case 'Received':    return 'bg-yellow-100 text-yellow-700'
-    case 'Cleared':     return 'bg-green-100 text-green-700'
+    case 'Satisfied':   return 'bg-green-100 text-green-700'
     case 'Waived':      return 'bg-gray-100 text-gray-500'
+    case 'Rejected':    return 'bg-red-100 text-red-800'
     default:            return 'bg-gray-100 text-gray-600'
   }
 }
@@ -52,9 +53,11 @@ export default async function LoanOfficerConditionsPage() {
         .order('created_at', { ascending: true })
     : { data: [] }
 
-  const outstanding = (conditions ?? []).filter(c => c.status !== 'Satisfied' && c.status !== 'Waived' && c.status !== 'Received')
+  // Three buckets: open work, awaiting review, completed. Rejected lives in
+  // outstanding because it still needs the borrower/team to act.
+  const outstanding = (conditions ?? []).filter(c => c.status === 'Outstanding' || c.status === 'Rejected')
   const received    = (conditions ?? []).filter(c => c.status === 'Received')
-  const cleared     = (conditions ?? []).filter(c => c.status === 'Cleared' || c.status === 'Waived')
+  const cleared     = (conditions ?? []).filter(c => c.status === 'Satisfied' || c.status === 'Waived')
 
   return (
     <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer" variant="loan-officer">
@@ -74,7 +77,7 @@ export default async function LoanOfficerConditionsPage() {
           {[
             { label: 'Outstanding', items: outstanding },
             { label: 'Received',    items: received },
-            { label: 'Cleared / Waived', items: cleared },
+            { label: 'Satisfied / Waived', items: cleared },
           ].filter(g => g.items.length > 0).map(group => (
             <Card key={group.label}>
               <CardHeader>
