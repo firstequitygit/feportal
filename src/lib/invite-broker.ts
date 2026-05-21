@@ -82,7 +82,7 @@ export async function inviteBroker(input: InviteBrokerInput): Promise<InviteBrok
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${PORTAL_URL}/auth/welcome` },
+    options: { redirectTo: `${PORTAL_URL}/auth/callback?next=/dashboard` },
   })
   if (linkError || !linkData) throw new Error(linkError?.message ?? 'Failed to generate invite link')
 
@@ -109,11 +109,11 @@ export async function inviteBroker(input: InviteBrokerInput): Promise<InviteBrok
           brokered loan files, track conditions, upload documents, and message your team.
         </p>
         <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-          Click the button below to create a password and access your portal.
+          Click the button below to sign in to your portal.
         </p>
         <p style="margin-top: 24px;">
           <a href="${inviteLink}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
-            Set Up My Account
+            Sign In
           </a>
         </p>
         <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import nodemailer from 'nodemailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 
-const REDIRECT = `${PORTAL_URL}/auth/set-password`
+const REDIRECT = `${PORTAL_URL}/auth/callback?next=/dashboard`
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -82,11 +82,11 @@ export async function POST(req: NextRequest) {
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${lp.full_name ?? 'there'},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
         You've been given access to the <strong>First Equity Funding Online Portal</strong> as a Loan Processor.
-        Click the button below to set your password and access your loan files.
+        Click the button below to sign in to your portal.
       </p>
       <p style="margin-top: 24px;">
         <a href="${linkData.properties.action_link}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold;">
-          Set Password &amp; Sign In
+          Sign In
         </a>
       </p>
       <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">
