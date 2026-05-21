@@ -190,6 +190,56 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
 }
 
 /**
+ * When an LP/LO/UW sets the Appraisal Received Date on a loan, automatically
+ * add the "Appraisal Received" condition (LO action: review appraisal +
+ * update sizer) if it isn't already on the loan. The condition title +
+ * description + assigned_to are sourced from condition_templates so changes
+ * to the template flow through.
+ *
+ * No-op if:
+ *   - the template doesn't exist
+ *   - a condition with the same title already exists on this loan
+ */
+async function maybeAutoAddAppraisalCondition(
+  adminClient: ReturnType<typeof createAdminClient>,
+  loanId: string,
+  editorName: string | null,
+) {
+  try {
+    const TITLE = 'Appraisal Received'
+
+    const { data: existing } = await adminClient
+      .from('conditions').select('id')
+      .eq('loan_id', loanId).eq('title', TITLE).maybeSingle()
+    if (existing) return  // already on the loan
+
+    const { data: template } = await adminClient
+      .from('condition_templates')
+      .select('title, description, assigned_to, category')
+      .eq('title', TITLE).maybeSingle()
+    if (!template) return  // template missing — bail silently
+
+    await adminClient.from('conditions').insert({
+      loan_id: loanId,
+      title: template.title,
+      description: template.description,
+      assigned_to: template.assigned_to,
+      category: template.category,
+      status: 'Outstanding',
+    })
+
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'condition_added',
+      description: `Condition automatically added (Loan Officer): "${TITLE}" — triggered by Appraisal Received Date being set${editorName ? ` by ${editorName}` : ''}`,
+    })
+  } catch (err) {
+    // Don't fail the parent field-update API call if the automation hiccups.
+    console.error('Auto-add Appraisal Received condition failed:', err instanceof Error ? err.message : err)
+  }
+}
+
+/**
  * Compute the DSCR LTV (loan_amount / value_as_is, as percent) for the given
  * loan. Returns null if value_as_is is missing/zero so the caller can skip.
  */
@@ -283,6 +333,14 @@ export async function PATCH(req: NextRequest) {
     if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Editor display name — used by both the audit log and any automation
+  // triggers below (e.g. the Appraisal Received auto-condition).
+  const editorName: string | null =
+    (lo?.full_name as string | undefined) ??
+    (lp?.full_name as string | undefined) ??
+    (uw?.full_name as string | undefined) ??
+    (admin ? 'Admin' : null)
+
   // Pipedrive write — only for loans-table fields with a pdKey
   if (table === 'loans' && config.pdKey) {
     if (!loan.pipedrive_deal_id) {
@@ -373,15 +431,17 @@ export async function PATCH(req: NextRequest) {
         }
       }
     }
+
+    // Auto-create the "Appraisal Received" condition (LO action item) when
+    // the Appraisal Received Date is set on a loan that doesn't already have
+    // this condition. Uses the existing condition_templates row as the
+    // source of truth for title / description / assignment.
+    if (field === 'appraisal_received_date' && typeof dbValue === 'string' && dbValue.trim()) {
+      await maybeAutoAddAppraisalCondition(adminClient, loanId, editorName)
+    }
   }
 
-  // Audit log
-  const editorName =
-    (lo?.full_name as string | undefined) ??
-    (lp?.full_name as string | undefined) ??
-    (uw?.full_name as string | undefined) ??
-    (admin ? 'Admin' : null)
-
+  // Audit log (editorName computed above for use across this handler)
   try {
     await adminClient.from('loan_events').insert({
       loan_id: loanId,
