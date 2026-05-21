@@ -393,8 +393,8 @@ function InternalTeamNote({
         </div>
         <div className="opacity-80 mt-0.5">
           {isHighlight
-            ? 'You don’t need to take any action on these — we’ll keep things moving.'
-            : 'Nothing for you to do on these — just a heads-up while we work them.'}
+            ? 'You don’t need to take any action on these; we’ll keep things moving.'
+            : 'Nothing for you to do on these internal conditions; just a heads up while we work them.'}
         </div>
       </div>
     </div>
