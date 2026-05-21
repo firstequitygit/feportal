@@ -46,10 +46,10 @@ export const SSNInput = forwardRef<HTMLInputElement, SSNInputProps>(
         onChange={(e) => onChange(autoFormat(e.target.value))}
         aria-invalid={invalid || undefined}
         className={cn(
-          'w-full rounded-md border bg-white px-3 py-2 outline-none transition-colors',
+          'w-full rounded-md border bg-white px-3 py-2.5 text-sm outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
           invalid
             ? 'border-red-500'
-            : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-1 focus:ring-[#1F5D8F]/30',
+            : 'border-gray-300 focus:border-[#1F5D8F] focus:ring-2 focus:ring-[#1F5D8F]/40',
           className,
         )}
         {...rest}
