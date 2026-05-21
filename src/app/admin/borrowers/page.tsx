@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
-import { AdminContactList, type ContactRow } from '@/components/admin-contact-list'
+import { AdminBorrowersGrid, type AdminBorrowerRow } from './admin-borrowers-grid'
 
 export default async function AdminBorrowersPage() {
   const supabase = await createClient()
@@ -15,7 +15,7 @@ export default async function AdminBorrowersPage() {
 
   const adminClient = createAdminClient()
   const [{ data: borrowers }, { data: loanCounts }] = await Promise.all([
-    adminClient.from('borrowers').select('id, full_name, email, phone').order('full_name'),
+    adminClient.from('borrowers').select('id, full_name, email, phone, created_at, auth_user_id').order('full_name'),
     adminClient.from('loans').select('borrower_id').not('borrower_id', 'is', null),
   ])
 
@@ -25,12 +25,14 @@ export default async function AdminBorrowersPage() {
     if (l.borrower_id) counts.set(l.borrower_id, (counts.get(l.borrower_id) ?? 0) + 1)
   }
 
-  const rows: ContactRow[] = (borrowers ?? []).map(b => ({
+  const rows: AdminBorrowerRow[] = (borrowers ?? []).map(b => ({
     id: b.id,
     full_name: b.full_name,
     email: b.email,
     phone: b.phone,
-    loanCount: counts.get(b.id) ?? 0,
+    created_at: b.created_at,
+    has_auth: !!b.auth_user_id,
+    loan_count: counts.get(b.id) ?? 0,
   }))
 
   return (
@@ -41,12 +43,7 @@ export default async function AdminBorrowersPage() {
         &quot;Invite Borrower&quot; button. Deleting a borrower removes their portal login and
         clears them from any loans they were on — the loans themselves stay intact.
       </p>
-      <AdminContactList
-        label="borrowers"
-        singular="borrower"
-        apiPath="/api/admin/borrowers"
-        initialContacts={rows}
-      />
+      <AdminBorrowersGrid initialRows={rows} />
     </PortalShell>
   )
 }
