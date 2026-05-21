@@ -35,8 +35,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid stage' }, { status: 400 })
   }
 
-  const stageId = STAGE_NAME_TO_ID[stage]
-  if (!stageId) {
+  // 'Conditionally Approved' is portal-only — no Pipedrive equivalent.
+  // For all other stages we push the matching Pipedrive stage_id.
+  const isPortalOnlyStage = stage === 'Conditionally Approved'
+  const stageId = isPortalOnlyStage ? null : STAGE_NAME_TO_ID[stage]
+  if (!isPortalOnlyStage && !stageId) {
     return NextResponse.json({ error: `No Pipedrive stage_id mapped for "${stage}"` }, { status: 500 })
   }
 
@@ -67,13 +70,17 @@ export async function PATCH(req: NextRequest) {
 
   const previousStage = loan.pipeline_stage as PipelineStage | null
 
-  // Write to Pipedrive FIRST so we don't get out of sync if the API call fails
-  try {
-    await updateDealStage(loan.pipedrive_deal_id, stageId)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Pipedrive update failed'
-    console.error('updateDealStage failed:', msg)
-    return NextResponse.json({ error: `Could not update Pipedrive: ${msg}` }, { status: 502 })
+  // Write to Pipedrive FIRST so we don't get out of sync if the API call fails.
+  // Skip when moving to a portal-only stage (Conditionally Approved) — that
+  // stage doesn't exist in Pipedrive, so we leave the deal in Underwriting.
+  if (!isPortalOnlyStage && stageId) {
+    try {
+      await updateDealStage(loan.pipedrive_deal_id, stageId)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Pipedrive update failed'
+      console.error('updateDealStage failed:', msg)
+      return NextResponse.json({ error: `Could not update Pipedrive: ${msg}` }, { status: 502 })
+    }
   }
 
   // Mirror locally. FE policy: moving a loan to Closed also archives it
