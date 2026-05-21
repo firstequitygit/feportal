@@ -84,6 +84,7 @@ export interface NormalizedDeal {
   loan_type_ii: string | null
   closed_at: string | null               // Pipedrive won_time, normalized to ISO (only when status=won)
   estimated_closing_date: string | null  // Pipedrive "Closing Date" custom field — scheduled/expected close
+  lost_reason: string | null             // Free-text reason populated by Pipedrive when status=lost
 }
 
 function getField(deal: PipedriveDeal, key: string): unknown {
@@ -185,6 +186,7 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     // Pipedrive custom field "Closing Date" — the scheduled/expected close
     // used by FE's monthly closings report. Comes through as "YYYY-MM-DD".
     estimated_closing_date: toString(getField(deal, f.closingDate)),
+    lost_reason: toString(deal.lost_reason),
   }
 }
 
@@ -232,6 +234,52 @@ export async function updateDealStage(dealId: number, stageId: number): Promise<
   const data = await res.json().catch(() => null)
   if (data && data.success === false) {
     throw new Error(`Pipedrive stage update rejected: ${data.error ?? 'unknown'}`)
+  }
+}
+
+/**
+ * Mark a deal as Lost in Pipedrive (the cancellation equivalent).
+ * Pipedrive treats status as orthogonal to stage_id — a lost deal keeps
+ * its stage but disappears from the active pipeline. lost_reason is a
+ * free-text field surfaced in Pipedrive's lost-deal report.
+ */
+export async function markDealLost(dealId: number, reason: string | null): Promise<void> {
+  const body: Record<string, unknown> = { status: 'lost' }
+  if (reason && reason.trim()) body.lost_reason = reason.trim()
+  const res = await fetch(`${BASE_URL}/deals/${dealId}?api_token=${TOKEN}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '')
+    throw new Error(`Pipedrive mark-lost failed (${res.status}): ${errBody}`)
+  }
+  const data = await res.json().catch(() => null)
+  if (data && data.success === false) {
+    throw new Error(`Pipedrive mark-lost rejected: ${data.error ?? 'unknown'}`)
+  }
+}
+
+/**
+ * Reopen a previously-lost deal (used on cancel reactivation). Clears the
+ * lost_reason so the next person doesn't see a stale explanation.
+ */
+export async function markDealOpen(dealId: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/deals/${dealId}?api_token=${TOKEN}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'open', lost_reason: '' }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Pipedrive reopen failed (${res.status}): ${body}`)
+  }
+  const data = await res.json().catch(() => null)
+  if (data && data.success === false) {
+    throw new Error(`Pipedrive reopen rejected: ${data.error ?? 'unknown'}`)
   }
 }
 

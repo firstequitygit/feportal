@@ -76,7 +76,14 @@ export async function GET(request: Request) {
         estimated_closing_date:  deal.estimated_closing_date,   // Pipedrive "Closing Date" custom field
         last_synced_at:     new Date().toISOString(),
       }
-      if (deal.pipedrive_status === 'lost') payload.archived = true
+      if (deal.pipedrive_status === 'lost') {
+        // Mirror Pipedrive-direct cancellations into our lifecycle status so
+        // the portal badge stays in sync. One-way assignment — we never
+        // un-cancel via sync; admins do that explicitly in the portal.
+        payload.archived = true
+        payload.loan_status = 'cancelled'
+        if (deal.lost_reason) payload.cancellation_reason = deal.lost_reason
+      }
       // Only write borrower_id when we actually resolved one. Skipping the
       // key (vs. writing null) avoids clobbering an admin-assigned borrower
       // on loans where Pipedrive has no person data.

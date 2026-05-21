@@ -16,6 +16,7 @@ import { type Condition, type Document, type ConditionTemplate } from '@/lib/typ
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { EditableLoanStage } from '@/components/editable-loan-stage'
+import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { CollapsibleCard } from '@/components/collapsible-card'
@@ -156,6 +157,12 @@ export default async function LoanProcessorLoanPage({
             />
           </div>
         </div>
+
+        <LoanStatusControl
+          loanId={id}
+          currentStatus={(loan.loan_status ?? 'active') as 'active' | 'on_hold' | 'cancelled'}
+          cancellationReason={loan.cancellation_reason ?? null}
+        />
 
         <LoanProgressTracker stage={loan.pipeline_stage} />
 

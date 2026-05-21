@@ -78,7 +78,13 @@ export async function POST(request: Request) {
     // archived rule (per FE policy):
     //   pipedrive_status=open → archived=false (active, claimable)
     //   anything else (won/lost) → archived=true (out of the active flow)
-    const archivedField = { archived: deal.pipedrive_status !== 'open' }
+    // lost also flips our lifecycle status to cancelled so the portal badge
+    // mirrors Pipedrive. One-way — we never un-cancel via sync.
+    const archivedField: Record<string, unknown> = { archived: deal.pipedrive_status !== 'open' }
+    if (deal.pipedrive_status === 'lost') {
+      archivedField.loan_status = 'cancelled'
+      if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason
+    }
 
     const { error } = await supabase
       .from('loans')

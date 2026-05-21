@@ -82,17 +82,23 @@ function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
   linkPrefix: string
 }) {
   const isClosed = loan.pipeline_stage === 'Closed'
-  const accentClass = isClosed
-    ? 'border-l-gray-300'
-    : outstanding.you > 0
-      ? 'border-l-red-400'
-      : outstanding.total > 0
-        ? 'border-l-amber-300'
-        : 'border-l-green-400'
+  const isOnHold = loan.loan_status === 'on_hold'
+  const isCancelled = loan.loan_status === 'cancelled'
+  const accentClass = isCancelled
+    ? 'border-l-red-300'
+    : isOnHold
+      ? 'border-l-amber-400'
+      : isClosed
+        ? 'border-l-gray-300'
+        : outstanding.you > 0
+          ? 'border-l-red-400'
+          : outstanding.total > 0
+            ? 'border-l-amber-300'
+            : 'border-l-green-400'
 
   return (
     <Link href={`${linkPrefix}/loans/${loan.id}`} className="block group">
-      <Card className={`border border-gray-200 border-l-4 ${accentClass} transition-all duration-150 group-hover:shadow-md group-hover:border-gray-300 ${isClosed ? 'opacity-70' : ''}`}>
+      <Card className={`border border-gray-200 border-l-4 ${accentClass} transition-all duration-150 group-hover:shadow-md group-hover:border-gray-300 ${isClosed || isCancelled ? 'opacity-70' : ''} ${isOnHold ? 'opacity-90' : ''}`}>
         <CardContent className="p-5">
           {/* Top row: address + badges + chevron */}
           <div className="flex items-start justify-between gap-4">
@@ -125,6 +131,16 @@ function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
               {outstanding.team > 0 && (
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">
                   Team {outstanding.team}
+                </span>
+              )}
+              {isOnHold && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                  On Hold
+                </span>
+              )}
+              {isCancelled && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
+                  Cancelled
                 </span>
               )}
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${stageBadgeColor(loan.pipeline_stage)}`}>

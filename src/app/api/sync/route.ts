@@ -89,8 +89,14 @@ export async function POST() {
       // archived rule (matches cron sync): only lost deals get archived
       // automatically. Won deals stay until the 30-day post-Closed cron
       // promotes them. Open deals stay claimable.
+      // Lost deals also flip our lifecycle status to cancelled so the portal
+      // badge mirrors Pipedrive. One-way — we never un-cancel via sync.
       const archivedField: Record<string, unknown> = {}
-      if (deal.pipedrive_status === 'lost') archivedField.archived = true
+      if (deal.pipedrive_status === 'lost') {
+        archivedField.archived = true
+        archivedField.loan_status = 'cancelled'
+        if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason
+      }
 
       const payload: Record<string, unknown> = {
         pipedrive_deal_id:         deal.pipedrive_deal_id,

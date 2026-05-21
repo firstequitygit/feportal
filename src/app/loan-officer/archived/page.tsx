@@ -56,7 +56,14 @@ export default async function LoanOfficerArchivedPage() {
               {loans.map((loan) => (
                 <div key={loan.id} className="flex items-center justify-between gap-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{loan.property_address ?? '—'}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-gray-900 truncate">{loan.property_address ?? '—'}</p>
+                      {loan.loan_status === 'cancelled' && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
+                          Cancelled
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">
                       {loan.borrowers?.full_name ?? <span className="italic">Unassigned</span>}
                       {' · '}
@@ -64,6 +71,11 @@ export default async function LoanOfficerArchivedPage() {
                       {' · '}
                       {formatCurrency(loan.loan_amount)}
                     </p>
+                    {loan.loan_status === 'cancelled' && loan.cancellation_reason && (
+                      <p className="text-xs text-red-600 mt-1">
+                        <span className="font-medium">Reason:</span> {loan.cancellation_reason}
+                      </p>
+                    )}
                   </div>
                   <Link
                     href={`/loan-officer/loans/${loan.id}`}

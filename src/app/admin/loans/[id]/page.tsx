@@ -7,6 +7,7 @@ import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { EditableLoanStage } from '@/components/editable-loan-stage'
+import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
@@ -148,6 +149,12 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             <AdminArchiveButton loanId={id} archived={isArchived} />
           </div>
         </div>
+
+        <LoanStatusControl
+          loanId={id}
+          currentStatus={(loan.loan_status ?? 'active') as 'active' | 'on_hold' | 'cancelled'}
+          cancellationReason={loan.cancellation_reason ?? null}
+        />
 
         <LoanProgressTracker stage={loan.pipeline_stage} />
 

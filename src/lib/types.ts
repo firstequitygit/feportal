@@ -26,6 +26,11 @@ export type ConditionStatus = 'Outstanding' | 'Received' | 'Satisfied' | 'Waived
 export type AssignedTo = 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter'
 export type ConditionCategory = 'initial' | 'underwriting' | 'pre_close' | 'pre_funding'
 
+// Lifecycle status — separate from pipeline_stage. Most loans are 'active'.
+// 'on_hold' = temporarily paused (stage preserved). 'cancelled' = dead deal
+// (auto-archived, mirrored to Pipedrive as Lost).
+export type LoanStatus = 'active' | 'on_hold' | 'cancelled'
+
 export interface OutstandingCounts {
   you: number
   borrower: number
@@ -125,6 +130,9 @@ export interface Loan {
   underwriter: string | null
   last_synced_at: string | null
   archived: boolean
+  loan_status: LoanStatus
+  cancellation_reason: string | null
+  status_changed_at: string | null
   created_at: string
 }
 
