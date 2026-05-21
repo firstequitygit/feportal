@@ -31,12 +31,13 @@ export default async function UnderwriterLoansPage() {
       .eq('underwriter_id', uw.id)
       .eq('archived', false)
       .order('created_at', { ascending: false }),
+    // UWs can only claim once a loan is in Pre-Underwriting or later.
+    // New Application + Processing aren't ready for underwriting yet.
     adminClient
       .from('loans')
       .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name), loan_processors!loan_processor_id(full_name)')
       .is('underwriter_id', null)
-      .neq('pipeline_stage', 'Closed')
-      .neq('pipeline_stage', 'New Application')
+      .in('pipeline_stage', ['Pre-Underwriting', 'Underwriting', 'Submitted'])
       .eq('archived', false)
       .order('created_at', { ascending: false }),
   ])

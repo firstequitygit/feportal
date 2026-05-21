@@ -21,8 +21,13 @@ export async function POST(req: NextRequest) {
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
   if (loan.underwriter_id) return NextResponse.json({ error: 'This loan has already been claimed' }, { status: 409 })
-  if (loan.pipeline_stage === 'New Application') {
-    return NextResponse.json({ error: 'Underwriters can only claim loans after the New Application stage' }, { status: 403 })
+  // UWs can only claim once the loan has reached Pre-Underwriting.
+  const claimableStages = ['Pre-Underwriting', 'Underwriting', 'Submitted']
+  if (!claimableStages.includes(loan.pipeline_stage)) {
+    return NextResponse.json(
+      { error: 'Underwriters can only claim loans once they reach Pre-Underwriting' },
+      { status: 403 },
+    )
   }
 
   const { error } = await adminClient
