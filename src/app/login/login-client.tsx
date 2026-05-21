@@ -60,11 +60,13 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    // signInWithOtp sends the email via Supabase's configured SMTP (Resend).
+    // shouldCreateUser: false prevents drive-by account creation by unknown emails.
+    // Errors are swallowed: we always advance to the code screen to avoid enumeration.
     try {
-      await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
       })
     } finally {
       setLoading(false)
@@ -78,6 +80,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    // OTP codes from signInWithOtp are verified with type='email'.
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email,
       token: code.trim(),
@@ -96,10 +99,9 @@ export default function LoginPage() {
 
   async function handleResend() {
     if (cooldown > 0) return
-    await fetch('/api/auth/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
     })
     startCooldown()
   }
