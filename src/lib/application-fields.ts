@@ -37,6 +37,7 @@ export const MARITAL_STATUS_OPTIONS = ['Married','Single','Separated'] as const
 export const PURCHASE_REFI_OPTIONS = ['Purchase','Refinance','Cash-Out Refinance'] as const
 export const HOUSING_STATUS_OPTIONS = ['Own','Rent'] as const
 export const ENTITY_TYPE_OPTIONS = ['LLC','Corporation','Limited Partnership','Other'] as const
+export const LOAN_OFFICER_OPTIONS = ['Christian Pepe','Anthony Palmiotto','Cory J Anderson','Ryan Commesso','Bill McGrorry','Vincent Gruosso','Adam Scovill','Garry Merritt','Christopher Marcigliano','Other'] as const
 export const HMDA_ETHNICITY_OPTIONS = ['Hispanic or Latino','Not Hispanic or Latino','I do not wish to provide this information'] as const
 export const HMDA_RACE_OPTIONS = ['American Indian or Alaska Native','Asian','Black or African American','Native Hawaiian or Other Pacific Islander','White','Other','I do not wish to provide this information'] as const
 export const HMDA_SEX_OPTIONS = ['Male','Female','I do not wish to provide this information'] as const
@@ -51,9 +52,10 @@ export const BORROWER_FIELDS: FieldDef[] = [
   { name: 'ssn', label: 'Social Security Number', type: 'ssn', required: true,
     helpTooltip: "We use your SSN only to verify your identity. No credit check happens until you authorize it on Step 4." },
   { name: 'us_citizen', label: 'U.S. Citizen?', type: 'yesno', required: true },
-  { name: 'permanent_resident_alien', label: 'Permanent Resident Alien?', type: 'yesno', required: true },
-  { name: 'foreign_national', label: 'Foreign National?', type: 'yesno', required: true },
-  { name: 'legal_status', label: 'What is your current legal status?', type: 'text' },
+  { name: 'permanent_resident_alien', label: 'Permanent Resident Alien?', type: 'yesno',
+    visibleWhen: (_d, s) => s?.us_citizen === false, requiredWhen: (_d, s) => s?.us_citizen === false },
+  { name: 'foreign_national', label: 'Foreign National?', type: 'yesno',
+    visibleWhen: (_d, s) => s?.us_citizen === false, requiredWhen: (_d, s) => s?.us_citizen === false },
   { name: 'marital_status', label: 'Marital Status', type: 'select', options: MARITAL_STATUS_OPTIONS,
     helpTooltip: "Required because your spouse may have rights in the property under your state's marital property laws." },
   { name: 'email', label: 'Email', type: 'email', required: true },
@@ -176,6 +178,7 @@ export const PRIMARY_EXTRA_FIELDS: FieldDef[] = [
   { name: 'mortgage_on_primary', label: 'Is there a mortgage on your primary?', type: 'yesno' },
   { name: 'entity_name', label: 'Entity Name', type: 'text' },
   { name: 'entity_type', label: 'Entity Type', type: 'select', options: ENTITY_TYPE_OPTIONS },
+  { name: 'loan_officer_assigned', label: 'First Equity Loan Officer', type: 'select', options: LOAN_OFFICER_OPTIONS, required: true },
   { name: 'hear_about_us', label: 'How did you hear about us?', type: 'select', options: HEAR_ABOUT_OPTIONS, required: true },
   { name: 'hear_about_details', label: 'Details', type: 'text' },
 ]
