@@ -27,7 +27,7 @@ export default async function UnderwriterLoansPage() {
   const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
     adminClient
       .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email)')
+      .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
       .eq('underwriter_id', uw.id)
       .eq('archived', false)
       .order('created_at', { ascending: false }),
@@ -85,6 +85,7 @@ export default async function UnderwriterLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/underwriter"
+        groupByLoanOfficer
       />
     </PortalShell>
   )

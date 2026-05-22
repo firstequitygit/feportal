@@ -12,7 +12,10 @@ const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 
 
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // New Application → Submitted (excludes Closed)
 
-type LoanWithBorrower = Loan & { borrowers?: { full_name: string | null; email: string } | null }
+type LoanWithBorrower = Loan & {
+  borrowers?: { full_name: string | null; email: string } | null
+  loan_officers?: { full_name: string | null } | null
+}
 
 interface Props {
   activeLoans: LoanWithBorrower[]
@@ -20,6 +23,12 @@ interface Props {
   outstandingMap: Record<string, OutstandingCounts>
   lastUpdatedMap: Record<string, string>   // loan_id → ISO timestamp of most recent event
   linkPrefix: string                        // e.g. '/loan-officer' or '/loan-processor'
+  /**
+   * When true and a stage filter is selected, the Active section is broken
+   * into alphabetical sub-sections by Loan Officer. Used by LP and UW pages
+   * where multiple LOs' loans share the list — the LO doesn't need this.
+   */
+  groupByLoanOfficer?: boolean
 }
 
 type SortBy = 'last_updated' | 'stage'
@@ -256,7 +265,27 @@ function BoardView({ activeLoans, outstandingMap, lastUpdatedMap, linkPrefix }: 
   )
 }
 
-export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastUpdatedMap, linkPrefix }: Props) {
+function groupLoansByLoanOfficer(loans: LoanWithBorrower[]): Array<{ name: string; loans: LoanWithBorrower[] }> {
+  const buckets = new Map<string, { name: string; loans: LoanWithBorrower[] }>()
+  for (const loan of loans) {
+    const name = loan.loan_officers?.full_name?.trim() || 'Unassigned'
+    const key = name.toLowerCase()
+    let bucket = buckets.get(key)
+    if (!bucket) {
+      bucket = { name, loans: [] }
+      buckets.set(key, bucket)
+    }
+    bucket.loans.push(loan)
+  }
+  // Alphabetical by LO name, with "Unassigned" pinned to the bottom.
+  return [...buckets.values()].sort((a, b) => {
+    if (a.name === 'Unassigned') return 1
+    if (b.name === 'Unassigned') return -1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastUpdatedMap, linkPrefix, groupByLoanOfficer = false }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>('stage')
   const [view, setView] = useState<'list' | 'board'>('list')
   const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all')
@@ -384,17 +413,43 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
                 </h3>
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
-              <div className="space-y-3">
-                {sortedActive.map(loan => (
-                  <LoanCard
-                    key={loan.id}
-                    loan={loan}
-                    outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                    lastUpdated={lastUpdatedMap[loan.id]}
-                    linkPrefix={linkPrefix}
-                  />
-                ))}
-              </div>
+              {groupByLoanOfficer && stageFilter !== 'all' ? (
+                // Stage-filtered + multi-LO list (LP / UW) — break into
+                // alphabetical LO sub-sections so the user can scan by
+                // who's running each loan.
+                <div className="space-y-6">
+                  {groupLoansByLoanOfficer(sortedActive).map(({ name, loans }) => (
+                    <div key={name}>
+                      <h4 className="text-xs font-medium text-gray-500 mb-2 ml-1">
+                        {name} <span className="text-gray-300">·</span> {loans.length}
+                      </h4>
+                      <div className="space-y-3">
+                        {loans.map(loan => (
+                          <LoanCard
+                            key={loan.id}
+                            loan={loan}
+                            outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                            lastUpdated={lastUpdatedMap[loan.id]}
+                            linkPrefix={linkPrefix}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedActive.map(loan => (
+                    <LoanCard
+                      key={loan.id}
+                      loan={loan}
+                      outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                      lastUpdated={lastUpdatedMap[loan.id]}
+                      linkPrefix={linkPrefix}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
 

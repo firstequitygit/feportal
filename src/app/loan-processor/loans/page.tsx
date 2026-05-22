@@ -31,7 +31,7 @@ export default async function LoanProcessorLoansPage() {
   // skip the claim section entirely (they don't need to claim).
   const myLoansQuery = adminClient
     .from('loans')
-    .select('*, borrowers!borrower_id(full_name, email)')
+    .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
     .eq('archived', false)
     .order('created_at', { ascending: false })
   const scopedMyLoans = lp.is_ops_manager
@@ -156,6 +156,7 @@ export default async function LoanProcessorLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/loan-processor"
+        groupByLoanOfficer
       />
     </PortalShell>
   )
