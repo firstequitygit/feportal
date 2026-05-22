@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchAllBorrowers, fetchAllBrokers } from '@/lib/fetch-all-borrowers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanProcessorConditions } from '@/components/loan-processor-conditions'
@@ -95,8 +96,8 @@ export default async function LoanProcessorLoanPage({
   const [{ data: notes }, { data: events }, { data: allBorrowers }, { data: allBrokers }, { data: loanDetails }, { data: loanDemographics }] = await Promise.all([
     adminClient.from('loan_notes').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
-    adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
-    adminClient.from('brokers').select('id, full_name, email, company_name').order('full_name'),
+    fetchAllBorrowers(adminClient).then(rows => ({ data: rows })),
+    fetchAllBrokers(adminClient).then(rows => ({ data: rows })),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
   ])

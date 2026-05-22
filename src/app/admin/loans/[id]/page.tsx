@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchAllBorrowers, fetchAllBrokers } from '@/lib/fetch-all-borrowers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type Condition, type ConditionTemplate } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
@@ -84,7 +85,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     adminClient.from('loans').select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('condition_templates').select('*').order('title'),
-    adminClient.from('borrowers').select('id, full_name, email').order('full_name'),
+    fetchAllBorrowers(adminClient).then(rows => ({ data: rows })),
     adminClient.from('documents').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_notes').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
@@ -92,7 +93,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     adminClient.from('loan_officers').select('id, full_name, email, phone, title').order('full_name'),
     adminClient.from('loan_processors').select('id, full_name, email, phone, title').order('full_name'),
     adminClient.from('underwriters').select('id, full_name, email, phone, title').order('full_name'),
-    adminClient.from('brokers').select('id, full_name, email, company_name').order('full_name'),
+    fetchAllBrokers(adminClient).then(rows => ({ data: rows })),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
   ])
