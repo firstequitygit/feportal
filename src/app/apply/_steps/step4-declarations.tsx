@@ -4,7 +4,7 @@ import { FieldRenderer } from "../_components/field-renderer"
 
 // Declaration and HMDA fields are stored at the root of `data` (e.g., data.d_liens,
 // data.hmda_ethnicity). Production phrases declarations as "you (borrower or co-borrower)"
-// — one set applies to the whole application. HMDA is for the primary borrower only.
+// One set applies to the whole application. HMDA is for the primary borrower only.
 
 export function Step4Declarations({ data, set, missingFields }: {
   data: ApplicationData

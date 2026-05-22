@@ -45,7 +45,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
     setBlurErrors(prev => ({ ...prev, [name]: error }))
   }
 
-  // Build visible groups — section breaks only appear when there are visible fields in that section
+  // Build visible groups - section breaks only appear when there are visible fields in that section
   const visibleFields = fields.filter(f => isVisible(f, data, scope))
   const groups: Array<{ section?: string; items: FieldDef[] }> = []
   for (const f of visibleFields) {
@@ -98,7 +98,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         className={`appearance-none w-full rounded-md border bg-white px-3 py-2.5 pr-9 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`}
                         aria-invalid={isInvalid || undefined}
                         value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}>
-                        <option value="">{'—'} Select {'—'}</option>
+                        <option value="">Select</option>
                         {(options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500">
@@ -131,7 +131,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                     </div>
                   ) : f.type === 'file' ? (
                     <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-500">
-                      You can upload this file after submitting {'—'} your loan officer will request it through the borrower portal.
+                      You can upload this file after submitting. Your loan officer will request it through the borrower portal.
                     </p>
                   ) : f.type === 'currency' ? (
                     <CurrencyInput id={id} name={f.name}

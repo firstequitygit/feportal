@@ -14,7 +14,7 @@ export interface FieldDef {
   type: FieldType
   required?: boolean
   options?: readonly string[]
-  /** Dynamic options resolver — takes precedence over `options` when present. */
+  /** Dynamic options resolver - takes precedence over `options` when present. */
   optionsWhen?: (d: ApplicationData, scope?: ApplicationData) => readonly string[]
   placeholder?: string
   help?: string
@@ -28,7 +28,7 @@ export interface FieldDef {
   section?: string
 }
 
-// ---- Option lists (spec §5.1 — confirmed final) ----
+// ---- Option lists (spec 5.1, confirmed final) ----
 export const CREDIT_SCORE_OPTIONS = ['> 780','760-779','740-759','720-739','700-719','680-699','660-679','640-659','620-639','600-619','< 599'] as const
 export const LOAN_TYPE_OPTIONS = ['Fix & Flip/Renovation','New Construction','DSCR Rental Loan'] as const
 export const PROPERTY_TYPE_OPTIONS = ['Single Family','Condo','Multifamily (2-4 Units)','Multifamily (5+ Units)','Mixed Use','Other Commercial'] as const
@@ -109,7 +109,7 @@ export const EXPERIENCE_FIELDS: FieldDef[] = [
   { name: 'experience_explanation', label: 'Experience Explanation', type: 'textarea' },
 ]
 
-// Per-borrower declarations (Step 4) — all yes/no
+// Per-borrower declarations (Step 4) - all yes/no
 export const DECLARATION_FIELDS: FieldDef[] = [
   { name: 'd_liens', label: 'Do you have any outstanding liens or judgements against you?', type: 'yesno', required: true },
   { name: 'd_bankruptcy', label: 'Have you declared bankruptcy or had a foreclosure in the past 4 years?', type: 'yesno', required: true },
@@ -164,7 +164,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'construction_costs', label: 'Construction Costs', type: 'currency', visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
   { name: 'after_repaired_value', label: 'After Repaired Value', type: 'currency', visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
   { name: 'exit_strategy', label: 'Exit Strategy', type: 'select', options: EXIT_STRATEGY_OPTIONS, visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
-  { name: 'exit_strategy_other', label: 'Exit Strategy — Explain', type: 'textarea', visibleWhen: (d) => isBridge(d) && d.exit_strategy === 'Other (Explain Below)', section: 'Bridge loan details' },
+  { name: 'exit_strategy_other', label: 'Exit Strategy: Explain', type: 'textarea', visibleWhen: (d) => isBridge(d) && d.exit_strategy === 'Other (Explain Below)', section: 'Bridge loan details' },
   { name: 'total_monthly_rents', label: 'Total Monthly Rents (All Units)', type: 'currency', section: 'Rental income',
     visibleWhen: (d) => {
       const pt = d.property_type as string | undefined
@@ -276,8 +276,8 @@ export const ALL_FIELDS: readonly FieldDef[] = [
 // Step → field-array mapping is derived by inspecting each step component:
 //   Step 1 (borrower):      BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS for primary;
 //                           BORROWER_FIELDS for each co-borrower.
-//   Step 2 (deal):          DEAL_FIELDS — scope is the form root (no prefix).
-//   Step 3 (experience):    EXPERIENCE_FIELDS at the form root — none are required; returns [].
+//   Step 2 (deal):          DEAL_FIELDS - scope is the form root (no prefix).
+//   Step 3 (experience):    EXPERIENCE_FIELDS at the form root - none are required; returns [].
 //   Step 4 (declarations):  DECLARATION_FIELDS + HMDA_FIELDS at the form root (no prefix).
 //   Step 5 (authorization): auth_signature + payment_signature at the form root.
 //
@@ -331,17 +331,17 @@ export function getMissingRequiredFields(
       miss.push("has_deal")
       return miss
     }
-    // Deal fields: scope is the form root — no borrower prefix
+    // Deal fields: scope is the form root - no borrower prefix
     for (const f of DEAL_FIELDS) {
       if (isRequired(f, data) && isEmpty(data[f.name])) {
         miss.push(f.name)
       }
     }
   } else if (stepId === "experience") {
-    // EXPERIENCE_FIELDS are all optional — always returns []
+    // EXPERIENCE_FIELDS are all optional - always returns []
     // Fields stored at root: data.flips_last_3y, data.rental_units_owned, etc.
   } else if (stepId === "declarations") {
-    // DECLARATION_FIELDS + HMDA_FIELDS at root scope — one set for the whole application
+    // DECLARATION_FIELDS + HMDA_FIELDS at root scope - one set for the whole application
     for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
       if (isRequired(f, data) && isEmpty(data[f.name])) {
         miss.push(f.name)

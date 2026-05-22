@@ -72,9 +72,9 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         body: JSON.stringify({ email, firstName, data }),
       })
       const j = await res.json()
-      if (j.success) { setToken(j.resumeToken); toast.success('Progress saved — a resume link was emailed to you.') }
+      if (j.success) { setToken(j.resumeToken); toast.success('Progress saved. A resume link was emailed to you.') }
       else toast.error(j.error ?? 'Could not start application')
-    } catch { toast.error('Network error — please try again') }
+    } catch { toast.error('Network error - please try again') }
   }, [token, data])
 
   async function submit() {
@@ -103,7 +103,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         return
       }
       toast.error(j.error ?? 'Submit failed')
-    } catch { toast.error('Network error — please try again') }
+    } catch { toast.error('Network error - please try again') }
     finally { setSubmitting(false) }
   }
 
@@ -154,7 +154,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
         </div>
       )}
 
-      {/* SaveStatus — top-right above stepper */}
+      {/* SaveStatus - top-right above stepper */}
       <div className="mb-3 flex justify-end">
         <SaveStatus status={autosaveStatus} />
       </div>
@@ -230,7 +230,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
             <p className="mt-1 text-xs text-gray-400">Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes</p>
           </div>
 
-          {/* Error banner — standard alert */}
+          {/* Error banner - standard alert */}
           {liveMissing.length > 0 && (
             <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm">
               <p className="font-medium text-red-800">

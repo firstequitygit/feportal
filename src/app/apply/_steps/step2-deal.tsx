@@ -38,7 +38,7 @@ export function Step2Deal({ data, set, missingFields }: {
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-medium">Let&apos;s get you a pre-approval instead.</p>
           <p className="mt-1">
-            No problem — if you don&apos;t have a specific property yet, we can issue a
+            No problem. If you don&apos;t have a specific property yet, we can issue a
             proof-of-funds letter or pre-approval. Please contact your First Equity
             loan officer to get started. Online pre-approval coming soon.
           </p>

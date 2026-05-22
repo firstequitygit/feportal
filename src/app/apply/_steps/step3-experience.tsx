@@ -4,7 +4,7 @@ import { FieldRenderer } from '../_components/field-renderer'
 
 // NOTE: Experience fields are now stored at the root of `data` (e.g., data.flips_last_3y),
 // not per-borrower (e.g., data.primary.flips_last_3y). In-flight drafts saved before this
-// change will read empty experience values — that is acceptable; borrowers can re-enter.
+// change will read empty experience values. That is acceptable; borrowers can re-enter.
 
 export function Step3Experience({ data, set, missingFields }: {
   data: ApplicationData
