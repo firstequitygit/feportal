@@ -25,16 +25,11 @@ export function LoVendorsGrid({ initialRows }: { initialRows: VendorRow[] }) {
       id: 'name', label: 'Name', filterKind: 'contains', alwaysVisible: true,
       accessor: (r) => r.name,
       cell: (r) => <span className="text-sm font-medium text-gray-900">{r.name}</span>,
-      width: 'w-56',
+      width: 224,
     },
     {
-      id: 'type', label: 'Type', filterKind: 'multi',
-      filterOptions: [
-        { label: 'Title', value: 'title' },
-        { label: 'Insurance', value: 'insurance' },
-        { label: 'Appraisal', value: 'appraisal' },
-      ],
-      accessor: (r) => r.type,
+      id: 'type', label: 'Type', filterKind: 'facet',
+      accessor: (r) => TYPE_LABEL[r.type],
       cell: (r) => {
         const colors = {
           title: 'bg-blue-50 text-blue-700',
@@ -43,19 +38,19 @@ export function LoVendorsGrid({ initialRows }: { initialRows: VendorRow[] }) {
         } as const
         return <span className={`text-xs px-2 py-0.5 rounded-full ${colors[r.type]}`}>{TYPE_LABEL[r.type]}</span>
       },
-      width: 'w-28',
+      width: 112,
     },
     {
       id: 'emails', label: 'Emails', filterKind: 'contains',
       accessor: (r) => r.emails.join(', '),
       cell: (r) => <span className="text-sm text-gray-700">{r.emails.join(', ') || '—'}</span>,
-      width: 'w-64',
+      width: 256,
     },
     {
       id: 'phones', label: 'Phones', filterKind: 'contains',
       accessor: (r) => r.phones.join(', '),
       cell: (r) => <span className="text-sm text-gray-700">{r.phones.join(', ') || '—'}</span>,
-      width: 'w-48',
+      width: 192,
     },
     {
       id: 'loan_count', label: 'Loans', filterKind: 'range',
@@ -76,7 +71,7 @@ export function LoVendorsGrid({ initialRows }: { initialRows: VendorRow[] }) {
           </ul>
         </details>
       ),
-      width: 'w-32',
+      width: 128,
     },
   ]
 
@@ -84,6 +79,7 @@ export function LoVendorsGrid({ initialRows }: { initialRows: VendorRow[] }) {
     <DataGrid
       rows={initialRows}
       columns={columns}
+      storageKey="lo-vendors"
       defaultVisibleColumns={['name', 'type', 'emails', 'phones', 'loan_count']}
       emptyState="No vendors across your active loans yet."
     />

@@ -67,7 +67,7 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
         <EditableCell type="text" value={r.full_name} placeholder="—"
           onSave={(v) => patch(r.id, 'full_name', v)} />
       ),
-      width: 'w-56',
+      width: 224,
     },
     {
       id: 'email', label: 'Email', filterKind: 'contains',
@@ -77,7 +77,7 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
           readOnly={r.has_auth}
           onSave={(v) => patch(r.id, 'email', v)} />
       ),
-      width: 'w-64',
+      width: 256,
     },
     {
       id: 'phone', label: 'Phone', filterKind: 'contains',
@@ -86,40 +86,40 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
         <EditableCell type="phone" value={r.phone}
           onSave={(v) => patch(r.id, 'phone', v)} />
       ),
-      width: 'w-40',
+      width: 160,
     },
     {
       id: 'loan_count', label: 'Loans', filterKind: 'range',
       accessor: (r) => r.loan_count,
       cell: (r) => <span className="text-sm tabular-nums">{r.loan_count}</span>,
-      width: 'w-20',
+      width: 80,
     },
     {
-      id: 'loan_officers', label: 'Loan Officer', filterKind: 'contains',
+      id: 'loan_officers', label: 'Loan Officer', filterKind: 'facet',
       accessor: (r) => r.loan_officers.join(', '),
+      facetAccessor: (r) => r.loan_officers,
       cell: (r) => (
         <span className="text-sm text-gray-700">
           {r.loan_officers.length === 0 ? <span className="text-gray-400">—</span> : r.loan_officers.join(', ')}
         </span>
       ),
-      width: 'w-48',
+      width: 192,
     },
     {
-      id: 'has_auth', label: 'Status', filterKind: 'multi',
-      filterOptions: [{ label: 'Active', value: 'active' }, { label: 'Invited', value: 'invited' }],
-      accessor: (r) => r.has_auth ? 'active' : 'invited',
+      id: 'has_auth', label: 'Status', filterKind: 'facet',
+      accessor: (r) => r.has_auth ? 'Active' : 'Invited',
       cell: (r) => (
         <span className={`text-xs px-2 py-0.5 rounded-full ${r.has_auth ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
           {r.has_auth ? 'Active' : 'Invited'}
         </span>
       ),
-      width: 'w-24',
+      width: 96,
     },
     {
       id: 'created_at', label: 'Created', filterKind: 'none',
       accessor: (r) => r.created_at ?? '',
       cell: (r) => <span className="text-sm text-gray-500">{r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}</span>,
-      width: 'w-32',
+      width: 128,
     },
     {
       id: 'actions', label: '', sortable: false, filterKind: 'none', alwaysVisible: true,
@@ -134,7 +134,7 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
           <Trash2 className="w-4 h-4" />
         </button>
       ),
-      width: 'w-12',
+      width: 48,
     },
   ]
 
@@ -142,6 +142,7 @@ export function AdminBorrowersGrid({ initialRows }: { initialRows: AdminBorrower
     <DataGrid
       rows={rows}
       columns={columns}
+      storageKey="admin-borrowers"
       defaultVisibleColumns={['full_name', 'email', 'phone', 'loan_count', 'loan_officers', 'has_auth', 'actions']}
       rowHref={(r) => `/admin/borrowers/${r.id}`}
       emptyState="No borrowers yet."
