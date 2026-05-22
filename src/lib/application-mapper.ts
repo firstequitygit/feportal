@@ -156,7 +156,7 @@ export function mapApplication(data: ApplicationData): MappedApplication {
       sex: s(primary.hmda_sex),
     },
     meta: {
-      loanOfficerName: null,
+      loanOfficerName: s(primary.loan_officer_assigned),
       primaryEmail: s(primary.email),
       primaryFirstName: s(primary.first_name),
       propertyAddress: propAddress || 'your property',
