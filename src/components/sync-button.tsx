@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { RefreshCw } from 'lucide-react'
 
-export function SyncButton() {
+export function SyncButton({ collapsed = false }: { collapsed?: boolean } = {}) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
 
@@ -26,6 +27,15 @@ export function SyncButton() {
     } finally {
       setSyncing(false)
     }
+  }
+
+  if (collapsed) {
+    return (
+      <Button variant="outline" size="icon-sm" onClick={handleSync} disabled={syncing}
+        aria-label="Sync Pipedrive" title="Sync Pipedrive">
+        <RefreshCw className={syncing ? 'animate-spin' : ''} />
+      </Button>
+    )
   }
 
   return (

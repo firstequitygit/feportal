@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UserPlus } from 'lucide-react'
 
-export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: string } = {}) {
+export function InviteBorrower({ apiEndpoint = '/api/invite', collapsed = false }: { apiEndpoint?: string; collapsed?: boolean } = {}) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
@@ -63,6 +64,14 @@ export function InviteBorrower({ apiEndpoint = '/api/invite' }: { apiEndpoint?: 
   }
 
   if (!open) {
+    if (collapsed) {
+      return (
+        <Button variant="outline" size="icon-sm" onClick={() => setOpen(true)}
+          aria-label="Invite Borrower" title="Invite Borrower">
+          <UserPlus />
+        </Button>
+      )
+    }
     return (
       <Button variant="outline" onClick={() => setOpen(true)} size="sm">
         Invite Borrower

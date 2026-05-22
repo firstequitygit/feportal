@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -10,7 +10,7 @@ import { AirtableSyncButton } from '@/components/airtable-sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
 import { InviteBroker } from '@/components/invite-broker'
 import {
-  LayoutDashboard, LogOut, Menu, X,
+  LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
   Inbox, Building2, BarChart3, UserCircle, Briefcase, Store,
 } from 'lucide-react'
@@ -42,7 +42,6 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/underwriters',     label: 'Underwriters',        icon: ShieldCheck },
   { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
-  { href: '/admin/vendors',          label: 'Vendors',             icon: Store },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
@@ -95,10 +94,31 @@ export function PortalShell({
   isSuperAdmin = false,
   children,
 }: Props) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false)          // mobile drawer (unchanged)
+  const [pinned, setPinned] = useState(true)       // desktop pin; default = today's look
+  const [mouseOver, setMouseOver] = useState(false)
+  const [focusWithin, setFocusWithin] = useState(false)
+  const expanded = pinned || mouseOver || focusWithin
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+
+  // Restore the user's last pinned/collapsed choice. localStorage is unavailable
+  // during SSR, so read after mount (mirrors the DataGrid persistence pattern).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar:pinned')
+      if (saved !== null) setPinned(JSON.parse(saved) as boolean)
+    } catch { /* ignore corrupt storage */ }
+  }, [])
+
+  function togglePinned() {
+    setPinned(prev => {
+      const next = !prev
+      try { localStorage.setItem('sidebar:pinned', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   const displayName = userName ?? userRole
   const initials = displayName.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
@@ -160,11 +180,18 @@ export function PortalShell({
       </header>
 
       {/* Sidebar — extends fully to top of screen (behind top bar on left) */}
-      <aside className={`
+      <aside
+        onMouseEnter={() => setMouseOver(true)}
+        onMouseLeave={() => setMouseOver(false)}
+        onFocus={() => setFocusWithin(true)}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusWithin(false) }}
+        className={`
         fixed inset-y-0 left-0 z-30 w-60 bg-white border-r border-gray-200 flex flex-col
-        transition-transform duration-200 ease-in-out
+        transition-all duration-200 ease-in-out
         ${open ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
+        ${expanded ? 'md:w-60' : 'md:w-16'}
+        ${!pinned && expanded ? 'md:shadow-xl' : ''}
       `}>
 
         {/* Mobile close */}
@@ -176,16 +203,26 @@ export function PortalShell({
           <X className="w-4 h-4" />
         </button>
 
-        {/* User — sits at the very top of the sidebar */}
-        <div className="px-4 py-4 border-b border-gray-100 mt-14 md:mt-0">
-          <div className="flex items-center gap-3">
+        {/* User + desktop pin toggle — top section, height matches the top bar so their borders align */}
+        <div className="px-3 h-14 flex items-center border-b border-gray-100 mt-14 md:mt-0">
+          <div className={`flex items-center w-full ${expanded ? 'gap-3' : 'md:justify-center'}`}>
             <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold flex-shrink-0 select-none">
               {initials}
             </div>
-            <div className="min-w-0">
+            <div className={`min-w-0 flex-1 ${!expanded ? 'md:hidden' : ''}`}>
               <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{displayName}</p>
               <p className="text-xs text-gray-500 leading-tight mt-0.5">{userRole}</p>
             </div>
+            {expanded && (
+              <button
+                onClick={togglePinned}
+                className="hidden md:inline-flex p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex-shrink-0"
+                aria-label={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
+                title={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
+              >
+                {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+              </button>
+            )}
           </div>
         </div>
 
@@ -198,14 +235,15 @@ export function PortalShell({
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? 'bg-primary/10 text-primary'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
+                } ${expanded ? 'px-3' : 'px-3 md:justify-center md:px-0'}`}
+                title={!expanded ? label : undefined}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
+                <span className={!expanded ? 'md:hidden' : ''}>{label}</span>
               </Link>
             )
           })}
@@ -213,15 +251,15 @@ export function PortalShell({
 
         {/* Role-specific action buttons (Sync / Invite). Borrower gets none. */}
         {(variant === 'admin' || variant === 'loan-officer' || variant === 'loan-processor' || variant === 'underwriter') && (
-          <div className="px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col items-start gap-2">
-            <SyncButton />
-            {variant === 'admin' && <AirtableSyncButton />}
-            {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" />}
-            {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" />}
-            {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" />}
-            {variant === 'loan-officer' && <InviteBroker apiEndpoint="/api/loan-officer/invite-broker" />}
-            {variant === 'loan-processor' && <InviteBorrower apiEndpoint="/api/loan-processor/invite" />}
-            {variant === 'loan-processor' && <InviteBroker apiEndpoint="/api/loan-processor/invite-broker" />}
+          <div className={`px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col gap-2 ${expanded ? 'items-start' : 'items-start md:items-center'}`}>
+            <SyncButton collapsed={!expanded} />
+            {variant === 'admin' && <AirtableSyncButton collapsed={!expanded} />}
+            {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" collapsed={!expanded} />}
+            {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" collapsed={!expanded} />}
+            {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" collapsed={!expanded} />}
+            {variant === 'loan-officer' && <InviteBroker apiEndpoint="/api/loan-officer/invite-broker" collapsed={!expanded} />}
+            {variant === 'loan-processor' && <InviteBorrower apiEndpoint="/api/loan-processor/invite" collapsed={!expanded} />}
+            {variant === 'loan-processor' && <InviteBroker apiEndpoint="/api/loan-processor/invite-broker" collapsed={!expanded} />}
           </div>
         )}
 
@@ -229,16 +267,17 @@ export function PortalShell({
         <div className="px-3 pb-6 pt-4">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors w-full"
+            className={`flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors w-full ${expanded ? 'px-3' : 'px-3 md:justify-center md:px-0'}`}
+            title={!expanded ? 'Sign out' : undefined}
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
-            Sign out
+            <span className={!expanded ? 'md:hidden' : ''}>Sign out</span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="md:ml-60 min-h-screen bg-gray-50">
+      <main className={`min-h-screen bg-gray-50 transition-all duration-200 ${pinned ? 'md:ml-60' : 'md:ml-16'}`}>
         <div className={`pt-20 md:pt-20 pb-8 ${maxWidth} mx-auto px-4 md:px-8`}>
           {children}
         </div>

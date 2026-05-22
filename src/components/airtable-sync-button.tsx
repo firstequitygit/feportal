@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Database } from 'lucide-react'
 
 interface BatchSummary {
   total: number
@@ -21,7 +22,7 @@ interface BatchSummary {
  * sync between the portal and the Airtable Deals base. Model B: fill blanks
  * only — never overwrite a populated field on either side.
  */
-export function AirtableSyncButton() {
+export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean } = {}) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
 
@@ -46,6 +47,15 @@ export function AirtableSyncButton() {
     } finally {
       setSyncing(false)
     }
+  }
+
+  if (collapsed) {
+    return (
+      <Button variant="outline" size="icon-sm" onClick={handleSync} disabled={syncing}
+        aria-label="Sync Airtable" title="Sync Airtable">
+        <Database className={syncing ? 'animate-pulse' : ''} />
+      </Button>
+    )
   }
 
   return (
