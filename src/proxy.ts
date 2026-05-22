@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
 
   // IMPORTANT: getUser() above may have refreshed (and, with rotation enabled, rotated) the
   // auth token, writing the new cookies onto `supabaseResponse`. Any response we return in
-  // place of `supabaseResponse` — i.e. a redirect — MUST copy those cookies over. Otherwise
+  // place of `supabaseResponse` (i.e. a redirect) MUST copy those cookies over. Otherwise
   // the browser keeps the old (now-rotated) refresh token, desyncs from the server, and
   // Supabase terminates the session prematurely. See the Supabase SSR middleware docs.
   const redirectTo = (path: string) => {
