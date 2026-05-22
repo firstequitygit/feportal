@@ -293,6 +293,16 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
   // On Hold loans get their own collapsible bucket, defaulted to closed so
   // they don't clutter the active list. Matches the Closed bucket pattern.
   const [onHoldExpanded, setOnHoldExpanded] = useState(false)
+  // Per-LO collapse state for the stage-filtered grouped view. Default
+  // expanded — the user just clicked into a stage to see those loans.
+  const [collapsedLOs, setCollapsedLOs] = useState<Set<string>>(new Set())
+  function toggleLO(name: string) {
+    setCollapsedLOs(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
 
   // Always offer the full set of non-Closed stages as filter pills so the
   // user can see every stage that exists in the system (even if no loan is
@@ -416,26 +426,47 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
               {groupByLoanOfficer && stageFilter !== 'all' ? (
                 // Stage-filtered + multi-LO list (LP / UW) — break into
                 // alphabetical LO sub-sections so the user can scan by
-                // who's running each loan.
-                <div className="space-y-6">
-                  {groupLoansByLoanOfficer(sortedActive).map(({ name, loans }) => (
-                    <div key={name}>
-                      <h4 className="text-xs font-medium text-gray-500 mb-2 ml-1">
-                        {name} <span className="text-gray-300">·</span> {loans.length}
-                      </h4>
-                      <div className="space-y-3">
-                        {loans.map(loan => (
-                          <LoanCard
-                            key={loan.id}
-                            loan={loan}
-                            outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                            lastUpdated={lastUpdatedMap[loan.id]}
-                            linkPrefix={linkPrefix}
+                // who's running each loan. Each LO group is independently
+                // collapsible; default expanded since the user just chose
+                // this stage.
+                <div className="space-y-4">
+                  {groupLoansByLoanOfficer(sortedActive).map(({ name, loans }) => {
+                    const isCollapsed = collapsedLOs.has(name)
+                    return (
+                      <div key={name}>
+                        <button
+                          type="button"
+                          onClick={() => toggleLO(name)}
+                          aria-expanded={!isCollapsed}
+                          className="w-full flex items-center gap-2 mb-2 ml-1 text-left group"
+                        >
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
                           />
-                        ))}
+                          <h4 className="text-xs font-medium text-gray-500 group-hover:text-gray-700 transition-colors">
+                            {name} <span className="text-gray-300">·</span> {loans.length}
+                          </h4>
+                          <div className="flex-1 h-px bg-gray-100 ml-2" />
+                          <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors whitespace-nowrap">
+                            {isCollapsed ? 'Show' : 'Hide'}
+                          </span>
+                        </button>
+                        {!isCollapsed && (
+                          <div className="space-y-3">
+                            {loans.map(loan => (
+                              <LoanCard
+                                key={loan.id}
+                                loan={loan}
+                                outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                                lastUpdated={lastUpdatedMap[loan.id]}
+                                linkPrefix={linkPrefix}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3">
