@@ -142,10 +142,45 @@ export async function PATCH(req: NextRequest) {
     catch (err) { console.error('Pre-UW claim email error:', err) }
   }
 
-  // Conditionally Approved transition: hardcoded alert to Omayra so she can
-  // track loans landing in this stage. Portal-only stage — this is the only
-  // place that triggers it.
+  // Conditionally Approved transition:
+  //   1. Auto-assign Omayra as LP #2 if she isn't already on the loan and
+  //      the slot is empty — without this, the email link she gets opens to
+  //      a 404 because the LP loan detail page requires assignment.
+  //   2. Send her the alert email (after the assignment lands, so the link
+  //      works on first click).
+  // Portal-only stage — this is the only place that triggers either step.
   if (stage === 'Conditionally Approved' && previousStage !== 'Conditionally Approved') {
+    try {
+      const { data: omayra } = await adminClient
+        .from('loan_processors')
+        .select('id, full_name')
+        .eq('email', 'ocartagena@fefunding.com')
+        .maybeSingle()
+
+      const alreadyOnLoan =
+        omayra &&
+        (loan.loan_processor_id === omayra.id || loan.loan_processor_id_2 === omayra.id)
+
+      if (omayra && !alreadyOnLoan && !loan.loan_processor_id_2) {
+        const { error: assignErr } = await adminClient
+          .from('loans')
+          .update({ loan_processor_id_2: omayra.id })
+          .eq('id', loanId)
+
+        if (assignErr) {
+          console.error('Omayra LP #2 assign error:', assignErr.message)
+        } else {
+          await adminClient.from('loan_events').insert({
+            loan_id: loanId,
+            event_type: 'loan_processor_assigned',
+            description: `${omayra.full_name} auto-assigned as Loan Processor on Conditionally Approved transition`,
+          }).then(() => {}, err => console.error('Auto-assign event log error:', err))
+        }
+      }
+    } catch (err) {
+      console.error('Omayra auto-assign lookup error:', err)
+    }
+
     try { await sendConditionallyApprovedAlert(loanId) }
     catch (err) { console.error('Conditionally Approved alert error:', err) }
   }
