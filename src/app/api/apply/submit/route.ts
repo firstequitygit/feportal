@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapApplication } from '@/lib/application-mapper'
 import {
-  BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, DECLARATION_FIELDS, HMDA_FIELDS,
-  isRequired, type ApplicationData,
+  BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, UNIT_FIELDS, DECLARATION_FIELDS, HMDA_FIELDS,
+  dscrUnitCount, isRequired, type ApplicationData,
 } from '@/lib/application-fields'
 import { sendApplicationSubmittedEmail, sendApplicationLoanOfficerNotice } from '@/lib/email'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
@@ -31,6 +31,20 @@ function missingRequired(data: ApplicationData): string[] {
   for (const f of DEAL_FIELDS) {
     if (isRequired(f, data) && isEmpty(data[f.name])) {
       miss.push(f.name)
+    }
+  }
+
+  // Per-unit rental fields (DSCR loans only)
+  const unitCount = dscrUnitCount(data)
+  if (unitCount > 0) {
+    const units = Array.isArray(data.units) ? (data.units as Record<string, unknown>[]) : []
+    for (let i = 0; i < unitCount; i++) {
+      const scope = (units[i] ?? {}) as ApplicationData
+      for (const f of UNIT_FIELDS) {
+        if (isRequired(f, data, scope) && isEmpty(scope[f.name as keyof typeof scope])) {
+          miss.push(`unit${i + 1}.${f.name}`)
+        }
+      }
     }
   }
 

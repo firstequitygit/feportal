@@ -32,7 +32,7 @@ export function Step2Deal({ data, set, missingFields, token }: {
             onChange={(n, v) => set({ [n]: v })}
             missingFields={missingFields}
           />
-          <RepeatingUnits data={data} set={set} />
+          <RepeatingUnits data={data} set={set} missingFields={missingFields} />
           <div className="pt-2">
             <PropertyDocuments
               token={token}

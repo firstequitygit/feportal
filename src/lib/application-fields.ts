@@ -274,6 +274,19 @@ export const UNIT_FIELDS: FieldDef[] = [
     requiredWhen: (_d, s) => s?.currently_rented === false },
 ]
 
+/** Returns how many per-unit rental cards to render for a DSCR loan.
+ *  Single Family/Condo = 1, Multifamily (2-4 Units) = dscr_unit_count (2/3/4), else 0. */
+export function dscrUnitCount(data: ApplicationData): number {
+  if (data.loan_type !== 'DSCR Rental Loan') return 0
+  const pt = data.property_type
+  if (pt === 'Single Family' || pt === 'Condo') return 1
+  if (pt === 'Multifamily (2-4 Units)') {
+    const n = Number(data.dscr_unit_count)
+    return n >= 2 && n <= 4 ? n : 0
+  }
+  return 0
+}
+
 /** Generic visibility resolver used by the renderer AND server validation. */
 export function isVisible(f: FieldDef, data: ApplicationData, scope?: ApplicationData): boolean {
   return f.visibleWhen ? f.visibleWhen(data, scope) : true
@@ -307,6 +320,7 @@ export const ALL_FIELDS: readonly FieldDef[] = [
   ...BORROWER_FIELDS,
   ...PRIMARY_EXTRA_FIELDS,
   ...DEAL_FIELDS,
+  ...UNIT_FIELDS,
   ...EXPERIENCE_FIELDS,
   ...DECLARATION_FIELDS,
   ...HMDA_FIELDS,
@@ -376,6 +390,19 @@ export function getMissingRequiredFields(
     for (const f of DEAL_FIELDS) {
       if (isRequired(f, data) && isEmpty(data[f.name])) {
         miss.push(f.name)
+      }
+    }
+    // Per-unit rental fields (DSCR loans only)
+    const unitCount = dscrUnitCount(data)
+    if (unitCount > 0) {
+      const units = Array.isArray(data.units) ? (data.units as Record<string, unknown>[]) : []
+      for (let i = 0; i < unitCount; i++) {
+        const scope = (units[i] ?? {}) as ApplicationData
+        for (const f of UNIT_FIELDS) {
+          if (isRequired(f, data, scope) && isEmpty(scope[f.name as keyof typeof scope])) {
+            miss.push(`unit${i + 1}.${f.name}`)
+          }
+        }
       }
     }
   } else if (stepId === "experience") {

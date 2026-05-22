@@ -14,6 +14,7 @@ import { SaveStatus } from "@/components/ui/save-status"
 // Resolve a prefixed field name to its current value in data.
 // "primary.first_name"  -> data.primary?.first_name
 // "coborrower1.ssn"     -> data.co_borrowers?.[0]?.ssn
+// "unit1.current_rent"  -> data.units?.[0]?.current_rent
 // "purchase_price"      -> data.purchase_price
 function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
   const dot = prefixedName.indexOf(".")
@@ -28,6 +29,10 @@ function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
     } else if (ns.startsWith("coborrower")) {
       const i = parseInt(ns.slice("coborrower".length), 10) - 1
       const arr = (data as { co_borrowers?: Array<Record<string, unknown>> }).co_borrowers
+      v = arr?.[i]?.[field]
+    } else if (ns.startsWith("unit")) {
+      const i = parseInt(ns.slice("unit".length), 10) - 1
+      const arr = (data as { units?: Array<Record<string, unknown>> }).units
       v = arr?.[i]?.[field]
     }
   }
@@ -245,7 +250,9 @@ export function Wizard({ initialData, initialStep, initialToken }: {
                   const ns = dot === -1 ? "" : name.slice(0, dot)
                   const displayPrefix = ns.startsWith("coborrower")
                     ? `Co-Borrower ${ns.slice("coborrower".length)}: `
-                    : ""
+                    : ns.startsWith("unit")
+                      ? `Unit ${ns.slice("unit".length)}: `
+                      : ""
                   return (
                     <li key={name}>
                       <button
