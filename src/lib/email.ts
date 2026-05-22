@@ -38,10 +38,10 @@ function shortStage(s: string | null): string {
  * isn't covered by the specialized Loan Approved / Loan Funded emails.
  *
  * Recipients:
- *   - The loan's outside contacts via getLoanContacts() — broker if a broker
+ *   - The loan's outside contacts via getLoanContacts() - broker if a broker
  *     is assigned, else every borrower slot. Each contact gets a personalized
  *     "Hi {name}" greeting.
- *   - Staff (LO + both LP slots) — get the same email with a generic greeting.
+ *   - Staff (LO + both LP slots) - get the same email with a generic greeting.
  */
 export async function sendStageUpdateEmail(
   loanId: string,
@@ -71,7 +71,7 @@ export async function sendStageUpdateEmail(
   const fromLabel = shortStage(fromStage)
   const toLabel = shortStage(toStage)
 
-  const subject = `Loan stage updated — ${property}`
+  const subject = `Loan stage updated - ${property}`
   const bodyHtml = (greeting: string) => `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
       <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
@@ -89,7 +89,7 @@ export async function sendStageUpdateEmail(
             View loan
           </a>
         </p>
-        <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
+        <p style="font-size: 13px; color: #555; margin-top: 24px;">- The First Equity Funding Team</p>
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
         <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
       </div>
@@ -152,7 +152,7 @@ export async function sendLoanFundedEmail(loanId: string) {
   const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
 
-  const subject = `🏠 Loan funded — ${loan.property_address ?? 'property'}`
+  const subject = `🏠 Loan funded - ${loan.property_address ?? 'property'}`
   const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -216,7 +216,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
   const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
 
-  const subject = `🎉 Loan Approved — ${loan.property_address ?? 'property'}`
+  const subject = `🎉 Loan Approved - ${loan.property_address ?? 'property'}`
   const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -280,13 +280,13 @@ const wrap = (title: string, bodyHtml: string) => `
 
 export async function sendApplicationResumeEmail(email: string, token: string, firstName: string | null) {
   const link = `${PORTAL_URL}/apply/resume/${token}`
-  const html = wrap('Your loan application — saved', `
+  const html = wrap('Your loan application - saved', `
     <p style="font-size: 15px; margin-top: 0;">Hi ${firstName ?? 'there'},</p>
-    <p style="font-size: 15px;">Your loan application has been saved. You can return any time using the secure link below — your answers will be exactly where you left off.</p>
+    <p style="font-size: 15px;">Your loan application has been saved. You can return any time using the secure link below - your answers will be exactly where you left off.</p>
     <p style="margin-top: 24px;">
       <a href="${link}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Resume application</a>
     </p>
-    <p style="font-size: 13px; color: #555; margin-top: 24px;">Keep this email — the link is private to you.</p>`)
+    <p style="font-size: 13px; color: #555; margin-top: 24px;">Keep this email - the link is private to you.</p>`)
   await getTransporter().sendMail({
     from: `First Equity Funding <${process.env.GMAIL_USER}>`,
     to: email, subject: 'Resume your First Equity loan application', html,
