@@ -1,7 +1,32 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Check, X } from 'lucide-react'
+
+// Hook: read the toggle button's viewport rect so we can portal the popover
+// at the right coordinates. Recomputes on scroll + resize, so the popover
+// stays glued to the toggle while the page moves under it.
+function useAnchorRect(anchor: HTMLElement | null, active: boolean): DOMRect | null {
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  useLayoutEffect(() => {
+    if (!anchor || !active) {
+      setRect(null)
+      return
+    }
+    const update = () => setRect(anchor.getBoundingClientRect())
+    update()
+    window.addEventListener('scroll', update, true)  // capture so we catch ancestor scrolls
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [anchor, active])
+
+  return rect
+}
 
 export interface SearchableSelectOption {
   id: string
@@ -43,7 +68,14 @@ export function SearchableSelect({
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const anchorRect = useAnchorRect(toggleRef.current, open)
+
+  // Only render the portal client-side (document is undefined during SSR).
+  useEffect(() => { setMounted(true) }, [])
 
   const selected = options.find(o => o.id === value) ?? null
 
@@ -59,11 +91,17 @@ export function SearchableSelect({
   // Reset the highlighted row whenever the filtered set changes.
   useEffect(() => { setHighlight(0) }, [query, open])
 
-  // Click-outside closes the popover.
+  // Click-outside closes the popover. We have to check BOTH the root (toggle
+  // button) and the portaled popover — the popover lives outside the root in
+  // the DOM tree, so a normal contains() check would treat clicks inside it
+  // as outside-clicks and dismiss the menu immediately.
   useEffect(() => {
     if (!open) return
     function handler(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const inRoot = rootRef.current?.contains(target)
+      const inPopover = popoverRef.current?.contains(target)
+      if (!inRoot && !inPopover) {
         setOpen(false)
         setQuery('')
       }
@@ -113,6 +151,7 @@ export function SearchableSelect({
     <div ref={rootRef} className="relative">
       {/* The toggle — styled like the native select for visual consistency. */}
       <button
+        ref={toggleRef}
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen(o => !o)}
@@ -124,8 +163,19 @@ export function SearchableSelect({
         <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && (
-        <div className="absolute z-30 mt-1 left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg max-h-80 overflow-hidden flex flex-col">
+      {/* Popover is portaled to document.body so it escapes any ancestor
+          overflow:hidden (Card has it). Positioned with `fixed` against
+          the toggle's bounding rect. */}
+      {open && mounted && anchorRect && createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: 'fixed',
+            top: anchorRect.bottom + 4,
+            left: anchorRect.left,
+            width: anchorRect.width,
+          }}
+          className="z-50 bg-white border border-gray-200 rounded-md shadow-lg max-h-80 overflow-hidden flex flex-col">
           {/* Search input */}
           <div className="border-b border-gray-100 p-2">
             <div className="relative">
@@ -192,7 +242,8 @@ export function SearchableSelect({
               {emptyLabel}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
