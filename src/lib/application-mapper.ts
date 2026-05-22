@@ -84,7 +84,6 @@ export function mapApplication(data: ApplicationData): MappedApplication {
     down_payment_borrowed: b(primary.d_down_payment_borrowed),
     us_citizen: b(primary.d_us_citizen),
     permanent_resident: b(primary.d_permanent_resident),
-    foreign_national: b(primary.d_foreign_national),
     intent_to_occupy: b(primary.d_intent_to_occupy),
     explanation: s(data.declarations_explanation),
     per_borrower: borrowers.map((_, i) => {
@@ -93,7 +92,7 @@ export function mapApplication(data: ApplicationData): MappedApplication {
         d_liens: b(src.d_liens), d_bankruptcy: b(src.d_bankruptcy), d_delinquent: b(src.d_delinquent),
         d_foreclosure_obligation: b(src.d_foreclosure_obligation), d_lawsuit: b(src.d_lawsuit),
         d_down_payment_borrowed: b(src.d_down_payment_borrowed), d_us_citizen: b(src.d_us_citizen),
-        d_permanent_resident: b(src.d_permanent_resident), d_foreign_national: b(src.d_foreign_national),
+        d_permanent_resident: b(src.d_permanent_resident),
         d_intent_to_occupy: b(src.d_intent_to_occupy),
         hmda_ethnicity: s(src.hmda_ethnicity), hmda_race: s(src.hmda_race), hmda_sex: s(src.hmda_sex),
       }
@@ -117,7 +116,6 @@ export function mapApplication(data: ApplicationData): MappedApplication {
       s(primary.other_re_experience) && `Other RE experience: ${s(primary.other_re_experience)}`,
       s(primary.experience_explanation),
     ].filter(Boolean).join('\n') || null,
-    foreign_national: b(primary.d_foreign_national),
     credit_score_estimate: null,
     own_or_rent: s(primary.housing_status),
     mortgage_on_primary: b(primary.mortgage_on_primary),
