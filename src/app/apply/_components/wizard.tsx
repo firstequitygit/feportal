@@ -160,7 +160,7 @@ export function Wizard({ initialData, initialStep, initialToken }: {
       </div>
 
       {/* Horizontal numbered-circle stepper */}
-      <nav aria-label="Application progress" className="mb-10">
+      <nav aria-label="Application progress" className="mb-8">
         <ol className="flex items-start justify-between">
           {STEP_TITLES.map((title, i) => {
             const n = i + 1
@@ -222,9 +222,9 @@ export function Wizard({ initialData, initialStep, initialToken }: {
 
       {/* Form card */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="p-6 sm:p-8">
+        <div className="p-5 sm:p-6">
           {/* Step heading */}
-          <div className="mb-6">
+          <div className="mb-5">
             <h2 className="text-2xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
             <p className="mt-1 text-sm text-gray-500">{STEPS[step - 1].subtitle}</p>
             <p className="mt-1 text-xs text-gray-400">Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes</p>

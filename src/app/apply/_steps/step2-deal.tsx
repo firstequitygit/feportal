@@ -12,7 +12,7 @@ export function Step2Deal({ data, set, missingFields }: {
   const restFields = DEAL_FIELDS.filter(f => f.name !== 'has_deal')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <FieldRenderer
         fields={[gateField]}
         data={data}

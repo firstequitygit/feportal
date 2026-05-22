@@ -83,7 +83,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit }: 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Review recap */}
       {onEdit && (
         <ReviewSummary data={data} onEdit={onEdit} />
