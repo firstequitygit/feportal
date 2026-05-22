@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface BrokerOption {
   id: string
@@ -72,25 +73,26 @@ export function BrokerAssign({ loanId, currentBrokerId, currentBrokerId2 = null,
         </p>
 
         {[0, 1].map(slotIndex => {
-          const selected = slots[slotIndex] ?? ''
+          const selected = slots[slotIndex]
           const options = selectableBrokersFor(slotIndex)
           return (
             <div key={slotIndex} className="space-y-1.5">
               <label className="text-xs font-medium text-gray-700">{SLOT_LABELS[slotIndex]}</label>
               <div className="flex gap-2">
-                <select
-                  value={selected}
-                  onChange={(e) => saveSlot(slotIndex, e.target.value || null)}
-                  disabled={savingSlot !== null}
-                  className="flex-1 border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-                >
-                  <option value="">— {slotIndex === 0 ? 'No broker (direct to borrower)' : 'None'} —</option>
-                  {options.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.full_name ?? b.email}{b.company_name ? ` · ${b.company_name}` : ''} ({b.email})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={selected}
+                    onChange={(id) => saveSlot(slotIndex, id)}
+                    options={options.map(b => ({
+                      id: b.id,
+                      label: (b.full_name || b.email) + (b.company_name ? ` · ${b.company_name}` : ''),
+                      sublabel: b.email,
+                    }))}
+                    placeholder="Search brokers…"
+                    emptyLabel={slotIndex === 0 ? '— No broker (direct to borrower) —' : '— None —'}
+                    disabled={savingSlot !== null}
+                  />
+                </div>
                 {savingSlot === slotIndex && (
                   <Button size="sm" variant="outline" disabled>Saving…</Button>
                 )}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface BorrowerOption {
   id: string
@@ -74,25 +75,26 @@ export function CoBorrowersAssign({ loanId, currentSlots, allBorrowers, primaryB
           login and receives the same notifications as the primary borrower.
         </p>
         {[0, 1, 2].map(slotIndex => {
-          const selected = slots[slotIndex] ?? ''
+          const selected = slots[slotIndex]
           const options = selectableBorrowersFor(slotIndex)
           return (
             <div key={slotIndex} className="space-y-1.5">
               <label className="text-xs font-medium text-gray-700">{SLOT_LABELS[slotIndex]}</label>
               <div className="flex gap-2">
-                <select
-                  value={selected}
-                  onChange={(e) => saveSlot(slotIndex, e.target.value || null)}
-                  disabled={savingSlot !== null}
-                  className="flex-1 border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-                >
-                  <option value="">— None —</option>
-                  {options.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.full_name ?? b.email} ({b.email})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={selected}
+                    onChange={(id) => saveSlot(slotIndex, id)}
+                    options={options.map(b => ({
+                      id: b.id,
+                      label: b.full_name || b.email,
+                      sublabel: b.email,
+                    }))}
+                    placeholder="Search borrowers…"
+                    emptyLabel="— None —"
+                    disabled={savingSlot !== null}
+                  />
+                </div>
                 {savingSlot === slotIndex && (
                   <Button size="sm" variant="outline" disabled>Saving…</Button>
                 )}

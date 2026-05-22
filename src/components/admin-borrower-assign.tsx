@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/searchable-select'
 
 interface Props {
   loanId: string
@@ -47,18 +48,17 @@ export function AdminBorrowerAssign({ loanId, currentBorrowerId, allBorrowers, a
         <p className="text-sm text-gray-500">
           Assign a borrower to give them portal access to this loan.
         </p>
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">— Unassigned —</option>
-          {allBorrowers.map(b => (
-            <option key={b.id} value={b.id}>
-              {b.full_name ?? b.email} ({b.email})
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          value={selected || null}
+          onChange={(id) => setSelected(id ?? '')}
+          options={allBorrowers.map(b => ({
+            id: b.id,
+            label: b.full_name || b.email,
+            sublabel: b.email,
+          }))}
+          placeholder="Search borrowers…"
+          emptyLabel="— Unassigned —"
+        />
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save Assignment'}
         </Button>
