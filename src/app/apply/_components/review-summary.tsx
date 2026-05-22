@@ -1,8 +1,8 @@
 'use client'
 import {
-  BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, EXPERIENCE_FIELDS,
+  BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, UNIT_FIELDS, EXPERIENCE_FIELDS,
   DECLARATION_FIELDS, HMDA_FIELDS, STEPS,
-  isVisible,
+  dscrUnitCount, isVisible,
   type ApplicationData, type FieldDef,
 } from "@/lib/application-fields"
 
@@ -104,6 +104,20 @@ export function ReviewSummary({ data, onEdit }: {
   const dealRows = collectRows(DEAL_FIELDS, data, data as Record<string, unknown>)
   if (dealRows.length > 0) {
     groups.push({ heading: STEPS[1].title, editStep: 2, rows: dealRows })
+  }
+
+  // Step 2 - per-unit rental data (DSCR loans only)
+  const unitCount = dscrUnitCount(data)
+  if (unitCount > 0) {
+    const units = Array.isArray(data.units) ? (data.units as Record<string, unknown>[]) : []
+    for (let i = 0; i < unitCount; i++) {
+      const scope = units[i] ?? {}
+      const unitRows = collectRows(UNIT_FIELDS, data, scope)
+      if (unitRows.length > 0) {
+        const heading = unitCount === 1 ? 'Rental income' : `Unit ${i + 1}`
+        groups.push({ heading, editStep: 2, rows: unitRows })
+      }
+    }
   }
 
   // Step 3 - experience (root scope)
