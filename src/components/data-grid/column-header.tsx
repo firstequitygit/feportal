@@ -1,21 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowUp, ArrowDown, ChevronsUpDown, Filter } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { FilterValue, SortState } from './use-grid-url-state'
 
-export type ColumnFilterKind = 'contains' | 'range' | 'multi' | 'none'
+export type ColumnFilterKind = 'contains' | 'range' | 'multi' | 'facet' | 'none'
 
 export interface ColumnHeaderProps {
   id: string
   label: string
   sortable: boolean
   filterKind: ColumnFilterKind
-  /** For multi-select filters: list of option values & labels. */
+  /** For 'multi' filters: explicit list of option values & labels. */
   options?: { label: string; value: string }[]
+  /** For 'facet' filters: distinct values derived from the column's data. */
+  facetOptions?: string[]
   sort: SortState
   filter: FilterValue | undefined
   onSort: (next: SortState) => void
@@ -23,7 +25,7 @@ export interface ColumnHeaderProps {
 }
 
 export function ColumnHeader({
-  id, label, sortable, filterKind, options,
+  id, label, sortable, filterKind, options, facetOptions,
   sort, filter, onSort, onFilter,
 }: ColumnHeaderProps) {
   const [open, setOpen] = useState(false)
@@ -47,17 +49,17 @@ export function ColumnHeader({
     <div className="flex items-center justify-between gap-2 group">
       <button
         type="button"
-        className={`flex items-center gap-1 text-xs font-medium text-gray-600 uppercase tracking-wide ${sortable ? 'hover:text-gray-900' : ''}`}
+        className={`flex items-center gap-1 text-xs font-medium text-gray-600 uppercase tracking-wide truncate ${sortable ? 'hover:text-gray-900' : ''}`}
         onClick={toggleSort}
         disabled={!sortable}
       >
-        <span>{label}</span>
+        <span className="truncate">{label}</span>
         {sortIcon}
       </button>
       {filterKind !== 'none' && (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger
-            className={`inline-flex items-center justify-center rounded-lg border border-transparent h-6 w-6 p-0 text-sm font-medium transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground ${filter ? 'text-primary' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`inline-flex items-center justify-center rounded-lg border border-transparent h-6 w-6 p-0 shrink-0 text-sm font-medium transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground ${filter ? 'text-primary' : 'text-gray-400 hover:text-gray-700'}`}
           >
             <Filter className="w-3 h-3" />
           </PopoverTrigger>
@@ -65,6 +67,7 @@ export function ColumnHeader({
             <FilterEditor
               kind={filterKind}
               options={options}
+              facetOptions={facetOptions}
               value={filter}
               onChange={(next) => { onFilter(next); if (next === null) setOpen(false) }}
               onClose={() => setOpen(false)}
@@ -77,10 +80,11 @@ export function ColumnHeader({
 }
 
 function FilterEditor({
-  kind, options, value, onChange, onClose,
+  kind, options, facetOptions, value, onChange, onClose,
 }: {
   kind: ColumnFilterKind
   options?: { label: string; value: string }[]
+  facetOptions?: string[]
   value: FilterValue | undefined
   onChange: (next: FilterValue | null) => void
   onClose: () => void
@@ -148,5 +152,77 @@ function FilterEditor({
       </div>
     )
   }
+  if (kind === 'facet') {
+    return (
+      <FacetFilter
+        allOptions={facetOptions ?? []}
+        value={value}
+        onChange={onChange}
+        onClose={onClose}
+      />
+    )
+  }
   return null
+}
+
+/** Excel-style filter: a search box over a scrollable, multi-select checklist. */
+function FacetFilter({
+  allOptions, value, onChange, onClose,
+}: {
+  allOptions: string[]
+  value: FilterValue | undefined
+  onChange: (next: FilterValue | null) => void
+  onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const selected = value?.kind === 'multi' ? value.values : []
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return allOptions
+    return allOptions.filter(o => o.toLowerCase().includes(q))
+  }, [allOptions, search])
+
+  function commit(next: string[]) {
+    onChange(next.length ? { kind: 'multi', values: next } : null)
+  }
+  function toggle(v: string) {
+    commit(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v])
+  }
+  // "Select all" operates over the currently-visible (search-filtered) options.
+  const allVisibleSelected = filtered.length > 0 && filtered.every(o => selected.includes(o))
+  function toggleAllVisible() {
+    if (allVisibleSelected) commit(selected.filter(s => !filtered.includes(s)))
+    else commit([...new Set([...selected, ...filtered])])
+  }
+
+  return (
+    <div className="space-y-2">
+      <Input
+        autoFocus
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search…"
+        className="h-8"
+      />
+      <label className="flex items-center gap-2 text-sm cursor-pointer border-b border-gray-100 pb-1.5">
+        <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} />
+        <span className="text-gray-600">{search ? 'Select all matches' : 'Select all'}</span>
+      </label>
+      <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-gray-400 py-2">No matches.</p>
+        ) : filtered.map(o => (
+          <label key={o} className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)} />
+            <span className="truncate">{o}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t border-gray-100 pt-1.5">
+        <span className="text-xs text-gray-400">{selected.length} selected</span>
+        <Button type="button" variant="ghost" size="sm" onClick={() => { onChange(null); setSearch(''); onClose() }}>Clear</Button>
+      </div>
+    </div>
+  )
 }

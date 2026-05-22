@@ -21,25 +21,36 @@ export interface GridUrlState {
 
 const FILTER_PREFIX = 'filter:'
 
-function parseFilterParam(raw: string): FilterValue {
-  // range: "min..max" (either side may be empty)
-  if (raw.includes('..')) {
-    const [a, b] = raw.split('..')
+// Each filter param is tagged with its kind ('c:'/'m:'/'r:') so the round-trip is
+// unambiguous. Inferring kind from the value shape was lossy: a single-value multi
+// (one selected option, no comma) was indistinguishable from a 'contains' filter,
+// so a single facet selection never reflected back as checked.
+function parseFilterParam(raw: string): FilterValue | null {
+  if (raw.startsWith('c:')) {
+    const value = raw.slice(2)
+    return value ? { kind: 'contains', value } : null
+  }
+  if (raw.startsWith('m:')) {
+    const body = raw.slice(2)
+    const values = body ? body.split(',').map(decodeURIComponent).filter(Boolean) : []
+    return values.length ? { kind: 'multi', values } : null
+  }
+  if (raw.startsWith('r:')) {
+    const [a, b] = raw.slice(2).split('..')
     const min = a === '' ? null : Number(a)
     const max = b === '' ? null : Number(b)
+    if (min === null && max === null) return null
     return { kind: 'range', min: Number.isFinite(min) ? min : null, max: Number.isFinite(max) ? max : null }
   }
-  // multi: "a,b,c"
-  if (raw.includes(',')) return { kind: 'multi', values: raw.split(',').filter(Boolean) }
-  // contains: plain string
-  return { kind: 'contains', value: raw }
+  // Unknown / legacy format — treat as a plain contains so we never crash.
+  return raw ? { kind: 'contains', value: raw } : null
 }
 
 function serializeFilter(f: FilterValue): string {
-  if (f.kind === 'contains') return f.value
-  if (f.kind === 'multi') return f.values.join(',')
-  // range
-  return `${f.min ?? ''}..${f.max ?? ''}`
+  if (f.kind === 'contains') return `c:${f.value}`
+  // Encode each value so commas inside a value (e.g. "Acme, Inc.") don't break the split.
+  if (f.kind === 'multi') return `m:${f.values.map(encodeURIComponent).join(',')}`
+  return `r:${f.min ?? ''}..${f.max ?? ''}`
 }
 
 export function useGridUrlState(defaultVisible: string[]): {
@@ -68,7 +79,8 @@ export function useGridUrlState(defaultVisible: string[]): {
     for (const [key, value] of params.entries()) {
       if (key.startsWith(FILTER_PREFIX)) {
         const colId = key.slice(FILTER_PREFIX.length)
-        filters[colId] = parseFilterParam(value)
+        const parsed = parseFilterParam(value)
+        if (parsed) filters[colId] = parsed
       }
     }
 
