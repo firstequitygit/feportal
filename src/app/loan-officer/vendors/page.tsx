@@ -1,34 +1,14 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
-import { Building2, ShieldCheck, FileSearch } from 'lucide-react'
-
-interface LoanRow {
-  id: string
-  property_address: string | null
-}
+import { LoVendorsGrid, type VendorRow } from './lo-vendors-grid'
 
 interface DetailRow {
   loan_id: string
-  title_company: string | null
-  title_email: string | null
-  title_phone: string | null
-  insurance_company: string | null
-  insurance_email: string | null
-  insurance_phone: string | null
-  appraisal_company: string | null
-  appraisal_email: string | null
-  appraisal_phone: string | null
-}
-
-interface VendorAggregate {
-  name: string             // canonical (most-common) display name
-  emails: Set<string>      // every email seen for this vendor
-  phones: Set<string>      // every phone seen
-  loans: LoanRow[]         // loans this vendor is attached to
+  title_company: string | null;  title_email: string | null;  title_phone: string | null
+  insurance_company: string | null;  insurance_email: string | null;  insurance_phone: string | null
+  appraisal_company: string | null;  appraisal_email: string | null;  appraisal_phone: string | null
 }
 
 /** Lowercased, trimmed name used as the grouping key. */
@@ -54,7 +34,7 @@ export default async function LoanOfficerVendorsPage() {
     .select('id, property_address')
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
-  const loansById = new Map<string, LoanRow>((loans ?? []).map(l => [l.id, l]))
+  const loansById = new Map((loans ?? []).map(l => [l.id, l]))
   const loanIds = [...loansById.keys()]
 
   // Pull loan_details for those loans
@@ -65,33 +45,49 @@ export default async function LoanOfficerVendorsPage() {
         .in('loan_id', loanIds)
     : { data: [] }
 
-  // Aggregate per vendor type
-  function aggregate(rows: DetailRow[], kind: 'title' | 'insurance' | 'appraisal'): VendorAggregate[] {
-    const buckets = new Map<string, VendorAggregate>()
+  type VendorBucket = {
+    name: string
+    type: 'title' | 'insurance' | 'appraisal'
+    emails: Set<string>
+    phones: Set<string>
+    loanIds: Set<string>
+  }
+  const buckets = new Map<string, VendorBucket>()
+
+  function ingest(kind: 'title' | 'insurance' | 'appraisal', rows: DetailRow[]) {
     for (const r of rows) {
       const name  = kind === 'title' ? r.title_company  : kind === 'insurance' ? r.insurance_company  : r.appraisal_company
       const email = kind === 'title' ? r.title_email    : kind === 'insurance' ? r.insurance_email    : r.appraisal_email
       const phone = kind === 'title' ? r.title_phone    : kind === 'insurance' ? r.insurance_phone    : r.appraisal_phone
       const key = vendorKey(name)
       if (!key) continue
-      let bucket = buckets.get(key)
+      const bucketKey = `${kind}::${key}`
+      let bucket = buckets.get(bucketKey)
       if (!bucket) {
-        bucket = { name: name!.trim(), emails: new Set(), phones: new Set(), loans: [] }
-        buckets.set(key, bucket)
+        bucket = { name: name!.trim(), type: kind, emails: new Set(), phones: new Set(), loanIds: new Set() }
+        buckets.set(bucketKey, bucket)
       }
       if (email?.trim()) bucket.emails.add(email.trim())
       if (phone?.trim()) bucket.phones.add(phone.trim())
-      const loan = loansById.get(r.loan_id)
-      if (loan && !bucket.loans.find(l => l.id === loan.id)) bucket.loans.push(loan)
+      bucket.loanIds.add(r.loan_id)
     }
-    return [...buckets.values()].sort((a, b) =>
-      b.loans.length - a.loans.length || a.name.localeCompare(b.name)
-    )
   }
 
-  const titleVendors = aggregate((details ?? []) as DetailRow[], 'title')
-  const insuranceVendors = aggregate((details ?? []) as DetailRow[], 'insurance')
-  const appraiserVendors = aggregate((details ?? []) as DetailRow[], 'appraisal')
+  const detailRows = (details ?? []) as DetailRow[]
+  ingest('title', detailRows)
+  ingest('insurance', detailRows)
+  ingest('appraisal', detailRows)
+
+  const rows: VendorRow[] = [...buckets.values()].map((b, i) => ({
+    id: `${b.type}-${i}`,
+    name: b.name,
+    type: b.type,
+    emails: [...b.emails],
+    phones: [...b.phones],
+    loan_count: b.loanIds.size,
+    loan_ids: [...b.loanIds],
+    loan_addresses: [...b.loanIds].map(id => loansById.get(id)?.property_address ?? '(no address)'),
+  }))
 
   return (
     <PortalShell
@@ -99,89 +95,15 @@ export default async function LoanOfficerVendorsPage() {
       userRole="Loan Officer"
       dashboardHref="/loan-officer/inbox"
       variant="loan-officer"
-      maxWidth="max-w-3xl"
+      maxWidth="max-w-7xl"
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Vendors</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Title companies, insurance companies, and appraisers attached to your loans (from the
-        Loan Details section on each file). Click a loan to open it and update the vendor info there.
+        Title companies, insurance companies, and appraisers attached to your loans
+        (derived from the Loan Details section on each file). Filter by type or sort by loan
+        count to triage. Click a loan address to open the file and update vendor info there.
       </p>
-
-      <div className="space-y-6">
-        <VendorSection
-          title="Title Companies"
-          icon={Building2}
-          vendors={titleVendors}
-          emptyMessage="No title companies on your loans yet."
-        />
-        <VendorSection
-          title="Insurance Companies"
-          icon={ShieldCheck}
-          vendors={insuranceVendors}
-          emptyMessage="No insurance companies on your loans yet."
-        />
-        <VendorSection
-          title="Appraisers"
-          icon={FileSearch}
-          vendors={appraiserVendors}
-          emptyMessage="No appraisers on your loans yet."
-        />
-      </div>
+      <LoVendorsGrid initialRows={rows} />
     </PortalShell>
-  )
-}
-
-function VendorSection({ title, icon: Icon, vendors, emptyMessage }: {
-  title: string
-  icon: React.ComponentType<{ className?: string }>
-  vendors: VendorAggregate[]
-  emptyMessage: string
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Icon className="w-4 h-4 text-primary" />
-          {title}
-          <span className="text-sm font-normal text-gray-400">{vendors.length}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {vendors.length === 0 ? (
-          <p className="text-sm text-gray-400 py-2">{emptyMessage}</p>
-        ) : (
-          <div className="space-y-4 divide-y divide-gray-100">
-            {vendors.map(v => (
-              <div key={v.name} className="pt-4 first:pt-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{v.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {[...v.emails].join(', ') || '—'}
-                      {v.phones.size > 0 ? ` · ${[...v.phones].join(', ')}` : ''}
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
-                    On {v.loans.length} loan{v.loans.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <ul className="mt-2 space-y-0.5">
-                  {v.loans.map(l => (
-                    <li key={l.id}>
-                      <Link
-                        href={`/loan-officer/loans/${l.id}`}
-                        className="text-xs text-primary hover:underline truncate block"
-                      >
-                        {l.property_address ?? '(no address)'}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   )
 }
