@@ -5,13 +5,14 @@ import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 
-async function verifyAdmin() {
+async function verifyAdmin(): Promise<{ adminName: string } | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: admin } = await supabase
-    .from('admin_users').select('id').eq('auth_user_id', user.id).single()
-  return admin ? user : null
+    .from('admin_users').select('id, full_name').eq('auth_user_id', user.id).single()
+  if (!admin) return null
+  return { adminName: (admin.full_name as string | null) ?? user.email ?? 'Admin' }
 }
 
 async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminClient>, loanId: string) {
@@ -25,7 +26,8 @@ async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminCli
 
 // POST — add a condition
 export async function POST(request: Request) {
-  if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const admin = await verifyAdmin()
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { loanId, title, description, assignedTo, category } = await request.json()
   if (!loanId || !title) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
@@ -46,12 +48,17 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log event
+  // Log event — include the admin's name so the audit trail matches the
+  // other roles' "Loan officer X added condition…" format.
+  const assignedLabel =
+    assigned_to === 'loan_officer'   ? 'Loan Officer' :
+    assigned_to === 'loan_processor' ? 'Loan Processor' :
+                                       'Borrower'
   try {
     await adminClient.from('loan_events').insert({
       loan_id: loanId,
       event_type: 'condition_added',
-      description: `Condition added (${assigned_to === 'loan_officer' ? 'Loan Officer' : assigned_to === 'loan_processor' ? 'Loan Processor' : 'Borrower'}): "${title}"`,
+      description: `Admin ${admin.adminName} added condition (${assignedLabel}): "${title}"`,
     })
   } catch (err) {
     console.error('Event log error (condition_added):', err)
@@ -127,7 +134,8 @@ export async function POST(request: Request) {
 
 // PATCH — update condition status or assigned_to
 export async function PATCH(request: Request) {
-  if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const admin = await verifyAdmin()
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { conditionId, status, rejectionReason, assignedTo, category } = await request.json()
   if (!conditionId) return NextResponse.json({ error: 'Missing conditionId' }, { status: 400 })
@@ -165,8 +173,8 @@ export async function PATCH(request: Request) {
   if (condition && status) {
     try {
       const desc = status === 'Rejected' && rejectionReason
-        ? `"${condition.title}" marked ${status} — ${rejectionReason}`
-        : `"${condition.title}" marked ${status}`
+        ? `Admin ${admin.adminName} marked "${condition.title}" ${status} — ${rejectionReason}`
+        : `Admin ${admin.adminName} marked "${condition.title}" ${status}`
       await adminClient.from('loan_events').insert({
         loan_id: condition.loan_id,
         event_type: 'status_changed',
