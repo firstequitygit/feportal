@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updateDealStage } from '@/lib/pipedrive'
-import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail, sendConditionallyApprovedAlert } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 import { PIPEDRIVE_STAGE_MAP, PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
 
@@ -140,6 +140,14 @@ export async function PATCH(req: NextRequest) {
   if (stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
     try { await sendPreUnderwritingClaimEmail(loanId) }
     catch (err) { console.error('Pre-UW claim email error:', err) }
+  }
+
+  // Conditionally Approved transition: hardcoded alert to Omayra so she can
+  // track loans landing in this stage. Portal-only stage — this is the only
+  // place that triggers it.
+  if (stage === 'Conditionally Approved' && previousStage !== 'Conditionally Approved') {
+    try { await sendConditionallyApprovedAlert(loanId) }
+    catch (err) { console.error('Conditionally Approved alert error:', err) }
   }
 
   return NextResponse.json({ success: true, previousStage, stage })

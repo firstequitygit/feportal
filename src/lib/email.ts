@@ -335,3 +335,86 @@ export async function sendPreUnderwritingClaimEmail(loanId: string) {
     }).catch(err => console.error(`Pre-Underwriting claim email to ${r.email} failed:`, err))
   }))
 }
+
+/**
+ * Hardcoded alert to Omayra (LP) every time a loan hits 'Conditionally
+ * Approved'. She tracks the conditionally-approved pipeline and wants a
+ * heads-up the moment each loan lands there. Includes a full loan summary
+ * so she can act without opening the portal first.
+ *
+ * The 'Conditionally Approved' stage is portal-only — it doesn't exist in
+ * Pipedrive or Airtable — so this email only ever fires from
+ * /api/loans/stage. Sync routes preserve the stage but never set it from
+ * scratch.
+ */
+const OMAYRA_EMAIL = 'ocartagena@fefunding.com'
+
+export async function sendConditionallyApprovedAlert(loanId: string) {
+  const adminClient = createAdminClient()
+
+  const { data: loan } = await adminClient
+    .from('loans')
+    .select(`
+      id, property_address, loan_number, loan_amount, loan_type,
+      borrowers!borrower_id(full_name),
+      loan_officers(full_name),
+      loan_processors!loan_processor_id(full_name),
+      loan_processor_2:loan_processors!loan_processor_id_2(full_name),
+      underwriters(full_name)
+    `)
+    .eq('id', loanId)
+    .single()
+  if (!loan) return
+
+  const borrower = (loan.borrowers as unknown as { full_name: string | null } | null)?.full_name ?? null
+  const lo = (loan.loan_officers as unknown as { full_name: string | null } | null)?.full_name ?? null
+  const lp1 = (loan.loan_processors as unknown as { full_name: string | null } | null)?.full_name ?? null
+  const lp2 = ((loan as unknown as { loan_processor_2: { full_name: string | null } | null }).loan_processor_2)?.full_name ?? null
+  const uw = (loan.underwriters as unknown as { full_name: string | null } | null)?.full_name ?? null
+
+  const property = loan.property_address ?? 'a loan'
+  const subject = `Conditionally Approved — ${property}`
+
+  const detailRows: [string, string][] = [
+    ['Property', property],
+    ...(loan.loan_number ? [['Loan #', loan.loan_number] as [string, string]] : []),
+    ...(borrower ? [['Borrower', borrower] as [string, string]] : []),
+    ...(loan.loan_type ? [['Type', loan.loan_type] as [string, string]] : []),
+    ...(loan.loan_amount ? [['Amount', new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(loan.loan_amount)] as [string, string]] : []),
+    ...(lo ? [['Loan Officer', lo] as [string, string]] : []),
+    ...(lp1 ? [['Loan Processor', lp2 ? `${lp1}, ${lp2}` : lp1] as [string, string]] : []),
+    ...(uw ? [['Underwriter', uw] as [string, string]] : []),
+  ]
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+      <div style="background-color: #0D9488; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; color: white; font-size: 18px;">Loan Conditionally Approved</h1>
+      </div>
+      <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 15px; margin-top: 0;">Hi Omayra,</p>
+        <p style="font-size: 15px;">
+          A loan has moved into <strong style="color: #0D9488;">Conditionally Approved</strong>.
+        </p>
+        <table style="font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+          ${detailRows.map(([k, v]) => `<tr><td style="padding: 4px 16px 4px 0; color: #666;">${k}</td><td><strong>${v}</strong></td></tr>`).join('')}
+        </table>
+        <p style="margin-top: 24px;">
+          <a href="${PORTAL_URL}/loan-processor/loans/${loan.id}"
+             style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
+            Open Loan
+          </a>
+        </p>
+        <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+        <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+      </div>
+    </div>
+  `
+
+  await getTransporter().sendMail({
+    to: OMAYRA_EMAIL,
+    subject,
+    html,
+  }).catch(err => console.error(`Conditionally Approved alert to ${OMAYRA_EMAIL} failed:`, err))
+}
