@@ -39,10 +39,10 @@ export const PROPERTY_TYPE_OPTIONS_BRIDGE = [
 ] as const
 export const PROPERTY_TYPE_OPTIONS_DSCR = [
   'Single Family', 'Condo',
-  'Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (5+ Units)',
+  'Multifamily (2-4 Units)', 'Multifamily (5+ Units)',
   'Mixed Use',
 ] as const
-export const EXIT_STRATEGY_OPTIONS = ['Sell','Refinance','Other (Explain Below)'] as const
+export const EXIT_STRATEGY_OPTIONS = ['Sale','Refinance','Other'] as const
 export const DEAL_SOURCE_OPTIONS = ['Short Sale','Bank Owned (REO)','Sheriff Sale','MLS','Foreclosure Auction','Wholesaler','Direct from Seller','Other'] as const
 export const HEAR_ABOUT_OPTIONS = ['Internet Search (Google, Bing, etc.)','Social Media (Facebook, Instagram, etc.)','YouTube','Email Marketing','Text Message','Phone Call','Direct Mail','Networking Event','Realtor Referral','Broker Referral','Other Referral','3rd Party Website','3rd Party Publication','Other'] as const
 export const OTHER_RE_EXPERIENCE_OPTIONS = ['Realtor','Contractor','Wholesaler','Real Estate Attorney','Mortgage Broker/Lender'] as const
@@ -146,45 +146,68 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'property_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Property' },
   { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property' },
   { name: 'deal_source', label: 'Deal Source', type: 'select', options: DEAL_SOURCE_OPTIONS, section: 'Property' },
-  { name: 'number_of_units', label: 'Number of Units', type: 'number', section: 'Property',
-    visibleWhen: (d) =>
-      d.property_type === 'Multifamily (2-4 Units)' ||
-      d.property_type === 'Multifamily (5+ Units)',
-    requiredWhen: (d) =>
-      d.property_type === 'Multifamily (2-4 Units)' ||
-      d.property_type === 'Multifamily (5+ Units)' },
-  { name: 'date_purchased', label: 'Date Purchased', type: 'date', visibleWhen: isPurchase, section: 'Refinance details' },
-  { name: 'original_purchase_price', label: 'Original Purchase Price', type: 'currency', section: 'Refinance details' },
-  { name: 'renovations_completed', label: 'Renovations Completed', type: 'currency', section: 'Refinance details' },
-  { name: 'current_value', label: 'Current Value', type: 'currency', required: true, section: 'Refinance details' },
-  { name: 'current_debt', label: 'Is There Current Debt on the Property?', type: 'yesno', visibleWhen: isRefi, section: 'Refinance details' },
-  { name: 'debt_current_24mo', label: 'Has Debt Been Current Past 24 Months?', type: 'yesno', visibleWhen: (d) => isRefi(d) && d.current_debt === true, section: 'Refinance details' },
-  { name: 'current_loan_balance', label: 'Current Loan Balance', type: 'currency', visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
-  { name: 'purchase_price', label: 'Purchase Price', type: 'currency', required: true, visibleWhen: isPurchase, section: 'Bridge loan details' },
-  { name: 'construction_costs', label: 'Construction Costs', type: 'currency', visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
-  { name: 'after_repaired_value', label: 'After Repaired Value', type: 'currency', visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
-  { name: 'exit_strategy', label: 'Exit Strategy', type: 'select', options: EXIT_STRATEGY_OPTIONS, visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
-  { name: 'exit_strategy_other', label: 'Exit Strategy: Explain', type: 'textarea', visibleWhen: (d) => isBridge(d) && d.exit_strategy === 'Other (Explain Below)', section: 'Bridge loan details' },
-  { name: 'total_monthly_rents', label: 'Total Monthly Rents (All Units)', type: 'currency', section: 'Rental income',
-    visibleWhen: (d) => {
-      const pt = d.property_type as string | undefined
-      const dscrMulti = ['Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (2-4 Units)']
-      return (isDSCR(d) || pt === 'Multifamily (5+ Units)') && !dscrMulti.includes(pt ?? '')
-    },
-    requiredWhen: (d) => {
-      const pt = d.property_type as string | undefined
-      const dscrMulti = ['Multifamily (2 Units)', 'Multifamily (3 Units)', 'Multifamily (4 Units)', 'Multifamily (2-4 Units)']
-      return (isDSCR(d) || pt === 'Multifamily (5+ Units)') && !dscrMulti.includes(pt ?? '')
-    } },
-  { name: 'requested_loan_amount', label: 'Requested Loan Amount', type: 'currency', section: 'Financing' },
-  { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency', section: 'Financing',
+  // Purchase-only fields
+  { name: 'purchase_price', label: 'Purchase Price', type: 'currency',
+    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing' },
+  { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency',
+    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing',
     help: 'How much cash do the borrowers have available for a downpayment?' },
+  // Refinance-only fields
+  { name: 'date_purchased', label: 'Date Purchased', type: 'date',
+    visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
+  { name: 'original_purchase_price', label: 'Original Purchase Price', type: 'currency',
+    visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
+  { name: 'renovations_completed', label: 'Renovations Completed', type: 'currency',
+    visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
+  { name: 'current_value', label: 'Current Value', type: 'currency',
+    visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
+  { name: 'current_debt', label: 'Is there debt on the property?', type: 'yesno',
+    visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
+  { name: 'current_loan_balance', label: 'Current Loan Balance', type: 'currency',
+    visibleWhen: (d) => isRefi(d) && d.current_debt === true,
+    requiredWhen: (d) => isRefi(d) && d.current_debt === true,
+    section: 'Refinance details' },
+  { name: 'lates_30_24mo', label: 'Number of 30+ day late payments in the prior 24 months', type: 'number',
+    visibleWhen: (d) => isRefi(d) && d.current_debt === true,
+    requiredWhen: (d) => isRefi(d) && d.current_debt === true,
+    section: 'Refinance details' },
+  // Bridge loan (Fix & Flip / New Construction) fields
+  { name: 'construction_costs', label: 'Construction Costs', type: 'currency',
+    visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
+  { name: 'after_repaired_value', label: 'After Repaired Value', type: 'currency',
+    visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
+  { name: 'exit_strategy', label: 'Exit Strategy', type: 'select', options: EXIT_STRATEGY_OPTIONS,
+    visibleWhen: isBridge, requiredWhen: isBridge, section: 'Bridge loan details' },
+  { name: 'exit_strategy_other', label: 'Please explain your exit strategy', type: 'textarea',
+    visibleWhen: (d) => isBridge(d) && d.exit_strategy === 'Other',
+    requiredWhen: (d) => isBridge(d) && d.exit_strategy === 'Other',
+    section: 'Bridge loan details' },
+  // DSCR rental income fields
+  { name: 'dscr_unit_count', label: 'How many units?', type: 'select', options: ['2','3','4'],
+    visibleWhen: (d) => isDSCR(d) && d.property_type === 'Multifamily (2-4 Units)',
+    requiredWhen: (d) => isDSCR(d) && d.property_type === 'Multifamily (2-4 Units)',
+    section: 'Rental income' },
+  { name: 'total_monthly_rents', label: 'Total Monthly Rent (all units)', type: 'currency',
+    visibleWhen: (d) => isDSCR(d) && (d.property_type === 'Multifamily (5+ Units)' || d.property_type === 'Mixed Use'),
+    requiredWhen: (d) => isDSCR(d) && (d.property_type === 'Multifamily (5+ Units)' || d.property_type === 'Mixed Use'),
+    section: 'Rental income' },
+  { name: 'units_count', label: 'Number of units', type: 'text',
+    visibleWhen: (d) => isDSCR(d) && (d.property_type === 'Multifamily (5+ Units)' || d.property_type === 'Mixed Use'),
+    requiredWhen: (d) => isDSCR(d) && (d.property_type === 'Multifamily (5+ Units)' || d.property_type === 'Mixed Use'),
+    section: 'Rental income' },
+  // DSCR operating costs (all DSCR loans regardless of property type)
+  { name: 'annual_property_taxes', label: 'Annual Property Taxes', type: 'currency',
+    visibleWhen: isDSCR, requiredWhen: isDSCR, section: 'Operating costs' },
+  { name: 'annual_property_insurance', label: 'Annual Property Insurance', type: 'currency',
+    visibleWhen: isDSCR, requiredWhen: isDSCR, section: 'Operating costs' },
+  { name: 'monthly_flood_insurance', label: 'Monthly Flood Insurance', type: 'currency',
+    visibleWhen: isDSCR, requiredWhen: isDSCR, section: 'Operating costs' },
+  { name: 'monthly_hoa_dues', label: 'Monthly HOA Dues', type: 'currency',
+    visibleWhen: isDSCR, requiredWhen: isDSCR, section: 'Operating costs' },
+  // Financing (non-purchase fields always visible)
+  { name: 'requested_loan_amount', label: 'Requested Loan Amount', type: 'currency', section: 'Financing' },
   { name: 'reserves_post_closing', label: 'Reserves Post Closing', type: 'currency', section: 'Financing',
     help: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
-  { name: 'annual_property_taxes', label: 'Annual Property Taxes', type: 'currency', section: 'Operating costs' },
-  { name: 'annual_property_insurance', label: 'Annual Property Insurance', type: 'currency', section: 'Operating costs' },
-  { name: 'monthly_flood_insurance', label: 'Monthly Flood Insurance', type: 'currency', section: 'Operating costs' },
-  { name: 'monthly_hoa_dues', label: 'Monthly HOA Dues', type: 'currency', section: 'Operating costs' },
   { name: 'has_broker', label: 'Do you have an outside mortgage broker?', type: 'yesno', section: 'Mortgage broker' },
   { name: 'broker_name', label: "Broker's Name", type: 'text', placeholder: 'Jane Doe', section: 'Mortgage broker',
     visibleWhen: (d) => d.has_broker === true },
@@ -223,7 +246,7 @@ export const PRIMARY_EXTRA_FIELDS: FieldDef[] = [
 
 export interface UnitData { currently_rented?: boolean; current_rent?: number; market_rent?: number }
 export const UNIT_FIELDS: FieldDef[] = [
-  { name: 'currently_rented', label: 'Is this unit occupied?', type: 'yesno', required: true,
+  { name: 'currently_rented', label: 'Is this unit rented?', type: 'yesno', required: true,
     help: 'Yes = currently leased to a tenant. No = vacant.' },
   { name: 'current_rent', label: 'Current Monthly Rent', type: 'currency',
     visibleWhen: (_d, s) => s?.currently_rented === true,
