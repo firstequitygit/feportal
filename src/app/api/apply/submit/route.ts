@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapApplication } from '@/lib/application-mapper'
 import {
   BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, UNIT_FIELDS, DECLARATION_FIELDS, HMDA_FIELDS,
   dscrUnitCount, isRequired, type ApplicationData,
 } from '@/lib/application-fields'
-import { sendApplicationSubmittedEmail, sendApplicationLoanOfficerNotice } from '@/lib/email'
+import { sendApplicationNotifications } from '@/lib/apply-notify'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -181,10 +181,14 @@ export async function POST(req: NextRequest) {
     description: `Loan application submitted via portal (application ${app.id})`,
   })
 
-  // 6. Emails (best-effort).
-  if (m.meta.primaryEmail) await sendApplicationSubmittedEmail(m.meta.primaryEmail, m.meta.primaryFirstName, m.meta.propertyAddress)
-  const { data: anyLo } = await admin.from('loan_officers').select('email').not('email', 'is', null).limit(1).maybeSingle()
-  if (anyLo?.email) await sendApplicationLoanOfficerNotice(anyLo.email, m.borrowers[0]?.full_name ?? 'Applicant', m.meta.propertyAddress, loanId)
+  // 6. Notifications (best-effort, off the response critical path).
+  after(async () => {
+    try {
+      await sendApplicationNotifications({ loanId, data, m })
+    } catch (err) {
+      console.error('Application notifications failed:', err)
+    }
+  })
 
   return NextResponse.json({ success: true, loanId })
 }
