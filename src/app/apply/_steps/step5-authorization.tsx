@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { type ApplicationData } from "@/lib/application-fields"
+import { ReviewSummary } from "../_components/review-summary"
 
 // Authorization signature stored at data.auth_signature (root scope, primary borrower only).
 // Payment authorization signature stored at data.payment_signature (root scope, primary borrower only).
@@ -83,7 +84,10 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit }: 
 
   return (
     <div className="space-y-6">
-      {/* Review recap placeholder - added in next commit */}
+      {/* Review recap */}
+      {onEdit && (
+        <ReviewSummary data={data} onEdit={onEdit} />
+      )}
 
       {/* Certification block */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
