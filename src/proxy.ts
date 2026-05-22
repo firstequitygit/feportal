@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { secure: process.env.NODE_ENV === 'production' },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -29,6 +30,19 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // IMPORTANT: getUser() above may have refreshed (and, with rotation enabled, rotated) the
+  // auth token, writing the new cookies onto `supabaseResponse`. Any response we return in
+  // place of `supabaseResponse` — i.e. a redirect — MUST copy those cookies over. Otherwise
+  // the browser keeps the old (now-rotated) refresh token, desyncs from the server, and
+  // Supabase terminates the session prematurely. See the Supabase SSR middleware docs.
+  const redirectTo = (path: string) => {
+    const redirectResponse = NextResponse.redirect(new URL(path, request.url))
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie))
+    return redirectResponse
+  }
+
   // Redirect unauthenticated users to login
   // API routes handle their own auth — don't redirect them
   if (
@@ -37,12 +51,12 @@ export async function proxy(request: NextRequest) {
     !pathname.startsWith('/auth') &&
     !pathname.startsWith('/api/')
   ) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirectTo('/login')
   }
 
   // Redirect authenticated users away from login
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirectTo('/dashboard')
   }
 
   return supabaseResponse
