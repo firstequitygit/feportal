@@ -249,15 +249,15 @@ export function PortalShell({
 
         {/* Role-specific action buttons (Sync / Invite). Borrower gets none. */}
         {(variant === 'admin' || variant === 'loan-officer' || variant === 'loan-processor' || variant === 'underwriter') && (
-          <div className="px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col items-start gap-2">
-            <SyncButton />
-            {variant === 'admin' && <AirtableSyncButton />}
-            {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" />}
-            {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" />}
-            {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" />}
-            {variant === 'loan-officer' && <InviteBroker apiEndpoint="/api/loan-officer/invite-broker" />}
-            {variant === 'loan-processor' && <InviteBorrower apiEndpoint="/api/loan-processor/invite" />}
-            {variant === 'loan-processor' && <InviteBroker apiEndpoint="/api/loan-processor/invite-broker" />}
+          <div className={`px-3 pb-3 border-t border-gray-100 pt-3 flex flex-col gap-2 ${expanded ? 'items-start' : 'items-start md:items-center'}`}>
+            <SyncButton collapsed={!expanded} />
+            {variant === 'admin' && <AirtableSyncButton collapsed={!expanded} />}
+            {variant === 'admin' && <InviteBorrower apiEndpoint="/api/invite" collapsed={!expanded} />}
+            {variant === 'admin' && <InviteBroker apiEndpoint="/api/invite-broker" collapsed={!expanded} />}
+            {variant === 'loan-officer' && <InviteBorrower apiEndpoint="/api/loan-officer/invite" collapsed={!expanded} />}
+            {variant === 'loan-officer' && <InviteBroker apiEndpoint="/api/loan-officer/invite-broker" collapsed={!expanded} />}
+            {variant === 'loan-processor' && <InviteBorrower apiEndpoint="/api/loan-processor/invite" collapsed={!expanded} />}
+            {variant === 'loan-processor' && <InviteBroker apiEndpoint="/api/loan-processor/invite-broker" collapsed={!expanded} />}
           </div>
         )}
 
