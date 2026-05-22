@@ -82,9 +82,6 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                   <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                     {f.label}
                     {f.required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
-                    {!f.required && !f.requiredWhen && f.type !== 'yesno' && f.type !== 'radio' && (
-                      <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
-                    )}
                     {f.helpTooltip && <InfoTooltip label={f.label} text={f.helpTooltip} />}
                   </Label>
                   {f.help && <p className="text-xs text-gray-500 mt-1">{f.help}</p>}
