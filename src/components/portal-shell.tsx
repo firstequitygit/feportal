@@ -203,9 +203,9 @@ export function PortalShell({
           <X className="w-4 h-4" />
         </button>
 
-        {/* User + desktop pin toggle — sits at the very top of the sidebar */}
-        <div className="px-3 py-4 border-b border-gray-100 mt-14 md:mt-0">
-          <div className={`flex items-center ${expanded ? 'gap-3' : 'md:justify-center'}`}>
+        {/* User + desktop pin toggle — top section, height matches the top bar so their borders align */}
+        <div className="px-3 h-14 flex items-center border-b border-gray-100 mt-14 md:mt-0">
+          <div className={`flex items-center w-full ${expanded ? 'gap-3' : 'md:justify-center'}`}>
             <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold flex-shrink-0 select-none">
               {initials}
             </div>
@@ -213,14 +213,16 @@ export function PortalShell({
               <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{displayName}</p>
               <p className="text-xs text-gray-500 leading-tight mt-0.5">{userRole}</p>
             </div>
-            <button
-              onClick={togglePinned}
-              className={`hidden md:inline-flex p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex-shrink-0 ${!expanded ? 'md:hidden' : ''}`}
-              aria-label={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
-              title={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
-            >
-              {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-            </button>
+            {expanded && (
+              <button
+                onClick={togglePinned}
+                className="hidden md:inline-flex p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex-shrink-0"
+                aria-label={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
+                title={pinned ? 'Collapse sidebar' : 'Pin sidebar open'}
+              >
+                {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+              </button>
+            )}
           </div>
         </div>
 
