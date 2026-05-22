@@ -46,7 +46,9 @@ export function AvailableLoans({ loans, claimEndpoint, role }: Props) {
   const [claimingId, setClaimingId] = useState<string | null>(null)
   const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  // Default collapsed — these are loans the user hasn't picked up yet, so
+  // they shouldn't dominate the dashboard. Click "Show" to expand.
+  const [collapsed, setCollapsed] = useState(true)
 
   const visible = loans.filter(l => !claimedIds.has(l.id))
 
