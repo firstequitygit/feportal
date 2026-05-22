@@ -251,13 +251,12 @@ export interface StepDef {
 }
 
 export const STEPS: StepDef[] = [
-  { id: 'borrower',      title: 'Borrower Info',   subtitle: "Help us understand who we're lending to and how to reach you.",                                                                              estimateMinutes: 5 },
-  { id: 'deal',          title: 'Deal Info',        subtitle: "Tell us about the property and the financing you're after.",                                                                                estimateMinutes: 4 },
-  { id: 'experience',    title: 'Experience',       subtitle: 'A few questions about your real estate background.',                                                                                        estimateMinutes: 2 },
-  { id: 'declarations',  title: 'Declarations',     subtitle: 'Required disclosures about your financial and legal history.',                                                                              estimateMinutes: 3 },
-  { id: 'authorization', title: 'Authorization',    subtitle: 'Review and sign to authorize First Equity to process your application.',                                                                   estimateMinutes: 1 },
-  { id: 'payment',       title: 'Payment',          subtitle: 'A $45 credit and background check fee. Card is saved but not charged until your application is reviewed.',                                 estimateMinutes: 1 },
-]
+  { id: 'borrower',      title: 'Borrower Info',   subtitle: "Help us understand who we're lending to and how to reach you.", estimateMinutes: 5 },
+  { id: 'deal',          title: 'Deal Info',        subtitle: "Tell us about the property and the financing you're after.",   estimateMinutes: 4 },
+  { id: 'experience',    title: 'Experience',       subtitle: "A few questions about your real estate background.",           estimateMinutes: 2 },
+  { id: 'declarations',  title: 'Declarations',     subtitle: "Required disclosures about your financial and legal history.", estimateMinutes: 3 },
+  { id: 'authorization', title: 'Authorization',    subtitle: "Review your application, then authorize and submit.",          estimateMinutes: 2 },
+] as const
 
 export const TOTAL_STEPS = STEPS.length
 export const STEP_TITLES = STEPS.map(s => s.title) as string[]
@@ -280,8 +279,7 @@ export const ALL_FIELDS: readonly FieldDef[] = [
 //   Step 2 (deal):          DEAL_FIELDS — scope is the form root (no prefix).
 //   Step 3 (experience):    EXPERIENCE_FIELDS at the form root — none are required; returns [].
 //   Step 4 (declarations):  DECLARATION_FIELDS + HMDA_FIELDS at the form root (no prefix).
-//   Step 5 (authorization): signature field at the form root.
-//   Step 6 (payment):       payment_signature + save_card_agree at the form root.
+//   Step 5 (authorization): auth_signature + payment_signature at the form root.
 //
 // Prefix convention mirrors submit/route.ts exactly:
 //   primary fields  → "primary.<name>"
@@ -291,7 +289,7 @@ export const ALL_FIELDS: readonly FieldDef[] = [
 // Empty check: undefined | null | "" counts as empty.
 // false and 0 are NOT empty (valid boolean/number answers).
 
-export type StepId = "borrower" | "deal" | "experience" | "declarations" | "authorization" | "payment"
+export type StepId = "borrower" | "deal" | "experience" | "declarations" | "authorization"
 
 function isEmpty(v: unknown): boolean {
   if (v === undefined || v === null || v === "") return true
@@ -350,12 +348,16 @@ export function getMissingRequiredFields(
       }
     }
   } else if (stepId === "authorization") {
-    // Primary borrower signs once. Signature stored at root: data.auth_signature
+    // Primary borrower signs the loan authorization. Signature stored at root: data.auth_signature
     if (isEmpty(data.auth_signature)) {
       miss.push("auth_signature")
     }
+    // Payment authorization signature (combined step)
+    if (isEmpty(data.payment_signature)) {
+      miss.push("payment_signature")
+    }
+    // save_card_agree is gated in the UI (must check the box before saving card) - not server-validated here
   }
-  // stepId === "payment": no required-field validation (Square handles card; save_card_agree gated in UI)
 
   return miss
 }

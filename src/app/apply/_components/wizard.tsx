@@ -8,7 +8,6 @@ import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Declarations } from '../_steps/step4-declarations'
 import { Step5Authorization } from '../_steps/step5-authorization'
-import { Step6Payment } from '../_steps/step6-payment'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
 
@@ -139,8 +138,8 @@ export function Wizard({ initialData, initialStep, initialToken }: {
     <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} />,
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,
-    <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing} />,
-    <Step6Payment key={6} data={data} set={set} token={token} />,
+    <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
+      token={token} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
   ][step - 1]
 
   return (
