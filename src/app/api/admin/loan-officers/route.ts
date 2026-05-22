@@ -11,16 +11,34 @@ async function verifyAdmin() {
   return admin ? user : null
 }
 
+// Coerce the incoming Pipedrive user id to a positive integer or null.
+// Accepts strings (from form fields) and numeric inputs.
+function parsePipedriveUserId(raw: unknown): number | null | undefined {
+  if (raw === undefined) return undefined          // not in request → no change
+  if (raw === null || raw === '') return null      // explicit clear
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return n
+}
+
 // POST — create loan officer
 export async function POST(request: Request) {
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { full_name, title, email, phone } = await request.json()
+  const { full_name, title, email, phone, pipedrive_user_id } = await request.json()
   if (!full_name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+
+  const pdUserId = parsePipedriveUserId(pipedrive_user_id)
 
   const { data, error } = await createAdminClient()
     .from('loan_officers')
-    .insert({ full_name: full_name.trim(), title: title?.trim() || null, email: email?.trim() || null, phone: phone?.trim() || null })
+    .insert({
+      full_name: full_name.trim(),
+      title: title?.trim() || null,
+      email: email?.trim() || null,
+      phone: phone?.trim() || null,
+      pipedrive_user_id: pdUserId ?? null,
+    })
     .select()
     .single()
 
@@ -32,12 +50,23 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { id, full_name, title, email, phone } = await request.json()
+  const { id, full_name, title, email, phone, pipedrive_user_id } = await request.json()
   if (!id || !full_name?.trim()) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+
+  const updates: Record<string, unknown> = {
+    full_name: full_name.trim(),
+    title: title?.trim() || null,
+    email: email?.trim() || null,
+    phone: phone?.trim() || null,
+  }
+  // Only touch pipedrive_user_id if the request actually included it. Lets
+  // older client code that doesn't send the field keep working.
+  const pdUserId = parsePipedriveUserId(pipedrive_user_id)
+  if (pdUserId !== undefined) updates.pipedrive_user_id = pdUserId
 
   const { error } = await createAdminClient()
     .from('loan_officers')
-    .update({ full_name: full_name.trim(), title: title?.trim() || null, email: email?.trim() || null, phone: phone?.trim() || null })
+    .update(updates)
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

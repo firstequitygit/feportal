@@ -237,7 +237,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             <AdminLoanOfficerAssign
               loanId={id}
               currentLoanOfficerId={loan.loan_officers?.id ?? null}
-              allLoanOfficers={(allLoanOfficers ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
+              allLoanOfficers={(allLoanOfficers ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; pipedrive_user_id: number | null; created_at: string }[]}
             />
 
             <AdminLoanProcessorAssign

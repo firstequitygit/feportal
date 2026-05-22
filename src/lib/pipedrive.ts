@@ -47,6 +47,9 @@ export interface PipedriveDeal {
   value?: number | null  // Pipedrive's default deal value field — FE uses this for loan amount
   status?: 'open' | 'won' | 'lost' | 'deleted' | string
   pipeline_id?: number
+  // Deal owner. Comes back as an object on most API calls and as a bare
+  // number on Automated Webhooks payloads — handle both shapes.
+  user_id?: number | { id?: number; value?: number; name?: string } | null
   person_id?: {
     name: string
     value: number
@@ -61,6 +64,7 @@ export interface NormalizedDeal {
   pipedrive_deal_id: number
   pipedrive_status: string         // 'open' | 'won' | 'lost' — drives archived rules
   pipedrive_pipeline_id: number | null
+  pipedrive_user_id: number | null // Deal owner — drives LO assignment via loan_officers.pipedrive_user_id
   property_address: string | null
   pipeline_stage: PipelineStage | null
   pipedrive_person_id: number | null
@@ -139,10 +143,21 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
   const structuredAddress = toString(getField(deal, f.propertyAddress))
   const propertyAddress = structuredAddress ?? toString(deal.title)
 
+  // user_id arrives as a bare number (webhooks) or as an object with id/value
+  // (most REST responses). Pull the numeric id either way.
+  let pipedriveUserId: number | null = null
+  if (typeof deal.user_id === 'number') {
+    pipedriveUserId = deal.user_id
+  } else if (deal.user_id && typeof deal.user_id === 'object') {
+    const u = deal.user_id as { id?: number; value?: number }
+    pipedriveUserId = u.id ?? u.value ?? null
+  }
+
   return {
     pipedrive_deal_id:  deal.id,
     pipedrive_status:   (deal.status as string) ?? 'open',
     pipedrive_pipeline_id: typeof deal.pipeline_id === 'number' ? deal.pipeline_id : null,
+    pipedrive_user_id:  pipedriveUserId,
     property_address:   propertyAddress,
     pipeline_stage:     PIPEDRIVE_STAGE_MAP[deal.stage_id] ?? null,
     pipedrive_person_id: deal.person_id?.value ?? null,

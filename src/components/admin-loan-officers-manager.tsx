@@ -11,15 +11,21 @@ import { type LoanOfficer } from '@/lib/types'
 export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanOfficers: LoanOfficer[] }) {
   const [loanOfficers, setLoanOfficers] = useState<LoanOfficer[]>(initialLoanOfficers)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ full_name: '', title: '', email: '', phone: '' })
+  const [editForm, setEditForm] = useState({ full_name: '', title: '', email: '', phone: '', pipedrive_user_id: '' })
   const [adding, setAdding] = useState(false)
-  const [newForm, setNewForm] = useState({ full_name: '', title: '', email: '', phone: '' })
+  const [newForm, setNewForm] = useState({ full_name: '', title: '', email: '', phone: '', pipedrive_user_id: '' })
   const [saving, setSaving] = useState(false)
   const [invitingId, setInvitingId] = useState<string | null>(null)
 
   function startEdit(lo: LoanOfficer) {
     setEditingId(lo.id)
-    setEditForm({ full_name: lo.full_name, title: lo.title ?? '', email: lo.email ?? '', phone: lo.phone ?? '' })
+    setEditForm({
+      full_name: lo.full_name,
+      title: lo.title ?? '',
+      email: lo.email ?? '',
+      phone: lo.phone ?? '',
+      pipedrive_user_id: lo.pipedrive_user_id != null ? String(lo.pipedrive_user_id) : '',
+    })
   }
 
   async function saveEdit(id: string) {
@@ -32,7 +38,17 @@ export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanO
       })
       const data = await res.json()
       if (data.success) {
-        setLoanOfficers(prev => prev.map(lo => lo.id === id ? { ...lo, ...editForm, title: editForm.title || null, email: editForm.email || null, phone: editForm.phone || null } : lo))
+        const parsedPd = editForm.pipedrive_user_id.trim() ? Number(editForm.pipedrive_user_id) : null
+        setLoanOfficers(prev => prev.map(lo => lo.id === id
+          ? {
+              ...lo,
+              full_name: editForm.full_name,
+              title: editForm.title || null,
+              email: editForm.email || null,
+              phone: editForm.phone || null,
+              pipedrive_user_id: Number.isFinite(parsedPd) ? parsedPd as number : null,
+            }
+          : lo))
         setEditingId(null)
         toast.success('Loan officer updated')
       } else {
@@ -100,7 +116,7 @@ export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanO
       const data = await res.json()
       if (data.success) {
         setLoanOfficers(prev => [...prev, data.loanOfficer])
-        setNewForm({ full_name: '', title: '', email: '', phone: '' })
+        setNewForm({ full_name: '', title: '', email: '', phone: '', pipedrive_user_id: '' })
         setAdding(false)
         toast.success('Loan officer added')
       } else {
@@ -133,9 +149,15 @@ export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanO
             <Input placeholder="Title (e.g. Loan Officer)" value={newForm.title} onChange={e => setNewForm(f => ({ ...f, title: e.target.value }))} />
             <Input placeholder="Email" type="email" value={newForm.email} onChange={e => setNewForm(f => ({ ...f, email: e.target.value }))} />
             <Input placeholder="Phone" value={newForm.phone} onChange={e => setNewForm(f => ({ ...f, phone: e.target.value }))} />
+            <Input
+              placeholder="Pipedrive user ID (numeric — drives auto-LO assignment)"
+              inputMode="numeric"
+              value={newForm.pipedrive_user_id}
+              onChange={e => setNewForm(f => ({ ...f, pipedrive_user_id: e.target.value.replace(/[^0-9]/g, '') }))}
+            />
             <div className="flex gap-2 pt-1">
               <Button size="sm" onClick={handleAdd} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Button>
-              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setNewForm({ full_name: '', title: '', email: '', phone: '' }) }}>Cancel</Button>
+              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setNewForm({ full_name: '', title: '', email: '', phone: '', pipedrive_user_id: '' }) }}>Cancel</Button>
             </div>
           </div>
         )}
@@ -154,6 +176,12 @@ export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanO
                   <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} placeholder="Title" />
                   <Input value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" type="email" />
                   <Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone" />
+                  <Input
+                    value={editForm.pipedrive_user_id}
+                    onChange={e => setEditForm(f => ({ ...f, pipedrive_user_id: e.target.value.replace(/[^0-9]/g, '') }))}
+                    placeholder="Pipedrive user ID (auto-LO assignment)"
+                    inputMode="numeric"
+                  />
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => saveEdit(lo.id)} disabled={saving} className="flex items-center gap-1 text-xs text-green-600 hover:opacity-80"><Check className="w-3.5 h-3.5" /> Save</button>
                     <button onClick={() => setEditingId(null)} className="flex items-center gap-1 text-xs text-gray-400 hover:opacity-80"><X className="w-3.5 h-3.5" /> Cancel</button>
@@ -166,6 +194,9 @@ export function AdminLoanOfficersManager({ initialLoanOfficers }: { initialLoanO
                     {lo.title && <p className="text-xs text-gray-500">{lo.title}</p>}
                     {lo.email && <p className="text-xs text-gray-500">{lo.email}</p>}
                     {lo.phone && <p className="text-xs text-gray-500">{lo.phone}</p>}
+                    {lo.pipedrive_user_id != null && (
+                      <p className="text-xs text-gray-400">Pipedrive user #{lo.pipedrive_user_id}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button

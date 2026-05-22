@@ -57,6 +57,16 @@ export async function POST() {
     let errors = 0
     const errorMessages: string[] = []
 
+    // LO Pipedrive-user mapping. Pre-fetch once; used per deal to assign
+    // loan_officer_id from the Pipedrive deal owner.
+    const loByPipedriveUserId = new Map<number, string>()
+    const { data: lpdMap } = await supabase
+      .from('loan_officers').select('id, pipedrive_user_id')
+      .not('pipedrive_user_id', 'is', null)
+    for (const r of lpdMap ?? []) {
+      if (r.pipedrive_user_id != null) loByPipedriveUserId.set(r.pipedrive_user_id, r.id)
+    }
+
     let borrowersLinked = 0
     for (const deal of deals) {
       const existing = currentStageMap[deal.pipedrive_deal_id]
@@ -127,6 +137,12 @@ export async function POST() {
       }
       // Don't clobber an admin-assigned borrower when Pipedrive has no person.
       if (borrowerId) payload.borrower_id = borrowerId
+
+      // Pipedrive deal owner → portal LO (when a mapping exists).
+      if (deal.pipedrive_user_id != null) {
+        const loId = loByPipedriveUserId.get(deal.pipedrive_user_id)
+        if (loId) payload.loan_officer_id = loId
+      }
 
       const { error } = await supabase
         .from('loans')

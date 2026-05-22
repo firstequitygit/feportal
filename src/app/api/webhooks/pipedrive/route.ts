@@ -86,28 +86,39 @@ export async function POST(request: Request) {
       if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason
     }
 
+    // Pipedrive deal owner → portal LO. Lookup is a single-row query since
+    // the webhook only processes one deal at a time.
+    let resolvedLoId: string | null = null
+    if (deal.pipedrive_user_id != null) {
+      const { data: loMatch } = await supabase
+        .from('loan_officers').select('id')
+        .eq('pipedrive_user_id', deal.pipedrive_user_id)
+        .maybeSingle()
+      if (loMatch) resolvedLoId = loMatch.id
+    }
+
+    const upsertPayload: Record<string, unknown> = {
+      pipedrive_deal_id:  deal.pipedrive_deal_id,
+      property_address:   deal.property_address,
+      pipeline_stage:     effectivePipedriveStage,
+      loan_type:          deal.loan_type,
+      loan_amount:        deal.loan_amount,
+      interest_rate:      deal.interest_rate,
+      ltv:                deal.ltv,
+      arv:                deal.arv,
+      rehab_budget:       deal.rehab_budget,
+      term_months:        deal.term_months ? Math.round(deal.term_months) : null,
+      origination_date:   deal.origination_date,
+      maturity_date:      deal.maturity_date,
+      entity_name:        deal.entity_name,
+      last_synced_at:     new Date().toISOString(),
+      ...archivedField,
+    }
+    if (resolvedLoId) upsertPayload.loan_officer_id = resolvedLoId
+
     const { error } = await supabase
       .from('loans')
-      .upsert(
-        {
-          pipedrive_deal_id:  deal.pipedrive_deal_id,
-          property_address:   deal.property_address,
-          pipeline_stage:     effectivePipedriveStage,
-          loan_type:          deal.loan_type,
-          loan_amount:        deal.loan_amount,
-          interest_rate:      deal.interest_rate,
-          ltv:                deal.ltv,
-          arv:                deal.arv,
-          rehab_budget:       deal.rehab_budget,
-          term_months:        deal.term_months ? Math.round(deal.term_months) : null,
-          origination_date:   deal.origination_date,
-          maturity_date:      deal.maturity_date,
-          entity_name:        deal.entity_name,
-          last_synced_at:     new Date().toISOString(),
-          ...archivedField,
-        },
-        { onConflict: 'pipedrive_deal_id' }
-      )
+      .upsert(upsertPayload, { onConflict: 'pipedrive_deal_id' })
 
     if (error) {
       console.error(`Failed to sync deal ${dealId}:`, error.message)

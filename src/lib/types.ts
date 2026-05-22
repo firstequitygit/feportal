@@ -74,6 +74,11 @@ export interface LoanOfficer {
   email: string | null
   phone: string | null
   title: string | null
+  /**
+   * Pipedrive user id (the deal owner). When set, the sync routes assign
+   * this LO to any incoming deal whose owner matches.
+   */
+  pipedrive_user_id: number | null
   created_at: string
 }
 

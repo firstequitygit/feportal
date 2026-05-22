@@ -29,6 +29,17 @@ export async function GET(request: Request) {
       if (data.length < 1000) break
     }
 
+    // Pre-fetch loan_officers with a Pipedrive user mapping so we can assign
+    // loan_officer_id off the Pipedrive deal owner. LOs without a mapping
+    // are simply skipped — their loans won't be auto-assigned.
+    const loByPipedriveUserId = new Map<number, string>()
+    const { data: lpdMap } = await supabase
+      .from('loan_officers').select('id, pipedrive_user_id')
+      .not('pipedrive_user_id', 'is', null)
+    for (const r of lpdMap ?? []) {
+      if (r.pipedrive_user_id != null) loByPipedriveUserId.set(r.pipedrive_user_id, r.id)
+    }
+
     let synced = 0
     let errors = 0
     let borrowersLinked = 0
@@ -88,6 +99,15 @@ export async function GET(request: Request) {
       // key (vs. writing null) avoids clobbering an admin-assigned borrower
       // on loans where Pipedrive has no person data.
       if (borrowerId) payload.borrower_id = borrowerId
+
+      // LO assignment: if Pipedrive's deal owner maps to a known portal LO,
+      // mirror that into loan_officer_id. Same write-when-resolved pattern as
+      // borrower_id — unmatched owners leave an existing manual assignment
+      // intact rather than wiping it.
+      if (deal.pipedrive_user_id != null) {
+        const loId = loByPipedriveUserId.get(deal.pipedrive_user_id)
+        if (loId) payload.loan_officer_id = loId
+      }
 
       const { error } = await supabase
         .from('loans')
