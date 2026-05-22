@@ -62,6 +62,8 @@ export interface LoanProcessor {
   email: string | null
   phone: string | null
   title: string | null
+  /** Ops managers see and act on every loan, not just assigned ones. */
+  is_ops_manager: boolean
   created_at: string
 }
 

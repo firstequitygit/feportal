@@ -28,13 +28,18 @@ export default async function LoanProcessorArchivedPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const idList = (archivedIds ?? []) as string[]
 
-  const { data: loans } = idList.length > 0
-    ? await adminClient
+  // Ops managers see every archived loan; regular LPs only their assigned.
+  const archivedQuery = idList.length > 0
+    ? adminClient
         .from('loans')
         .select('*, borrowers!borrower_id(full_name, email)')
         .in('id', idList)
-        .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
         .order('created_at', { ascending: false })
+    : null
+  const { data: loans } = archivedQuery
+    ? await (lp.is_ops_manager
+        ? archivedQuery
+        : archivedQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
     : { data: [] }
 
   return (

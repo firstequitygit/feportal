@@ -12,31 +12,34 @@ export async function PATCH(req: NextRequest) {
 
   const adminClient = createAdminClient()
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, full_name, email, phone } = await req.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
 
-  // Permission: this borrower is on any loan where this LP is in either slot.
-  // PostgREST can't combine an `.or()` across two sets of columns in a single
-  // expression cleanly, so we fetch the LP's loan ids first and then test
-  // whether the borrower lives in any of those loans' four slots.
-  const { data: ownedLoans } = await adminClient
-    .from('loans').select('id')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-  const ownedIds = (ownedLoans ?? []).map(l => l.id)
-  if (ownedIds.length === 0) return NextResponse.json({ error: 'Borrower is not on any of your loans' }, { status: 403 })
+  // Ops managers can edit any borrower, skipping the loan-ownership check.
+  if (!lp.is_ops_manager) {
+    // Permission: this borrower is on any loan where this LP is in either slot.
+    // PostgREST can't combine an `.or()` across two sets of columns in a single
+    // expression cleanly, so we fetch the LP's loan ids first and then test
+    // whether the borrower lives in any of those loans' four slots.
+    const { data: ownedLoans } = await adminClient
+      .from('loans').select('id')
+      .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+    const ownedIds = (ownedLoans ?? []).map(l => l.id)
+    if (ownedIds.length === 0) return NextResponse.json({ error: 'Borrower is not on any of your loans' }, { status: 403 })
 
-  const { data: loanHit } = await adminClient
-    .from('loans')
-    .select('id')
-    .in('id', ownedIds)
-    .or(`borrower_id.eq.${id},borrower_id_2.eq.${id},borrower_id_3.eq.${id},borrower_id_4.eq.${id}`)
-    .limit(1)
-    .maybeSingle()
-  if (!loanHit) return NextResponse.json({ error: 'Borrower is not on any of your loans' }, { status: 403 })
+    const { data: loanHit } = await adminClient
+      .from('loans')
+      .select('id')
+      .in('id', ownedIds)
+      .or(`borrower_id.eq.${id},borrower_id_2.eq.${id},borrower_id_3.eq.${id},borrower_id_4.eq.${id}`)
+      .limit(1)
+      .maybeSingle()
+    if (!loanHit) return NextResponse.json({ error: 'Borrower is not on any of your loans' }, { status: 403 })
+  }
 
   const { data: current } = await adminClient
     .from('borrowers').select('auth_user_id, email').eq('id', id).single()

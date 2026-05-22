@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const adminClient = createAdminClient()
 
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { loanId, conditionId, fileName, fileSize, path } = await req.json()
@@ -21,13 +21,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Fetch loan (verify ownership). Notify-recipients via shared helper below.
-  const { data: loan } = await adminClient
+  // Fetch loan (verify ownership). Ops managers can upload to any loan.
+  const loanQ = adminClient
     .from('loans')
     .select('id, property_address')
     .eq('id', loanId)
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-    .single()
+  const { data: loan } = await (lp.is_ops_manager
+    ? loanQ.single()
+    : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: condition } = await adminClient

@@ -44,14 +44,17 @@ export default async function LoanProcessorVendorsPage() {
 
   const adminClient = createAdminClient()
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) redirect('/login')
 
-  const { data: loans } = await adminClient
+  // Ops managers see vendors across every active loan.
+  const lpLoansQuery = adminClient
     .from('loans')
     .select('id, property_address')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .eq('archived', false)
+  const { data: loans } = await (lp.is_ops_manager
+    ? lpLoansQuery
+    : lpLoansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
   const loansById = new Map<string, LoanRow>((loans ?? []).map(l => [l.id, l]))
   const loanIds = [...loansById.keys()]
 

@@ -7,6 +7,7 @@ interface StaffContext {
   isAdmin: boolean
   loId: string | null
   lpId: string | null
+  isOpsManager: boolean
   uwId: string | null
 }
 
@@ -19,7 +20,7 @@ async function getStaffContext(): Promise<StaffContext | null> {
   const [{ data: admin }, { data: lo }, { data: lp }, { data: uw }] = await Promise.all([
     adminClient.from('admin_users').select('id').eq('auth_user_id', user.id).single(),
     adminClient.from('loan_officers').select('id, full_name').eq('auth_user_id', user.id).single(),
-    adminClient.from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single(),
+    adminClient.from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single(),
     adminClient.from('underwriters').select('id, full_name').eq('auth_user_id', user.id).single(),
   ])
 
@@ -37,12 +38,15 @@ async function getStaffContext(): Promise<StaffContext | null> {
     isAdmin: !!admin,
     loId: lo?.id ?? null,
     lpId: lp?.id ?? null,
+    isOpsManager: Boolean((lp as { is_ops_manager?: boolean } | null)?.is_ops_manager),
     uwId: uw?.id ?? null,
   }
 }
 
 async function verifyLoanAccess(loanId: string, ctx: StaffContext): Promise<boolean> {
   if (ctx.isAdmin) return true
+  // Ops managers (currently Omayra) bypass assignment checks across LP routes.
+  if (ctx.isOpsManager) return true
   const adminClient = createAdminClient()
   const { data: loan } = await adminClient
     .from('loans')

@@ -66,8 +66,10 @@ export default async function LoanProcessorLoanPage({
 
   if (!lp) redirect('/login')
 
-  // Verify this loan is assigned to this loan processor (admins bypass)
-  const loanQuery = isImpersonating
+  // Verify this loan is assigned to this loan processor — admins bypass
+  // via impersonation, ops managers bypass via the is_ops_manager flag.
+  const skipAssignmentCheck = isImpersonating || lp.is_ops_manager
+  const loanQuery = skipAssignmentCheck
     ? adminClient.from('loans')
         .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
         .eq('id', id).single()

@@ -12,27 +12,30 @@ export async function PATCH(req: NextRequest) {
 
   const adminClient = createAdminClient()
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, full_name, email, phone, company_name } = await req.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
 
-  const { data: ownedLoans } = await adminClient
-    .from('loans').select('id')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-  const ownedIds = (ownedLoans ?? []).map(l => l.id)
-  if (ownedIds.length === 0) return NextResponse.json({ error: 'Broker is not on any of your loans' }, { status: 403 })
+  // Ops managers can edit any broker, skipping the loan-ownership check.
+  if (!lp.is_ops_manager) {
+    const { data: ownedLoans } = await adminClient
+      .from('loans').select('id')
+      .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+    const ownedIds = (ownedLoans ?? []).map(l => l.id)
+    if (ownedIds.length === 0) return NextResponse.json({ error: 'Broker is not on any of your loans' }, { status: 403 })
 
-  const { data: loanHit } = await adminClient
-    .from('loans')
-    .select('id')
-    .in('id', ownedIds)
-    .or(`broker_id.eq.${id},broker_id_2.eq.${id}`)
-    .limit(1)
-    .maybeSingle()
-  if (!loanHit) return NextResponse.json({ error: 'Broker is not on any of your loans' }, { status: 403 })
+    const { data: loanHit } = await adminClient
+      .from('loans')
+      .select('id')
+      .in('id', ownedIds)
+      .or(`broker_id.eq.${id},broker_id_2.eq.${id}`)
+      .limit(1)
+      .maybeSingle()
+    if (!loanHit) return NextResponse.json({ error: 'Broker is not on any of your loans' }, { status: 403 })
+  }
 
   const { data: current } = await adminClient
     .from('brokers').select('auth_user_id, email').eq('id', id).single()

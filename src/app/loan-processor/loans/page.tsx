@@ -26,23 +26,32 @@ export default async function LoanProcessorLoansPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
+  // Ops managers see every active loan; regular LPs only see ones assigned
+  // to them. Same goes for the "available to claim" pool — ops managers
+  // skip the claim section entirely (they don't need to claim).
+  const myLoansQuery = adminClient
+    .from('loans')
+    .select('*, borrowers!borrower_id(full_name, email)')
+    .eq('archived', false)
+    .order('created_at', { ascending: false })
+  const scopedMyLoans = lp.is_ops_manager
+    ? myLoansQuery
+    : myLoansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+
   const [{ data: loans }, { data: unassignedLoansRaw }] = await Promise.all([
-    // My loans: I'm in either slot 1 or slot 2
-    adminClient
-      .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email)')
-      .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-      .eq('archived', false)
-      .order('created_at', { ascending: false }),
-    // Available to claim: at least one slot is open
-    adminClient
-      .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
-      .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
-      .neq('pipeline_stage', 'Closed')
-      .neq('pipeline_stage', 'New Application')
-      .eq('archived', false)
-      .order('created_at', { ascending: false }),
+    scopedMyLoans,
+    // Available to claim — ops managers don't claim, but the section is
+    // hidden by client filter (see below) so we just return an empty list.
+    lp.is_ops_manager
+      ? Promise.resolve({ data: [] as Loan[] })
+      : adminClient
+          .from('loans')
+          .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
+          .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
+          .neq('pipeline_stage', 'Closed')
+          .neq('pipeline_stage', 'New Application')
+          .eq('archived', false)
+          .order('created_at', { ascending: false }),
   ])
 
   // Exclude loans where this LP already occupies one of the slots

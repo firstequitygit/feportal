@@ -24,20 +24,25 @@ export default async function LoanProcessorInbox() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
-  const { data: loans } = await adminClient
+  // Ops managers see every loan; regular LPs only their assigned.
+  const baseLoansQuery = adminClient
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .eq('archived', false)
+  const { data: loans } = await (lp.is_ops_manager
+    ? baseLoansQuery
+    : baseLoansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
 
   // Closed-in-last-12-months — archived OR not.
   const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: closedTrailing } = await adminClient
+  const closedTrailingQuery = adminClient
     .from('loans')
     .select('loan_amount')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .eq('pipeline_stage', 'Closed')
     .gte('closed_at', oneYearAgoIso)
+  const { data: closedTrailing } = await (lp.is_ops_manager
+    ? closedTrailingQuery
+    : closedTrailingQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
 
   const activeLoans = (loans ?? []).filter(l => l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)

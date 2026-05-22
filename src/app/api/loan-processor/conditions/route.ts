@@ -13,18 +13,20 @@ export async function POST(req: NextRequest) {
   const adminClient = createAdminClient()
 
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { loanId, title, description, assignedTo, category } = await req.json()
   if (!loanId || !title) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
-  const { data: loan } = await adminClient
+  // Ops managers can add conditions on any loan, not just assigned ones.
+  const loanQ = adminClient
     .from('loans')
     .select('id, property_address, borrowers!borrower_id(full_name, email), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
     .eq('id', loanId)
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
-    .single()
+  const { data: loan } = await (lp.is_ops_manager
+    ? loanQ.single()
+    : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' =
@@ -97,7 +99,7 @@ export async function PUT(req: NextRequest) {
   const adminClient = createAdminClient()
 
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { conditionId, status, rejectionReason } = await req.json()
@@ -112,8 +114,10 @@ export async function PUT(req: NextRequest) {
     .from('conditions').select('id, loan_id, title').eq('id', conditionId).single()
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', condition.loan_id).or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single()
+  const loanQ = adminClient.from('loans').select('id').eq('id', condition.loan_id)
+  const { data: loan } = await (lp.is_ops_manager
+    ? loanQ.single()
+    : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const updatePayload: Record<string, unknown> = { status }
@@ -144,7 +148,7 @@ export async function PATCH(req: NextRequest) {
   const adminClient = createAdminClient()
 
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { conditionId, response } = await req.json()
@@ -154,8 +158,10 @@ export async function PATCH(req: NextRequest) {
     .from('conditions').select('id, loan_id, title').eq('id', conditionId).single()
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', condition.loan_id).or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single()
+  const loanQ = adminClient.from('loans').select('id').eq('id', condition.loan_id)
+  const { data: loan } = await (lp.is_ops_manager
+    ? loanQ.single()
+    : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { error } = await adminClient

@@ -11,15 +11,18 @@ export default async function LoanProcessorBorrowersPage() {
 
   const adminClient = createAdminClient()
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) redirect('/login')
 
-  // LP is on the loan if they occupy either processor slot
-  const { data: rows } = await adminClient
+  // LP sees borrowers across loans they're assigned to. Ops managers see
+  // every borrower on every active loan.
+  const baseQuery = adminClient
     .from('loans')
     .select('borrower_id, borrower_id_2, borrower_id_3, borrower_id_4')
-    .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
     .eq('archived', false)
+  const { data: rows } = await (lp.is_ops_manager
+    ? baseQuery
+    : baseQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
 
   const loanCountById = new Map<string, number>()
   for (const r of rows ?? []) {

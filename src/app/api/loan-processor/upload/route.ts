@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const adminClient = createAdminClient()
 
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { loanId, conditionId, fileName, conditionTitle, propertyAddress } = await req.json()
@@ -18,8 +18,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', loanId).or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single()
+  const loanQ = adminClient.from('loans').select('id').eq('id', loanId)
+  const { data: loan } = await (lp.is_ops_manager
+    ? loanQ.single()
+    : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   function slugify(str: string): string {

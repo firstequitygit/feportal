@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest) {
   const [{ data: admin }, { data: lo }, { data: lp }, { data: uw }] = await Promise.all([
     adminClient.from('admin_users').select('id').eq('auth_user_id', user.id).single(),
     adminClient.from('loan_officers').select('id').eq('auth_user_id', user.id).single(),
-    adminClient.from('loan_processors').select('id').eq('auth_user_id', user.id).single(),
+    adminClient.from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single(),
     adminClient.from('underwriters').select('id').eq('auth_user_id', user.id).single(),
   ])
 
@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
 
     const hasAccess =
       (lo && loan.loan_officer_id === lo.id) ||
-      (lp && (loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
+      (lp && (lp.is_ops_manager || loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
       (uw && loan.underwriter_id === uw.id)
 
     if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

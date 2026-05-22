@@ -244,7 +244,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               loanId={id}
               currentLoanProcessorId={loan.loan_processors?.id ?? null}
               currentLoanProcessorId2={(loan as unknown as { loan_processor_2: { id: string } | null }).loan_processor_2?.id ?? null}
-              allLoanProcessors={(allLoanProcessors ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; created_at: string }[]}
+              allLoanProcessors={(allLoanProcessors ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; is_ops_manager: boolean; created_at: string }[]}
             />
 
             <AdminUnderwriterAssign
