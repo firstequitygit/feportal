@@ -7,6 +7,18 @@ export type FieldType =
 
 export type ApplicationData = Record<string, unknown>
 
+/** Marks an Address Line 1 field as a Google Places autocomplete anchor.
+ *  Values are the sibling field names to auto-fill on place selection. */
+export interface AddressConfig {
+  city: string
+  state: string
+  zip: string
+  lat?: string
+  lng?: string
+  /** Show Street View image beneath this field (subject property only). */
+  streetView?: boolean
+}
+
 export interface FieldDef {
   /** Unique key within its section/repeat scope; also the data key. */
   name: string
@@ -26,6 +38,9 @@ export interface FieldDef {
   helpTooltip?: string
   /** Groups consecutive fields under a labeled section heading in the renderer. */
   section?: string
+  /** When present, renders this text field as a Google Places address autocomplete
+   *  and auto-fills the listed sibling fields on place selection. */
+  address?: AddressConfig
 }
 
 // ---- Option lists (spec 5.1, confirmed final) ----
@@ -82,14 +97,16 @@ export const BORROWER_FIELDS: FieldDef[] = [
   { name: 'credit_score', label: 'Estimated Credit Score', type: 'select', options: CREDIT_SCORE_OPTIONS, required: true,
     section: 'Credit',
     helpTooltip: "Helps us route your file to the right loan product. We'll pull credit ourselves during underwriting." },
-  { name: 'address_street', label: 'Address Line 1', type: 'text', required: true, placeholder: '123 Main St', section: 'Current address' },
+  { name: 'address_street', label: 'Address Line 1', type: 'text', required: true, placeholder: '123 Main St', section: 'Current address',
+    address: { city: 'address_city', state: 'address_state', zip: 'address_zip', lat: 'address_lat', lng: 'address_lng' } },
   { name: 'address_city', label: 'City', type: 'text', required: true, placeholder: 'Sea Girt', section: 'Current address' },
   { name: 'address_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Current address' },
   { name: 'address_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08750', section: 'Current address' },
   { name: 'lived_2y', label: 'Have you lived here for two years?', type: 'yesno', required: true, section: 'Current address' },
   { name: 'prior_address_street', label: 'Prior Address Line 1', type: 'text', placeholder: '456 Oak Ave',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
-    section: 'Current address' },
+    section: 'Current address',
+    address: { city: 'prior_address_city', state: 'prior_address_state', zip: 'prior_address_zip' } },
   { name: 'prior_address_city', label: 'Prior City', type: 'text', placeholder: 'Asbury Park',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address' },
@@ -141,7 +158,8 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'loan_type', label: 'Loan Type', type: 'select', options: LOAN_TYPE_OPTIONS, required: true, section: 'Your deal' },
   { name: 'property_type', label: 'Property Type', type: 'select', required: true, section: 'Property',
     optionsWhen: (d) => isDSCR(d) ? PROPERTY_TYPE_OPTIONS_DSCR : PROPERTY_TYPE_OPTIONS_BRIDGE },
-  { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true, placeholder: '789 Elm St', section: 'Property' },
+  { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true, placeholder: '789 Elm St', section: 'Property',
+    address: { city: 'property_city', state: 'property_state', zip: 'property_zip', lat: 'property_lat', lng: 'property_lng', streetView: true } },
   { name: 'property_city', label: 'City', type: 'text', required: true, placeholder: 'Toms River', section: 'Property' },
   { name: 'property_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Property' },
   { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property' },

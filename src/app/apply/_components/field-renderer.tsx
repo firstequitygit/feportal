@@ -8,6 +8,8 @@ import { SSNInput } from "@/components/ui/ssn-input"
 import { YesNoToggle } from "@/components/ui/yes-no-toggle"
 import { FieldReveal } from "@/components/ui/field-reveal"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
+import { StreetViewImage } from "@/components/ui/street-view-image"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 import { validators } from "./validators"
 
@@ -171,6 +173,38 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         By typing your name above, you are signing this document electronically.
                       </p>
                     </div>
+                  ) : f.address ? (
+                    <>
+                      <div className="relative">
+                        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+                        <div className="pl-10">
+                          <AddressAutocomplete
+                            id={id}
+                            value={(v as string) ?? ''}
+                            onChange={(val) => onChange(f.name, val)}
+                            onPlaceSelected={(parts) => {
+                              onChange(f.name, parts.street)
+                              onChange(f.address!.city, parts.city)
+                              onChange(f.address!.state, parts.state)
+                              onChange(f.address!.zip, parts.zip)
+                              if (f.address!.lat && parts.lat !== undefined)
+                                onChange(f.address!.lat, parts.lat)
+                              if (f.address!.lng && parts.lng !== undefined)
+                                onChange(f.address!.lng, parts.lng)
+                            }}
+                            invalid={isInvalid}
+                            placeholder={f.placeholder}
+                          />
+                        </div>
+                      </div>
+                      {f.address.streetView && (
+                        <StreetViewImage
+                          lat={(scope[f.address.lat ?? ''] as string | undefined)}
+                          lng={(scope[f.address.lng ?? ''] as string | undefined)}
+                          address={(v as string | undefined) ?? undefined}
+                        />
+                      )}
+                    </>
                   ) : (() => {
                     const inputType = f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'
                     const LeadIcon =
