@@ -7,7 +7,7 @@
 // TODO(user): fill in the real addresses. "Other" intentionally has no email.
 export const LOAN_OFFICER_EMAILS: Record<string, string> = {
   'Christian Pepe': '',
-  'Anthony Palmiotto': 'apalmiotto@outlook.com',
+  'Anthony Palmiotto': '',
   'Cory J Anderson': '',
   'Ryan Commesso': '',
   'Bill McGrorry': '',
