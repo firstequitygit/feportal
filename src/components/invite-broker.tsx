@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UserPlus } from 'lucide-react'
 
-export function InviteBroker({ apiEndpoint = '/api/invite-broker' }: { apiEndpoint?: string } = {}) {
+export function InviteBroker({ apiEndpoint = '/api/invite-broker', collapsed = false }: { apiEndpoint?: string; collapsed?: boolean } = {}) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
@@ -64,6 +65,14 @@ export function InviteBroker({ apiEndpoint = '/api/invite-broker' }: { apiEndpoi
   }
 
   if (!open) {
+    if (collapsed) {
+      return (
+        <Button variant="outline" size="icon-sm" onClick={() => setOpen(true)}
+          aria-label="Invite Broker" title="Invite Broker">
+          <UserPlus />
+        </Button>
+      )
+    }
     return (
       <Button variant="outline" onClick={() => setOpen(true)} size="sm">
         Invite Broker
