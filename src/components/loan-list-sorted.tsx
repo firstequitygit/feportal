@@ -271,17 +271,17 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
   const activeStages = BOARD_STAGES
 
   // Pull On Hold loans out of the active flow so they live in their own
-  // collapsible bucket (like Closed). Stage filter still applies to whatever
-  // remains in Active.
-  const onHoldLoans = activeLoans.filter(l => l.loan_status === 'on_hold')
-  const nonHoldActive = activeLoans.filter(l => l.loan_status !== 'on_hold')
+  // collapsible bucket. Both Active and On Hold respect the stage filter —
+  // e.g. selecting "Processing" should show only loans in Processing under
+  // Active, and only Processing loans that are on hold under On Hold.
+  const stageMatches = (l: LoanWithBorrower) =>
+    stageFilter === 'all' || l.pipeline_stage === stageFilter
 
-  const filteredActive = stageFilter === 'all'
-    ? nonHoldActive
-    : nonHoldActive.filter(l => l.pipeline_stage === stageFilter)
+  const filteredActive = activeLoans.filter(l => l.loan_status !== 'on_hold' && stageMatches(l))
+  const filteredOnHold = activeLoans.filter(l => l.loan_status === 'on_hold' && stageMatches(l))
 
   const sortedActive = sortLoans(filteredActive, sortBy, lastUpdatedMap)
-  const sortedOnHold = sortLoans(onHoldLoans, sortBy, lastUpdatedMap)
+  const sortedOnHold = sortLoans(filteredOnHold, sortBy, lastUpdatedMap)
   const sortedClosed = sortLoans(closedLoans, sortBy, lastUpdatedMap)
   const total = activeLoans.length + closedLoans.length
 
@@ -398,7 +398,7 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
             </section>
           )}
 
-          {sortedOnHold.length > 0 && stageFilter === 'all' && (
+          {sortedOnHold.length > 0 && (
             <section>
               <button
                 type="button"
