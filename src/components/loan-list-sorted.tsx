@@ -261,17 +261,27 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
   const [view, setView] = useState<'list' | 'board'>('list')
   const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all')
   const [closedExpanded, setClosedExpanded] = useState(false)
+  // On Hold loans get their own collapsible bucket, defaulted to closed so
+  // they don't clutter the active list. Matches the Closed bucket pattern.
+  const [onHoldExpanded, setOnHoldExpanded] = useState(false)
 
   // Always offer the full set of non-Closed stages as filter pills so the
   // user can see every stage that exists in the system (even if no loan is
   // currently in it). BOARD_STAGES already excludes 'Closed'.
   const activeStages = BOARD_STAGES
 
+  // Pull On Hold loans out of the active flow so they live in their own
+  // collapsible bucket (like Closed). Stage filter still applies to whatever
+  // remains in Active.
+  const onHoldLoans = activeLoans.filter(l => l.loan_status === 'on_hold')
+  const nonHoldActive = activeLoans.filter(l => l.loan_status !== 'on_hold')
+
   const filteredActive = stageFilter === 'all'
-    ? activeLoans
-    : activeLoans.filter(l => l.pipeline_stage === stageFilter)
+    ? nonHoldActive
+    : nonHoldActive.filter(l => l.pipeline_stage === stageFilter)
 
   const sortedActive = sortLoans(filteredActive, sortBy, lastUpdatedMap)
+  const sortedOnHold = sortLoans(onHoldLoans, sortBy, lastUpdatedMap)
   const sortedClosed = sortLoans(closedLoans, sortBy, lastUpdatedMap)
   const total = activeLoans.length + closedLoans.length
 
@@ -385,6 +395,41 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
                   />
                 ))}
               </div>
+            </section>
+          )}
+
+          {sortedOnHold.length > 0 && stageFilter === 'all' && (
+            <section>
+              <button
+                type="button"
+                onClick={() => setOnHoldExpanded(o => !o)}
+                aria-expanded={onHoldExpanded}
+                className="w-full flex items-center gap-3 mb-4 group"
+              >
+                <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-widest whitespace-nowrap group-hover:text-amber-900 transition-colors flex items-center gap-1.5">
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform ${onHoldExpanded ? '' : '-rotate-90'}`}
+                  />
+                  On Hold — {sortedOnHold.length}
+                </h3>
+                <div className="flex-1 h-px bg-amber-200" />
+                <span className="text-xs text-amber-700 group-hover:text-amber-900 transition-colors whitespace-nowrap">
+                  {onHoldExpanded ? 'Hide' : 'Show'}
+                </span>
+              </button>
+              {onHoldExpanded && (
+                <div className="space-y-3">
+                  {sortedOnHold.map(loan => (
+                    <LoanCard
+                      key={loan.id}
+                      loan={loan}
+                      outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                      lastUpdated={lastUpdatedMap[loan.id]}
+                      linkPrefix={linkPrefix}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
