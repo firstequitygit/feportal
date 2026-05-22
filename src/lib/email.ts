@@ -363,16 +363,3 @@ export async function sendApplicationInternalNotice(opts: {
     html,
   }).catch(err => console.error(`Internal notice to ${opts.to.join(', ')} failed:`, err))
 }
-
-export async function sendApplicationLoanOfficerNotice(loEmail: string, applicantName: string, propertyAddress: string, loanId: string) {
-  const html = wrap('New loan application', `
-    <p style="font-size: 15px; margin-top: 0;">A new application was submitted.</p>
-    <p style="font-size: 15px;"><strong>Applicant:</strong> ${applicantName}<br/><strong>Property:</strong> ${propertyAddress}</p>
-    <p style="margin-top: 24px;">
-      <a href="${PORTAL_URL}/admin/loans/${loanId}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Open in portal</a>
-    </p>`)
-  await getTransporter().sendMail({
-    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
-    to: loEmail, subject: `New loan application — ${propertyAddress}`, html,
-  }).catch(err => console.error(`LO notice to ${loEmail} failed:`, err))
-}

@@ -35,13 +35,22 @@ export async function sendApplicationNotifications(args: {
       .upload(filePath, pdf, { contentType: 'application/pdf', upsert: true })
     if (upErr) throw new Error(upErr.message)
 
-    await admin.from('documents').insert({
-      loan_id: loanId,
-      condition_id: null,
-      file_name: `Loan Application - ${propertyAddress}.pdf`,
-      file_path: filePath,
-      file_size: pdf.length,
-    })
+    // Guard against a duplicate row if after() ever runs twice for this loan.
+    const { data: existingDoc } = await admin
+      .from('documents')
+      .select('id')
+      .eq('loan_id', loanId)
+      .eq('file_path', filePath)
+      .maybeSingle()
+    if (!existingDoc) {
+      await admin.from('documents').insert({
+        loan_id: loanId,
+        condition_id: null,
+        file_name: `Loan Application - ${propertyAddress}.pdf`,
+        file_path: filePath,
+        file_size: pdf.length,
+      })
+    }
 
     pdfUrl = await getSignedDocumentUrl(admin, filePath)
   } catch (err) {
@@ -58,12 +67,16 @@ export async function sendApplicationNotifications(args: {
     }
   }
 
-  // 5. Borrower email.
+  // 5. Borrower email (isolated so a failure here can't suppress the internal notice).
   if (primaryEmail) {
-    await sendApplicationSubmittedEmail(
-      primaryEmail, primaryFirstName, propertyAddress, activationLink,
-      { loanType: loanTypeLabel, loanAmount },
-    )
+    try {
+      await sendApplicationSubmittedEmail(
+        primaryEmail, primaryFirstName, propertyAddress, activationLink,
+        { loanType: loanTypeLabel, loanAmount },
+      )
+    } catch (err) {
+      console.error('Borrower confirmation email failed:', err)
+    }
   }
 
   // 6. Internal email -> processing inbox + assigned LO.
@@ -71,10 +84,14 @@ export async function sendApplicationNotifications(args: {
   const loEmail = resolveLoanOfficerEmail(loanOfficerName)
   const to = [processingInbox, loEmail].filter((e): e is string => !!e && e.includes('@'))
   if (to.length > 0) {
-    await sendApplicationInternalNotice({
-      to, applicantName: primaryFullName, propertyAddress,
-      loanType: loanTypeLabel, loanAmount, loanId, pdfUrl, loanOfficerName,
-    })
+    try {
+      await sendApplicationInternalNotice({
+        to, applicantName: primaryFullName, propertyAddress,
+        loanType: loanTypeLabel, loanAmount, loanId, pdfUrl, loanOfficerName,
+      })
+    } catch (err) {
+      console.error('Application internal notice failed:', err)
+    }
   } else {
     console.warn('Application internal notice skipped: no processing inbox or LO email resolved.')
   }
