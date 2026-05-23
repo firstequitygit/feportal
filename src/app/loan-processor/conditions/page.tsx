@@ -31,29 +31,69 @@ export default async function LoanProcessorConditionsPage() {
 
   if (!lp) redirect('/login')
 
-  // Get all loans assigned to this LP — ops managers see every loan
-  const loansQuery = adminClient
-    .from('loans')
-    .select('id, property_address')
-    .order('created_at', { ascending: false })
-  const { data: loans } = await (lp.is_ops_manager
-    ? loansQuery
-    : loansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
-
-  const loanIds = (loans ?? []).map(l => l.id)
-  const loanMap: Record<string, string> = {}
-  for (const l of loans ?? []) loanMap[l.id] = l.property_address ?? 'Unknown Address'
-
-  // Get all conditions assigned to loan_processor across these loans
-  const { data: conditions } = loanIds.length > 0
-    ? await adminClient
+  // Fetch every LP-assigned condition. For ops managers we skip the loan
+  // enumeration entirely — listing all 100+ loan ids in a single .in() blew
+  // past PostgREST's URL length limit on the prod dataset and returned an
+  // empty result. Regular LPs still scope by their assigned loans.
+  type ConditionRow = {
+    id: string
+    loan_id: string
+    title: string
+    description: string | null
+    status: string
+    assigned_to: string
+    category: string | null
+    rejection_reason: string | null
+    response: string | null
+    created_at: string
+    updated_at: string
+  }
+  const conditions: ConditionRow[] = []
+  if (lp.is_ops_manager) {
+    // Page through every LP-assigned condition in the portal.
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await adminClient
+        .from('conditions')
+        .select('*')
+        .eq('assigned_to', 'loan_processor')
+        .order('status', { ascending: true })
+        .order('created_at', { ascending: true })
+        .range(from, from + 999)
+      if (error || !data) break
+      conditions.push(...(data as ConditionRow[]))
+      if (data.length < 1000) break
+    }
+  } else {
+    const { data: loans } = await adminClient
+      .from('loans')
+      .select('id')
+      .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+    const loanIds = (loans ?? []).map(l => l.id)
+    if (loanIds.length > 0) {
+      const { data } = await adminClient
         .from('conditions')
         .select('*')
         .in('loan_id', loanIds)
         .eq('assigned_to', 'loan_processor')
         .order('status', { ascending: true })
         .order('created_at', { ascending: true })
-    : { data: [] }
+      if (data) conditions.push(...(data as ConditionRow[]))
+    }
+  }
+
+  // Property addresses for the loans referenced by these conditions only —
+  // avoids the 1000-row cap on a "fetch every loan in the portal" query.
+  const referencedLoanIds = [...new Set(conditions.map(c => c.loan_id))]
+  const loanMap: Record<string, string> = {}
+  if (referencedLoanIds.length > 0) {
+    // Chunk to keep .in() URLs comfortably below the PostgREST cap.
+    for (let i = 0; i < referencedLoanIds.length; i += 200) {
+      const slice = referencedLoanIds.slice(i, i + 200)
+      const { data } = await adminClient
+        .from('loans').select('id, property_address').in('id', slice)
+      for (const l of data ?? []) loanMap[l.id] = l.property_address ?? 'Unknown Address'
+    }
+  }
 
   // Three buckets: open work, awaiting review, completed. Rejected lives in
   // outstanding because it still needs the borrower/team to act.
