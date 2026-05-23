@@ -48,9 +48,27 @@ export default async function LoanProcessorConditionsPage() {
     created_at: string
     updated_at: string
   }
+  // Active-loan-id allowlist used to filter conditions to live deals only.
+  // Archived/cancelled loans still keep their conditions in the DB; we just
+  // don't want them cluttering the LP's open work list. Same filter the
+  // dashboard already applies (.eq('archived', false)).
+  const activeLoanIds = new Set<string>()
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await adminClient
+      .from('loans')
+      .select('id')
+      .eq('archived', false)
+      .range(from, from + 999)
+    if (error || !data) break
+    for (const l of data) activeLoanIds.add(l.id)
+    if (data.length < 1000) break
+  }
+
   const conditions: ConditionRow[] = []
   if (lp.is_ops_manager) {
-    // Page through every LP-assigned condition in the portal.
+    // Page through every LP-assigned condition in the portal, then trim to
+    // active loans client-side. Skips the .in('loan_id', […100s of uuids…])
+    // approach that previously blew the URL length cap.
     for (let from = 0; ; from += 1000) {
       const { data, error } = await adminClient
         .from('conditions')
@@ -80,6 +98,13 @@ export default async function LoanProcessorConditionsPage() {
       if (data) conditions.push(...(data as ConditionRow[]))
     }
   }
+
+  // Drop conditions whose loan is archived/cancelled — those are dead files.
+  const activeConditions = conditions.filter(c => activeLoanIds.has(c.loan_id))
+  // Re-bind to the variable name the rest of the page reads so the existing
+  // bucket / render logic doesn't have to change.
+  conditions.length = 0
+  conditions.push(...activeConditions)
 
   // Property addresses for the loans referenced by these conditions only —
   // avoids the 1000-row cap on a "fetch every loan in the portal" query.
