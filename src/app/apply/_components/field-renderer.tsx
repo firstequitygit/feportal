@@ -10,7 +10,7 @@ import { FieldReveal } from "@/components/ui/field-reveal"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { StreetViewImage } from "@/components/ui/street-view-image"
-import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
+import { isVisible, isRequired, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 import { validators } from "./validators"
 
 type Props = {
@@ -80,7 +80,12 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                 <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
                   <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                     {f.label}
-                    {f.required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
+                    {isRequired(f, data, scope) && (
+                      <>
+                        <span className="text-red-500" aria-hidden="true">*</span>
+                        <span className="sr-only"> (required)</span>
+                      </>
+                    )}
                     {f.helpTooltip && <InfoTooltip label={f.label} text={f.helpTooltip} />}
                   </Label>
                   {f.help && <p className="text-xs text-gray-500 mt-1">{f.help}</p>}

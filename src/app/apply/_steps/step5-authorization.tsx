@@ -22,7 +22,7 @@ const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Fund
 
 export function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false }: {
   data: ApplicationData
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
   token: string | null
   onEdit?: (step: number) => void
@@ -122,7 +122,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         <div className="space-y-1.5">
           <label htmlFor="f-auth_signature" className="text-sm font-medium text-gray-700">
             Type your full legal name as your signature
-            <span className="text-red-500 ml-1" aria-label="required">*</span>
+            <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> (required)</span>
           </label>
           <input
             id="f-auth_signature"
@@ -177,7 +177,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         <div className="space-y-1.5">
           <label htmlFor="f-payment_signature" className="text-sm font-medium text-gray-700">
             Type your full legal name as your signature
-            <span className="text-red-500 ml-1" aria-label="required">*</span>
+            <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> (required)</span>
           </label>
           <input
             id="f-payment_signature"

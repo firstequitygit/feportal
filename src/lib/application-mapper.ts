@@ -70,7 +70,9 @@ export function mapApplication(data: ApplicationData): MappedApplication {
   const borrowers = [borrowerFrom(primary), ...cobs.map(borrowerFrom)]
   if (borrowers[0]) borrowers[0].entity_name = entityName
 
-  const propStreet = s(data.property_street)
+  const propStreetLine1 = s(data.property_street)
+  const propLine2 = s(data.property_line_2)
+  const propStreet = [propStreetLine1, propLine2].filter(Boolean).join(', ')
   const propAddress = [propStreet, s(data.property_city), s(data.property_state), s(data.property_zip)].filter(Boolean).join(', ')
   const loanTypeLabel = s(data.loan_type)
   const loanType = loanTypeLabel ? (APPLICATION_LOAN_TYPE_MAP[loanTypeLabel] ?? null) : null

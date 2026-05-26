@@ -8,7 +8,7 @@ import { FieldRenderer } from '../_components/field-renderer'
 
 export function Step3Experience({ data, set, missingFields }: {
   data: ApplicationData
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
 }) {
   return (

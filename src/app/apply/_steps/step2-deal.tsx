@@ -6,7 +6,7 @@ import { PropertyDocuments, type PropertyDoc } from '../_components/property-doc
 
 export function Step2Deal({ data, set, missingFields, token }: {
   data: ApplicationData
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
   token: string | null
 }) {

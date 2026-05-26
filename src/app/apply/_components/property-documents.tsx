@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback, DragEvent } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import type { ApplicationData } from '@/lib/application-fields'
 
 export type PropertyDoc = {
   path: string
@@ -39,7 +40,7 @@ function isAcceptedFile(file: File): boolean {
 interface Props {
   token: string | null
   documents: PropertyDoc[]
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
 }
 
 export function PropertyDocuments({ token, documents, set }: Props) {

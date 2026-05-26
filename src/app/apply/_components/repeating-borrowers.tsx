@@ -5,13 +5,17 @@ import { FieldRenderer } from './field-renderer'
 
 export function RepeatingBorrowers({ data, fields, set, heading, missingFields }: {
   data: ApplicationData; fields: FieldDef[]; heading: string
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
 }) {
   const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as Record<string, unknown>[]) : []
   const update = (i: number, name: string, value: unknown) => {
-    const next = cobs.map((c, idx) => idx === i ? { ...c, [name]: value } : c)
-    set({ co_borrowers: next })
+    // Functional update so multiple field updates (autocomplete) compound.
+    set((d) => {
+      const arr = Array.isArray(d.co_borrowers) ? (d.co_borrowers as Record<string, unknown>[]) : []
+      const next = arr.map((c, idx) => idx === i ? { ...c, [name]: value } : c)
+      return { co_borrowers: next }
+    })
   }
   return (
     <div className="space-y-5">

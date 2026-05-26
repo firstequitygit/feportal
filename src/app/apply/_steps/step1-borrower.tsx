@@ -6,13 +6,19 @@ import { RepeatingBorrowers } from '../_components/repeating-borrowers'
 
 export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
   data: ApplicationData
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   ensureDraft: (email: string, firstName: string) => void
   missingFields?: string[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
-    set({ primary: { ...primary, [name]: value } })
+    // Functional update so sequential calls (e.g. address autocomplete sets
+    // street + city + state + zip + lat + lng in a row) all see the latest
+    // primary instead of the same closured value.
+    set((d) => {
+      const cur = (d.primary as Record<string, unknown>) ?? {}
+      return { primary: { ...cur, [name]: value } }
+    })
     if (name === 'email' && typeof value === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
       ensureDraft(value, (primary.first_name as string) ?? '')
   }

@@ -91,7 +91,14 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     setMaxVisited((m) => Math.max(m, step))
   }, [step])
 
-  const set = useCallback((patch: Record<string, unknown>) => setData(d => ({ ...d, ...patch })), [])
+  const set = useCallback(
+    (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) =>
+      setData((d) => ({
+        ...d,
+        ...(typeof patchOrFn === 'function' ? patchOrFn(d) : patchOrFn),
+      })),
+    [],
+  )
 
   // Derive live-missing: errors from the last validation attempt that are still empty.
   const liveMissing = useMemo(() => {
@@ -333,7 +340,10 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
           <div className="mb-5">
             <h2 className="text-2xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
             <p className="mt-1 text-sm text-gray-500">{STEPS[step - 1].subtitle}</p>
-            <p className="mt-1 text-xs text-gray-400">Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes</p>
+            <p className="mt-1 text-xs text-gray-400">
+              Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes &middot;{' '}
+              <span className="text-red-500" aria-hidden="true">*</span> indicates a required field
+            </p>
           </div>
 
           {/* Error banner - standard alert */}

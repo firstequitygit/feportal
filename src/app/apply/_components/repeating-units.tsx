@@ -4,7 +4,7 @@ import { FieldRenderer } from './field-renderer'
 
 export function RepeatingUnits({ data, set, missingFields }: {
   data: ApplicationData
-  set: (patch: Record<string, unknown>) => void
+  set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
 }) {
   const count = dscrUnitCount(data)
@@ -13,8 +13,13 @@ export function RepeatingUnits({ data, set, missingFields }: {
   const units = Array.isArray(data.units) ? (data.units as Record<string, unknown>[]) : []
   const rows = Array.from({ length: count }, (_, i) => units[i] ?? {})
   const update = (i: number, name: string, value: unknown) => {
-    const next = rows.map((u, idx) => idx === i ? { ...u, [name]: value } : u)
-    set({ units: next })
+    // Functional update so autocomplete-style multi-field writes compound.
+    set((d) => {
+      const arr = Array.isArray(d.units) ? (d.units as Record<string, unknown>[]) : []
+      const padded = arr.length >= count ? arr : [...arr, ...Array.from({ length: count - arr.length }, () => ({} as Record<string, unknown>))]
+      const next = padded.map((u, idx) => idx === i ? { ...u, [name]: value } : u)
+      return { units: next }
+    })
   }
   return (
     <div className="space-y-4">
