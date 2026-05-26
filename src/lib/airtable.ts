@@ -444,20 +444,50 @@ export interface BatchSyncSummary {
   errorSample: Array<{ loanId: string; error: string }>
 }
 
-export async function syncAllLoansToAirtable(): Promise<BatchSyncSummary> {
+/**
+ * Sync many loans to Airtable.
+ *
+ * Options:
+ *   - limit: cap the number of loans processed in this call. Used by the
+ *     hourly cron to stay under Vercel's per-request timeout. When omitted,
+ *     processes every loan (which only completes safely when called from a
+ *     long-running context, like a local script).
+ *   - oldestFirst: when true, order by airtable_last_synced_at nulls first
+ *     so unsynced/stalest loans are picked up before recently-synced ones.
+ *     Combined with `limit`, this lets repeated cron runs rotate through
+ *     the whole base over time.
+ *
+ * On reconcile, the loan's airtable_last_synced_at is updated so the next
+ * cron run skips past it.
+ */
+export async function syncAllLoansToAirtable(
+  opts: { limit?: number; oldestFirst?: boolean } = {},
+): Promise<BatchSyncSummary> {
   const supa = createAdminClient()
+  const { limit, oldestFirst = false } = opts
 
+  // Fetch loan IDs to process. Ordered by staleness when oldestFirst=true.
   const loanIds: string[] = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supa
+  const pageSize = limit ? Math.min(limit, 1000) : 1000
+  let from = 0
+  while (true) {
+    let q = supa
       .from('loans')
       .select('id')
       .not('pipedrive_deal_id', 'is', null)
-      .range(from, from + 999)
+    if (oldestFirst) {
+      q = q.order('airtable_last_synced_at', { ascending: true, nullsFirst: true })
+    }
+    const { data, error } = await q.range(from, from + pageSize - 1)
     if (error) throw error
     if (!data?.length) break
-    for (const l of data) loanIds.push(l.id)
-    if (data.length < 1000) break
+    for (const l of data) {
+      loanIds.push(l.id)
+      if (limit && loanIds.length >= limit) break
+    }
+    if (limit && loanIds.length >= limit) break
+    if (data.length < pageSize) break
+    from += pageSize
   }
 
   const summary: BatchSyncSummary = {
@@ -483,6 +513,16 @@ export async function syncAllLoansToAirtable(): Promise<BatchSyncSummary> {
       else if (r.status === 'error') {
         summary.errors++
         if (summary.errorSample.length < 10) summary.errorSample.push({ loanId: id, error: r.error ?? '' })
+      }
+      // Stamp the loan so the cron's "oldest first" ordering rotates past
+      // it on the next run. Also stamp on no-match (Airtable row missing)
+      // so we don't keep retrying the same orphan every hour. We DON'T
+      // stamp on error so failures get retried next cycle.
+      if (r.status === 'reconciled' || r.status === 'skipped-no-airtable-row') {
+        await supa.from('loans')
+          .update({ airtable_last_synced_at: new Date().toISOString() })
+          .eq('id', id)
+          .then(() => {}, err => console.error(`stamp airtable_last_synced_at failed for ${id}:`, err))
       }
     } catch (e) {
       summary.errors++

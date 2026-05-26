@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/sync-airtable",
-      "schedule": "30 23 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
