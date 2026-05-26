@@ -57,12 +57,12 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
   }
 
   return (
-    <div className="grid gap-y-2.5 gap-x-3 sm:grid-cols-2">
+    <div className="grid gap-y-2 gap-x-3 sm:grid-cols-2">
       {groups.map((g, gi) => (
         <Fragment key={`group-${gi}-${g.section ?? 'nosection'}`}>
           {g.section && (
             <div
-              className="sm:col-span-2 mt-6 first:mt-0 mb-2 border-b border-gray-200 pb-1.5"
+              className="sm:col-span-2 mt-4 first:mt-0 mb-1.5 border-b border-gray-200 pb-1.5"
             >
               <h3 className="text-sm font-semibold text-gray-900">{g.section}</h3>
             </div>
@@ -77,7 +77,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
             const options = f.optionsWhen ? f.optionsWhen(data, scope) : f.options
             return (
               <FieldReveal key={f.name} show={true}>
-                <div className={`space-y-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
+                <div className={`space-y-1 ${wide ? 'sm:col-span-2' : ''}`}>
                   <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                     {f.label}
                     {isRequired(f, data, scope) && (
@@ -232,9 +232,9 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         onBlur={() => handleBlur(f.name, f.type, v)} />
                     )
                   })()}
-                  <div className="min-h-5 text-xs text-red-600">
-                    {blurErr ?? ' '}
-                  </div>
+                  {blurErr && (
+                    <div className="text-xs text-red-600">{blurErr}</div>
+                  )}
                 </div>
               </FieldReveal>
             )

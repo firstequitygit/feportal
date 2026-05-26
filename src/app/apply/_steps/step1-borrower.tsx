@@ -23,8 +23,8 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
       ensureDraft(value, (primary.first_name as string) ?? '')
   }
   return (
-    <div className="space-y-5">
-      <div className="mb-6 flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
         <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#1F5D8F]" aria-hidden />
         <div>
           <p className="font-medium text-gray-900">Your information is encrypted</p>

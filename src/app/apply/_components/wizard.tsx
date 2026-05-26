@@ -222,7 +222,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   ][step - 1]
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-6">
+    <div className="mx-auto max-w-3xl px-6 py-5">
       {isAdmin && (
         <div className="mb-3 flex items-center justify-end gap-2">
           <span className="text-xs font-medium text-gray-500">Test mode</span>
@@ -273,7 +273,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       </div>
 
       {/* Horizontal numbered-circle stepper */}
-      <nav aria-label="Application progress" className="mb-6">
+      <nav aria-label="Application progress" className="mb-5">
         <ol className="flex items-start justify-between">
           {STEP_TITLES.map((title, i) => {
             const n = i + 1
@@ -337,10 +337,10 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="p-4 sm:p-5">
           {/* Step heading */}
-          <div className="mb-5">
-            <h2 className="text-2xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
-            <p className="mt-1 text-sm text-gray-500">{STEPS[step - 1].subtitle}</p>
-            <p className="mt-1 text-xs text-gray-400">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
+            <p className="mt-0.5 text-sm text-gray-500">{STEPS[step - 1].subtitle}</p>
+            <p className="mt-0.5 text-xs text-gray-400">
               Step {step} of {TOTAL_STEPS} &middot; About {STEPS[step - 1].estimateMinutes} minutes &middot;{' '}
               <span className="text-red-500" aria-hidden="true">*</span> indicates a required field
             </p>

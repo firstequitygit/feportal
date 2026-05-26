@@ -314,7 +314,7 @@ export const STEPS: StepDef[] = [
   { id: 'deal',          title: 'Deal Info',        subtitle: "Tell us about the property and the financing you're after.",   estimateMinutes: 4 },
   { id: 'experience',    title: 'Experience',       subtitle: "A few questions about your real estate background.",           estimateMinutes: 2 },
   { id: 'declarations',  title: 'Declarations',     subtitle: "Required disclosures about your financial and legal history.", estimateMinutes: 3 },
-  { id: 'authorization', title: 'Authorization',    subtitle: "Review your application, then authorize and submit.",          estimateMinutes: 2 },
+  { id: 'authorization', title: 'Submit',           subtitle: "Review your application, then authorize and submit.",          estimateMinutes: 2 },
 ] as const
 
 export const TOTAL_STEPS = STEPS.length
