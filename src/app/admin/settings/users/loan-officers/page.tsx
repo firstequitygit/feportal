@@ -19,9 +19,6 @@ export default async function LoanOfficersPage() {
     .order('full_name')
 
   return (
-    <>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Loan Officers</h3>
-      <AdminLoanOfficersManager initialLoanOfficers={(loanOfficers ?? []) as LoanOfficer[]} />
-    </>
+    <AdminLoanOfficersManager initialLoanOfficers={(loanOfficers ?? []) as LoanOfficer[]} />
   )
 }

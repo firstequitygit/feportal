@@ -19,9 +19,6 @@ export default async function UnderwritersPage() {
     .order('full_name')
 
   return (
-    <>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Underwriters</h3>
-      <AdminUnderwritersManager initialUnderwriters={(underwriters ?? []) as Underwriter[]} />
-    </>
+    <AdminUnderwritersManager initialUnderwriters={(underwriters ?? []) as Underwriter[]} />
   )
 }
