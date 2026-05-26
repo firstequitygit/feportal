@@ -402,7 +402,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
             &larr; Back
           </button>
           <div className="flex items-center gap-6">
-            {step !== TOTAL_STEPS && (
+            {step !== TOTAL_STEPS && !testMode && (
               <button
                 type="button"
                 className="text-sm text-gray-600 underline hover:text-gray-900"

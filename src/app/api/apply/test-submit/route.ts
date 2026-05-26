@@ -8,7 +8,7 @@ import {
 } from '@/lib/application-fields'
 import { renderApplicationPdf } from '@/lib/pdf/application-pdf'
 import { sendApplicationTestNotifications, type TestOverrides } from '@/lib/apply-notify-test'
-import { rateLimit, clientIp } from '@/lib/rate-limit'
+import { rateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -66,6 +66,7 @@ function missingRequired(data: ApplicationData): string[] {
     if (isRequired(f, data) && isEmpty(data[f.name])) miss.push(f.name)
   }
   if (isEmpty(data.auth_signature)) miss.push('auth_signature')
+  if (isEmpty(data.payment_signature)) miss.push('payment_signature')
   return miss
 }
 
