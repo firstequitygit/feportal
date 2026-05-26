@@ -22,6 +22,8 @@ type Props = {
   idPrefix?: string
   /** Full prefixed names currently missing (from liveMissing in wizard). */
   missingFields?: string[]
+  /** Optional render slot inserted at the end of each named section's items. */
+  afterSection?: Record<string, React.ReactNode>
 }
 
 // Shared focus + border classes applied across all input types
@@ -34,7 +36,7 @@ function inputClasses(isInvalid: boolean) {
   return `${baseInputClasses} ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`
 }
 
-export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields }: Props) {
+export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection }: Props) {
   const [blurErrors, setBlurErrors] = useState<Record<string, string | null>>({})
 
   function handleBlur(name: string, type: string, value: unknown) {
@@ -243,6 +245,9 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
               </div>
             )
           })()}
+          {g.section && afterSection?.[g.section] && (
+            <div className="sm:col-span-2">{afterSection[g.section]}</div>
+          )}
         </Fragment>
       ))}
     </div>

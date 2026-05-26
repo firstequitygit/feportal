@@ -32,8 +32,10 @@ export function Step2Deal({ data, set, missingFields, token, testMode = false }:
             scope={data}
             onChange={(n, v) => set({ [n]: v })}
             missingFields={missingFields}
+            afterSection={{
+              'Rental income': <RepeatingUnits data={data} set={set} missingFields={missingFields} />,
+            }}
           />
-          <RepeatingUnits data={data} set={set} missingFields={missingFields} />
           <div className="pt-2">
             <PropertyDocuments
               token={token}

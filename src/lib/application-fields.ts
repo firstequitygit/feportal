@@ -171,9 +171,9 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property' },
   // Purchase-only fields
   { name: 'purchase_price', label: 'Purchase Price', type: 'currency',
-    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing' },
+    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Purchase details' },
   { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency',
-    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing',
+    visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Purchase details',
     helpTooltip: 'How much cash do the borrowers have available for a downpayment?' },
   // Refinance-only fields
   { name: 'date_purchased', label: 'Date Purchased', type: 'date',
