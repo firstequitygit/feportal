@@ -7,7 +7,7 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
       {/* Thin navy accent stripe */}
       <div className="h-1 bg-[#1F5D8F]" aria-hidden />
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-6 py-3">
+        <div className="mx-auto flex max-w-3xl items-center justify-center gap-3 px-6 py-3">
           <Image
             src="/logo-symbol.png"
             alt="First Equity Funding"
