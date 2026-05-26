@@ -258,8 +258,8 @@ export const DEAL_FIELDS: FieldDef[] = [
 
 // Step 1 primary-only fields (in addition to BORROWER_FIELDS for the primary)
 export const PRIMARY_EXTRA_FIELDS: FieldDef[] = [
-  { name: 'housing_status', label: 'Housing Status', type: 'select', options: HOUSING_STATUS_OPTIONS, section: 'Housing' },
-  { name: 'mortgage_on_primary', label: 'Is there a mortgage on your primary?', type: 'yesno', section: 'Housing',
+  { name: 'housing_status', label: 'Housing Status', type: 'select', options: HOUSING_STATUS_OPTIONS, section: 'Current address' },
+  { name: 'mortgage_on_primary', label: 'Is there a mortgage on your primary?', type: 'yesno', section: 'Current address',
     visibleWhen: (_d, s) => s?.housing_status === 'Own' },
   { name: 'entity_name', label: 'Entity Name', type: 'text', placeholder: 'Smith Investments LLC', section: 'Entity (if applicable)' },
   { name: 'entity_type', label: 'Entity Type', type: 'select', options: ENTITY_TYPE_OPTIONS, section: 'Entity (if applicable)' },
