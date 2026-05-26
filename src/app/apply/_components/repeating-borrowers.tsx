@@ -14,7 +14,7 @@ export function RepeatingBorrowers({ data, fields, set, heading, missingFields }
     set({ co_borrowers: next })
   }
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {cobs.map((c, i) => (
         <div key={i} className="rounded-lg border border-gray-200 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">

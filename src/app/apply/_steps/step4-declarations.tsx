@@ -12,7 +12,7 @@ export function Step4Declarations({ data, set, missingFields }: {
   missingFields?: string[]
 }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <section>
         <h3 className="mb-4 text-base font-semibold text-gray-900">Declarations</h3>
         <p className="mb-4 text-sm text-gray-500">

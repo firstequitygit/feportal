@@ -60,7 +60,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
   }
 
   return (
-    <div className="grid gap-y-3 gap-x-4 sm:grid-cols-2">
+    <div className="grid gap-y-2.5 gap-x-3 sm:grid-cols-2">
       {groups.map((g, gi) => (
         <Fragment key={`group-${gi}-${g.section ?? 'nosection'}`}>
           {g.section && (

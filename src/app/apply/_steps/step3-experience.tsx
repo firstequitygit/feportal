@@ -12,7 +12,7 @@ export function Step3Experience({ data, set, missingFields }: {
   missingFields?: string[]
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h3 className="mb-4 text-base font-semibold text-gray-900">Real Estate Experience</h3>
         <p className="mb-4 text-sm text-gray-500">

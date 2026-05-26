@@ -215,7 +215,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   ][step - 1]
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="mx-auto max-w-3xl px-6 py-6">
       {isAdmin && (
         <div className="mb-3 flex items-center justify-end gap-2">
           <span className="text-xs font-medium text-gray-500">Test mode</span>
@@ -266,7 +266,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       </div>
 
       {/* Horizontal numbered-circle stepper */}
-      <nav aria-label="Application progress" className="mb-8">
+      <nav aria-label="Application progress" className="mb-6">
         <ol className="flex items-start justify-between">
           {STEP_TITLES.map((title, i) => {
             const n = i + 1
@@ -328,7 +328,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
       {/* Form card */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-5">
           {/* Step heading */}
           <div className="mb-5">
             <h2 className="text-2xl font-semibold text-gray-900">{STEPS[step - 1].title}</h2>
@@ -389,7 +389,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
       {/* Sticky footer */}
       <div
-        className="sticky bottom-0 -mx-6 mt-8 border-t border-gray-200 bg-white px-6 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"
+        className="sticky bottom-0 -mx-6 mt-6 px-6 py-3 sm:static sm:mx-0 sm:px-0"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">
