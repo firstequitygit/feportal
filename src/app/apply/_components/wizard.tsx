@@ -10,6 +10,7 @@ import { Step4Declarations } from '../_steps/step4-declarations'
 import { Step5Authorization } from '../_steps/step5-authorization'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
+import { TestModePanel, type TestOverridesState } from './test-mode-panel'
 
 // Resolve a prefixed field name to its current value in data.
 // "primary.first_name"  -> data.primary?.first_name
@@ -48,13 +49,43 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   const [submitting, setSubmitting] = useState(false)
   const [maxVisited, setMaxVisited] = useState(initialStep || 1)
   const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
+  const [testMode, setTestMode] = useState(false)
+  const [testSubmitting, setTestSubmitting] = useState(false)
+
+  // Load + persist test mode toggle (admins only).
+  useEffect(() => {
+    if (!isAdmin) return
+    try {
+      const raw = window.localStorage.getItem('fe-apply-test-mode')
+      if (raw === '1') setTestMode(true)
+    } catch { /* ignore */ }
+  }, [isAdmin])
+  useEffect(() => {
+    if (!isAdmin) return
+    try { window.localStorage.setItem('fe-apply-test-mode', testMode ? '1' : '0') } catch { /* ignore */ }
+  }, [testMode, isAdmin])
+
+  // Persist current data to localStorage while test mode is on (autosave is suppressed).
+  useEffect(() => {
+    if (!testMode) return
+    try { window.localStorage.setItem('fe-apply-test-data', JSON.stringify(data)) } catch { /* ignore */ }
+  }, [data, testMode])
+  useEffect(() => {
+    if (!isAdmin || !testMode) return
+    try {
+      const raw = window.localStorage.getItem('fe-apply-test-data')
+      if (raw) setData(JSON.parse(raw) as ApplicationData)
+    } catch { /* ignore */ }
+    // Intentionally only on toggle-on transitions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testMode])
 
   const searchParams = useSearchParams()
   const devSkipRequired =
     process.env.NODE_ENV !== "production" &&
     searchParams.get("dev") === "1"
 
-  const autosaveStatus = useAutosave(token, data, step)
+  const autosaveStatus = useAutosave(token, data, step, testMode)
 
   useEffect(() => {
     setMaxVisited((m) => Math.max(m, step))
@@ -70,6 +101,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   // Create the draft once we have the primary email (called by Step 1 on email blur).
   const ensureDraft = useCallback(async (email: string, firstName: string) => {
+    if (testMode) return
     if (token || !email) return
     try {
       const res = await fetch('/api/apply/draft', {
@@ -80,7 +112,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       if (j.success) { setToken(j.resumeToken); toast.success('Progress saved. A resume link was emailed to you.') }
       else toast.error(j.error ?? 'Could not start application')
     } catch { toast.error('Network error - please try again') }
-  }, [token, data])
+  }, [token, data, testMode])
 
   async function submit() {
     setSubmitting(true)
@@ -110,6 +142,41 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       toast.error(j.error ?? 'Submit failed')
     } catch { toast.error('Network error - please try again') }
     finally { setSubmitting(false) }
+  }
+
+  async function testSubmit(overrides: TestOverridesState, scenarioLabel: string, submissionData: ApplicationData) {
+    setTestSubmitting(true)
+    setSubmitErrors(null)
+    try {
+      const res = await fetch('/api/apply/test-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: submissionData, overrides, scenarioLabel }),
+      })
+      const j = await res.json()
+      if (j.success) {
+        try {
+          sessionStorage.setItem('fe-apply-test-result', JSON.stringify({
+            scenario: j.scenario,
+            recipients: j.recipients,
+            pdfBytes: j.pdfBytes,
+            data: submissionData,
+          }))
+        } catch { /* ignore */ }
+        window.location.href = '/apply/test-submitted'
+        return
+      }
+      if (!res.ok && Array.isArray(j.missing) && j.missing.length > 0) {
+        setSubmitErrors(j.missing)
+        toast.error(`${j.missing.length} required field${j.missing.length === 1 ? '' : 's'} missing`)
+        return
+      }
+      toast.error(j.error ?? 'Test submit failed')
+    } catch {
+      toast.error('Network error - please try again')
+    } finally {
+      setTestSubmitting(false)
+    }
   }
 
   function goNext() {
@@ -149,6 +216,40 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
+      {isAdmin && (
+        <div className="mb-3 flex items-center justify-end gap-2">
+          <span className="text-xs font-medium text-gray-500">Test mode</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={testMode}
+            onClick={() => setTestMode(t => !t)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${testMode ? 'bg-amber-600' : 'bg-gray-300'}`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${testMode ? 'translate-x-5' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
+      )}
+
+      {testMode && (
+        <div role="alert" className="mb-4 rounded-md border-2 border-amber-400 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
+          TEST MODE - submissions will not be saved to live records.
+        </div>
+      )}
+
+      {testMode && (
+        <TestModePanel
+          data={data}
+          setData={(next) => setData(next)}
+          step={step}
+          setStep={(n) => { setSubmitErrors(null); setStep(n); setMaxVisited(m => Math.max(m, n)) }}
+          onAutoSubmit={(overrides, label, scenarioData) => testSubmit(overrides, label, scenarioData)}
+          busy={testSubmitting}
+        />
+      )}
+
       {devSkipRequired && (
         <div
           role="alert"
@@ -334,11 +435,25 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
               : (
                 <button
                   type="button"
-                  onClick={submit}
-                  disabled={submitting || !token}
+                  onClick={async () => {
+                    if (testMode) {
+                      const overridesRaw = (() => {
+                        try { return JSON.parse(window.localStorage.getItem('fe-apply-test-overrides') ?? 'null') } catch { return null }
+                      })() as TestOverridesState | null
+                      const overrides: TestOverridesState = overridesRaw ?? {
+                        borrowerEmail: 'apalmiotto@outlook.com',
+                        processingInbox: 'apalmiotto@outlook.com',
+                        loEmail: 'apalmiotto@outlook.com',
+                      }
+                      await testSubmit(overrides, 'Manual submit', data)
+                    } else {
+                      submit()
+                    }
+                  }}
+                  disabled={testMode ? testSubmitting : (submitting || !token)}
                   className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
-                  {submitting ? 'Submitting…' : 'Submit Application'}
+                  {testMode ? (testSubmitting ? 'Submitting…' : 'Submit Test Application') : (submitting ? 'Submitting…' : 'Submit Application')}
                 </button>
               )}
           </div>
