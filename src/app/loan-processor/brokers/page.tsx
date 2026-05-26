@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { EditableContactList, type EditableContactRow } from '@/components/editable-contact-list'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 export default async function LoanProcessorBrokersPage() {
   const supabase = await createClient()
@@ -10,8 +11,9 @@ export default async function LoanProcessorBrokersPage() {
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-  const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) redirect('/login')
 
   // Ops managers see brokers across every active loan.
@@ -48,8 +50,15 @@ export default async function LoanProcessorBrokersPage() {
     }
   })
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_processor'
+
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-3xl">
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-3xl" impersonation={isImpersonating ? {
+        kind: 'loan_processor',
+        name: lp.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Brokers</h2>
       <p className="text-sm text-gray-500 mb-6">
         Every broker across every loan assigned to you. Click the pencil to correct

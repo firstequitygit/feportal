@@ -34,7 +34,7 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
-import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
@@ -61,10 +61,9 @@ export default async function LoanProcessorLoanPage({
   const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
   const isImpersonating = impersonation?.kind === 'loan_processor'
 
-  const { data: lp } = isImpersonating
-    ? await adminClient.from('loan_processors').select('*').eq('id', impersonation.id).maybeSingle()
-    : await adminClient.from('loan_processors').select('*').eq('auth_user_id', user.id).maybeSingle()
-
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) redirect('/login')
 
   // Verify this loan is assigned to this loan processor — admins bypass
@@ -125,10 +124,11 @@ export default async function LoanProcessorLoanPage({
 
 
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor">
-      {isImpersonating && impersonation && (
-        <ImpersonationBanner kind="loan_processor" name={lp.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
-      )}
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" impersonation={isImpersonating ? {
+        kind: 'loan_processor',
+        name: lp.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/loan-processor/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans

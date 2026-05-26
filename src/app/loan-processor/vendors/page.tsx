@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { Building2, ShieldCheck, FileSearch } from 'lucide-react'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 interface LoanRow {
   id: string
@@ -43,8 +44,9 @@ export default async function LoanProcessorVendorsPage() {
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-  const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) redirect('/login')
 
   // Ops managers see vendors across every active loan.
@@ -92,6 +94,9 @@ export default async function LoanProcessorVendorsPage() {
   const insuranceVendors = aggregate((details ?? []) as DetailRow[], 'insurance')
   const appraiserVendors = aggregate((details ?? []) as DetailRow[], 'appraisal')
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_processor'
+
   return (
     <PortalShell
       userName={lp.full_name}
@@ -99,6 +104,11 @@ export default async function LoanProcessorVendorsPage() {
       dashboardHref="/loan-processor/inbox"
       variant="loan-processor"
       maxWidth="max-w-3xl"
+      impersonation={isImpersonating ? {
+        kind: 'loan_processor',
+        name: lp.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Vendors</h2>
       <p className="text-sm text-gray-500 mb-6">
