@@ -34,10 +34,18 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
       const data = await res.json()
       if (data.ok && data.summary) {
         const s = data.summary as BatchSummary
-        toast.success(
-          `Reconciled ${s.reconciled} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`,
-          { id: toastId, duration: 10000 },
-        )
+        const headline = `Reconciled ${s.reconciled} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`
+        // When errors dominate, surface the first sample error message so the
+        // admin can paste it back without digging through Vercel logs.
+        if (s.errors > 0 && s.errorSample && s.errorSample.length > 0) {
+          console.error('Airtable sync errors (sample):', s.errorSample)
+          const firstErr = s.errorSample[0]?.error ?? 'unknown error'
+          toast.error(`${headline}\nFirst error: ${firstErr.slice(0, 220)}`, {
+            id: toastId, duration: 20000,
+          })
+        } else {
+          toast.success(headline, { id: toastId, duration: 10000 })
+        }
         router.refresh()
       } else {
         toast.error(data.error ?? 'Airtable sync failed', { id: toastId })
