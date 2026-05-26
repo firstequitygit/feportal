@@ -34,6 +34,7 @@ import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
+import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
 import Link from 'next/link'
 
@@ -139,8 +140,9 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan, { includeStaff: true })} />
+            <LoanAirtableSyncButton loanId={id} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"
