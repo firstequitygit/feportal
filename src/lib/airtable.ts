@@ -198,10 +198,14 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
     return { loanId, status: 'error', pushedToAirtable: 0, pulledToPortal: 0, error: loanErr?.message ?? 'loan not found' }
   }
   const loan = loanRow as unknown as Record<string, unknown>
-  const dealId = loan.pipedrive_deal_id
-  if (!dealId || typeof dealId !== 'string') {
+  const rawDealId = loan.pipedrive_deal_id
+  if (rawDealId === null || rawDealId === undefined || rawDealId === '') {
     return { loanId, status: 'skipped-no-deal-id', pushedToAirtable: 0, pulledToPortal: 0 }
   }
+  // pipedrive_deal_id is INT4 in Postgres → Supabase returns a JS number.
+  // findDealByPipedriveId needs a string for the Airtable formula. Coerce
+  // here so number/string variants both work without breaking the lookup.
+  const dealId = String(rawDealId)
 
   const { data: detail } = await supa
     .from('loan_details')
