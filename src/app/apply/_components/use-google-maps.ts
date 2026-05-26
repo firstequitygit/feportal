@@ -12,13 +12,11 @@ function loadGoogleMapsScript(): Promise<void> {
   if (loaderPromise) return loaderPromise
 
   loaderPromise = new Promise<void>((resolve, reject) => {
-    // Already loaded (e.g. hot-reload or duplicate mount)
     if (typeof window !== "undefined" && window.google?.maps?.places) {
       resolve()
       return
     }
 
-    // Guard against a script tag that is already in the DOM (but not yet done)
     const existing = document.querySelector(
       'script[src*="maps.googleapis.com/maps/api/js"]'
     )
@@ -29,7 +27,9 @@ function loadGoogleMapsScript(): Promise<void> {
     }
 
     const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places&loading=async`
+    // v=weekly pins to the latest stable release, which is required for
+    // the Places API (New) classes (AutocompleteSuggestion, etc.).
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places&loading=async&v=weekly`
     script.async = true
     script.defer = true
     script.addEventListener("load", () => resolve())
@@ -55,9 +55,8 @@ export function useGoogleMaps(): GoogleMapsState {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    if (!API_KEY) return // no key - stay at available: false
+    if (!API_KEY) return
 
-    // Already resolved (another component loaded it first)
     if (typeof window !== "undefined" && window.google?.maps?.places) {
       setLoaded(true)
       return
@@ -69,8 +68,7 @@ export function useGoogleMaps(): GoogleMapsState {
         if (!cancelled) setLoaded(true)
       })
       .catch(() => {
-        // Script failed to load - component stays in the unloaded/fallback state
-        loaderPromise = null // allow retry on next mount if needed
+        loaderPromise = null
       })
 
     return () => {
