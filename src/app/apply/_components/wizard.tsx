@@ -39,8 +39,8 @@ function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
   return v === undefined || v === null || v === ""
 }
 
-export function Wizard({ initialData, initialStep, initialToken }: {
-  initialData: ApplicationData; initialStep: number; initialToken: string | null
+export function Wizard({ initialData, initialStep, initialToken, isAdmin = false }: {
+  initialData: ApplicationData; initialStep: number; initialToken: string | null; isAdmin?: boolean
 }) {
   const [data, setData] = useState<ApplicationData>(initialData ?? {})
   const [step, setStep] = useState(initialStep || 1)
