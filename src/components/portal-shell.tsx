@@ -12,7 +12,7 @@ import { InviteBroker } from '@/components/invite-broker'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -37,18 +37,13 @@ interface Props {
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/admin',                  label: 'Overview',            icon: LayoutDashboard, exact: true },
-  { href: '/admin/loan-officers',    label: 'Loan Officers',       icon: Users },
-  { href: '/admin/loan-processors',  label: 'Loan Processors',     icon: UserCog },
-  { href: '/admin/underwriters',     label: 'Underwriters',        icon: ShieldCheck },
   { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
+  { href: '/admin/settings',         label: 'Settings',            icon: Settings },
 ]
-
-// Super-admin-only extra nav, slotted after Brokers in ADMIN_NAV.
-const SUPER_ADMIN_EXTRA: NavItem = { href: '/admin/admins', label: 'Admins', icon: ShieldCheck }
 
 const LO_NAV: NavItem[] = [
   { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
@@ -91,6 +86,7 @@ export function PortalShell({
   dashboardHref,
   variant = 'default',
   maxWidth = 'max-w-5xl',
+  // kept for back-compat; settings shell handles super-admin nav now
   isSuperAdmin = false,
   children,
 }: Props) {
@@ -129,17 +125,8 @@ export function PortalShell({
     router.refresh()
   }
 
-  // Build nav items based on variant.
-  // Super-admins get an extra "Admins" entry between Underwriters and Borrowers.
-  function adminNav(): NavItem[] {
-    if (!isSuperAdmin) return ADMIN_NAV
-    const idx = ADMIN_NAV.findIndex(n => n.href === '/admin/underwriters')
-    const next = [...ADMIN_NAV]
-    next.splice(idx + 1, 0, SUPER_ADMIN_EXTRA)
-    return next
-  }
   const navItems: NavItem[] =
-    variant === 'admin'          ? adminNav() :
+    variant === 'admin'          ? ADMIN_NAV :
     variant === 'loan-officer'   ? LO_NAV :
     variant === 'loan-processor' ? LP_NAV :
     variant === 'underwriter'    ? UW_NAV :
