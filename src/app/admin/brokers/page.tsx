@@ -10,7 +10,7 @@ export default async function AdminBrokersPage() {
   if (!user) redirect('/login')
 
   const { data: admin } = await supabase
-    .from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
+    .from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
@@ -51,7 +51,7 @@ export default async function AdminBrokersPage() {
   }))
 
   return (
-    <PortalShell userName={null} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Brokers</h2>
       <p className="text-sm text-gray-500 mb-6">
         All brokers in the portal. Brokers are added via the &quot;Invite Broker&quot; button in the
