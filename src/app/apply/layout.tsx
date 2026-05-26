@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { Lock } from "lucide-react"
+import { Lock, ShieldCheck, Clock } from "lucide-react"
 
 export default function ApplyLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -27,13 +27,19 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-6 py-2 text-xs text-gray-600">
-          <Lock className="h-3.5 w-3.5 shrink-0 text-[#1F5D8F]" aria-hidden />
-          <span>Bank-grade encryption</span>
-          <span aria-hidden className="hidden text-gray-300 sm:inline">·</span>
-          <span>No credit check until you authorize</span>
-          <span aria-hidden className="hidden text-gray-300 sm:inline">·</span>
-          <span>~10-minute application</span>
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-6 py-2 text-xs text-gray-600">
+          <span className="inline-flex items-center gap-1.5">
+            <Lock className="h-3.5 w-3.5 shrink-0 text-[#1F5D8F]" aria-hidden />
+            Bank-grade encryption
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[#1F5D8F]" aria-hidden />
+            No credit check until you authorize
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-[#1F5D8F]" aria-hidden />
+            ~10-minute application
+          </span>
         </div>
       </div>
       {children}
