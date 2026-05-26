@@ -1,13 +1,28 @@
-// Admin-triggered Airtable sync. POST with no body to sync all loans, or
-// pass { loanId: '...' } to sync exactly one. Admin-only — same auth pattern
-// as the rest of the admin endpoints.
+// Admin-triggered Airtable sync.
+//
+//   POST {}                  → run the same batch the hourly cron uses
+//                              (next 250 stalest loans, oldest-first). Safe
+//                              under the 5-min function cap and the standard
+//                              way to trigger an on-demand refresh.
+//   POST { loanId: '...' }   → sync exactly one loan. Used by the per-loan
+//                              Sync to Airtable button.
+//
+// Admin-only — same auth pattern as the rest of the admin endpoints.
+//
+// The "sync the entire base in one shot" mode was removed because it can't
+// fit inside Vercel's function timeout for the current ~2000-loan dataset.
+// The hourly cron covers full-base coverage on a rolling basis.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncAllLoansToAirtable, syncLoanToAirtable } from '@/lib/airtable'
 
-export const maxDuration = 300 // up to 5 min — full-base sync can be slow
+export const maxDuration = 300
+
+// Mirrors the cron's BATCH_SIZE so on-demand and scheduled runs have the
+// same throughput characteristics.
+const BATCH_SIZE = 250
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -27,8 +42,11 @@ export async function POST(req: NextRequest) {
       const result = await syncLoanToAirtable(loanId)
       return NextResponse.json({ ok: true, result })
     }
-    const summary = await syncAllLoansToAirtable()
-    return NextResponse.json({ ok: true, summary })
+    const summary = await syncAllLoansToAirtable({
+      limit: BATCH_SIZE,
+      oldestFirst: true,
+    })
+    return NextResponse.json({ ok: true, summary, batchSize: BATCH_SIZE })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Airtable sync failed:', msg)

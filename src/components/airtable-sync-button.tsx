@@ -18,9 +18,17 @@ interface BatchSummary {
 }
 
 /**
- * Admin-only one-click button that fires the bidirectional Loan Details
- * sync between the portal and the Airtable Deals base. Model B: fill blanks
- * only — never overwrite a populated field on either side.
+ * Admin sidebar button. Runs the same batch the hourly cron uses — the
+ * next ~250 stalest loans, oldest-first. Useful for forcing a refresh
+ * without waiting for the top of the hour.
+ *
+ * Full-base sync isn't a thing anymore: ~2000 loans × 1s/loan exceeds
+ * even Pro's 5-min function timeout. Cron handles full coverage on a
+ * rolling basis (~10 hours per full pass); this button accelerates it
+ * by one batch when needed.
+ *
+ * For instant single-loan sync (e.g., after editing a field), use the
+ * per-loan 'Sync to Airtable' button on the admin loan detail page.
  */
 export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean } = {}) {
   const router = useRouter()
@@ -28,15 +36,17 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
 
   async function handleSync() {
     setSyncing(true)
-    const toastId = toast.loading('Reconciling Loan Details with Airtable…')
+    const toastId = toast.loading('Syncing next batch of stalest loans…')
     try {
-      const res = await fetch('/api/admin/sync-airtable', { method: 'POST' })
+      const res = await fetch('/api/admin/sync-airtable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
       const data = await res.json()
       if (data.ok && data.summary) {
         const s = data.summary as BatchSummary
-        const headline = `Reconciled ${s.reconciled} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`
-        // When errors dominate, surface the first sample error message so the
-        // admin can paste it back without digging through Vercel logs.
+        const headline = `Synced ${s.reconciled} of ${s.total} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`
         if (s.errors > 0 && s.errorSample && s.errorSample.length > 0) {
           console.error('Airtable sync errors (sample):', s.errorSample)
           const firstErr = s.errorSample[0]?.error ?? 'unknown error'
@@ -60,15 +70,21 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
   if (collapsed) {
     return (
       <Button variant="outline" size="icon-sm" onClick={handleSync} disabled={syncing}
-        aria-label="Sync Airtable" title="Sync Airtable">
+        aria-label="Sync next batch" title="Sync next batch of stalest loans">
         <Database className={syncing ? 'animate-pulse' : ''} />
       </Button>
     )
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-      {syncing ? 'Syncing…' : 'Sync Airtable'}
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleSync}
+      disabled={syncing}
+      title="Sync the next batch of stalest loans to Airtable (~250 loans). Hourly cron also runs this automatically."
+    >
+      {syncing ? 'Syncing…' : 'Sync Next Batch'}
     </Button>
   )
 }
