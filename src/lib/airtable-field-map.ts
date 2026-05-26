@@ -1,16 +1,14 @@
 // Loan Details ↔ Airtable Deals field mapping.
 //
-// SYNC MODEL (per user direction): "Model B — only fill blanks on both sides,
-// never merge conflicts."
+// SYNC MODEL: "portal wins, Airtable backfills"
 //
-//   Airtable has value, portal empty   → pull Airtable into portal
-//   Airtable empty, portal has value   → push portal into Airtable
-//   Both have values                   → no-op (preserve both)
-//   Both empty                         → no-op
+//   Portal has value             → push portal → Airtable (overwrites)
+//   Portal empty, Airtable value → pull Airtable → portal (fill the blank)
+//   Both empty                   → no-op
 //
-// This is bidirectional but conservative — neither side ever overwrites a
-// populated field on the other side. Conflict drift is accepted as the
-// tradeoff for safety.
+// Portal is the source of truth. Airtable still backfills the portal on
+// fields the portal hasn't populated yet, but a populated portal field
+// always overwrites Airtable on the next sync.
 //
 // Edit this file to add/change a mapping. The reconciliation engine in
 // src/lib/airtable.ts reads it directly.

@@ -1,12 +1,18 @@
-// Bidirectional "fill blanks only" sync between portal Loan Details and the
-// First Equity Reports Airtable base (Deals table + linked Title/Insurance/
-// Appraisers tables).
+// Bidirectional sync between portal Loan Details and the First Equity
+// Reports Airtable base (Deals table + linked Title/Insurance/Appraisers
+// tables).
 //
-// Sync model — Model B per user direction:
-//   - Airtable has value, portal empty   → pull Airtable into portal
-//   - Airtable empty,    portal has value → push portal into Airtable
-//   - Both have values   → no-op (preserve both)
-//   - Both empty         → no-op
+// Sync model — "portal wins, Airtable backfills":
+//   - Portal has value             → push portal → Airtable (overwrites)
+//   - Portal empty, Airtable value → pull Airtable → portal (fill the blank)
+//   - Both empty                   → no-op
+//
+// Earlier this was "fill blanks only on both sides" — bidirectional but
+// conservative. Problem: portal edits never propagated to Airtable when
+// the field there already had any value (even from an older sync), so
+// staff couldn't update Points / Construction Holdback / etc. Portal is
+// now the canonical source; Airtable still seeds initial data on fields
+// the portal hasn't populated yet.
 //
 // Match key: Pipedrive Deal ID. Loans without a matching Airtable row are
 // skipped (we do NOT create Deal rows from the portal).
@@ -271,6 +277,16 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
 // Reconcile one scalar field
 // ============================================================
 
+// Updated sync model — "portal wins, Airtable backfills":
+//   portal has value             → push portal → Airtable (always overwrites)
+//   portal empty, airtable value → pull Airtable → portal (fill the blank)
+//   both empty                   → no-op
+//
+// Previously this was "fill blanks only on both sides", which silently
+// refused to push portal updates whenever Airtable already had any value
+// in the same field. The portal is now treated as the source of truth;
+// Airtable still seeds initial portal data on fields the portal hasn't
+// populated yet.
 function reconcileScalar(
   m: ScalarMapping,
   loan: Record<string, unknown>,
@@ -289,19 +305,22 @@ function reconcileScalar(
   const portalEmpty = isEmptyValue(portalValue)
   const airtableEmpty = isEmptyValue(airtableValue)
 
-  // Both empty or both populated → skip
-  if (portalEmpty === airtableEmpty) return
+  // Both empty → nothing to sync.
+  if (portalEmpty && airtableEmpty) return
 
-  if (airtableEmpty && !portalEmpty) {
-    // Push portal → Airtable
+  if (!portalEmpty) {
+    // Portal has a value → push it (overwrites any existing Airtable value).
     const v = m.toAirtable ? m.toAirtable(portalValue) : portalValue
     if (v === undefined) return
+    // Skip the patch when Airtable already holds the same value — avoids
+    // unnecessary writes / API calls on a no-op sync.
+    if (!airtableEmpty && airtableValue === v) return
     airtablePatch[m.airtableField] = v
     if (collectDeltas) {
       deltas.push({ field: `airtable: ${m.airtableField}`, direction: 'push', oldValue: airtableValue, newValue: v })
     }
-  } else if (!airtableEmpty && portalEmpty) {
-    // Pull Airtable → portal
+  } else if (!airtableEmpty) {
+    // Portal empty, Airtable has value → pull it into portal.
     const v = m.toPortal ? m.toPortal(airtableValue) : airtableValue
     if (v === undefined) return
     if (m.portalTable === 'loans') portalLoanPatch[m.portalCol] = v
