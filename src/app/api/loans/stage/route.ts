@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 import { updateDealStage } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail, sendConditionallyApprovedAlert } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
@@ -14,6 +15,8 @@ const STAGE_NAME_TO_ID: Record<string, number> = Object.entries(PIPEDRIVE_STAGE_
   }, {} as Record<string, number>)
 
 export async function PATCH(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
