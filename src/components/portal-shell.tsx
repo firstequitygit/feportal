@@ -9,6 +9,9 @@ import { SyncButton } from '@/components/sync-button'
 import { AirtableSyncButton } from '@/components/airtable-sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
 import { InviteBroker } from '@/components/invite-broker'
+import { AdminViewAsTrigger } from '@/components/admin-view-as-trigger'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
+import { ImpersonationProvider } from '@/components/impersonation-provider'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
@@ -32,6 +35,16 @@ interface Props {
   maxWidth?: string
   /** Admin only: when true, surface the super-admin-only nav items (Admins). */
   isSuperAdmin?: boolean
+  /** When true, render the header "View as" trigger. Pass only for admins
+   *  who are NOT currently impersonating. */
+  showViewAsTrigger?: boolean
+  /** When set, render the impersonation banner above children and wrap
+   *  children in ImpersonationProvider with isImpersonating=true. */
+  impersonation?: {
+    kind: 'borrower' | 'broker' | 'loan_officer' | 'loan_processor' | 'underwriter'
+    name: string | null
+    exitHref: string
+  } | null
   children: React.ReactNode
 }
 
@@ -88,6 +101,8 @@ export function PortalShell({
   maxWidth = 'max-w-5xl',
   // kept for back-compat; settings shell handles super-admin nav now
   isSuperAdmin = false,
+  showViewAsTrigger,
+  impersonation,
   children,
 }: Props) {
   const [open, setOpen] = useState(false)          // mobile drawer (unchanged)
@@ -154,16 +169,31 @@ export function PortalShell({
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Logo pushed to top-right */}
-        <div className="ml-auto pr-5">
-          <Link href={dashboardHref} className="flex items-center gap-2.5">
-            <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
-              <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
+        {/* Logo pushed to top-right, optionally preceded by the "View as" trigger */}
+        {showViewAsTrigger ? (
+          <>
+            <div className="ml-auto mr-3"><AdminViewAsTrigger /></div>
+            <div className="pr-5">
+              <Link href={dashboardHref} className="flex items-center gap-2.5">
+                <div className="text-right hidden sm:block">
+                  <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
+                  <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
+                </div>
+                <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
+              </Link>
             </div>
-            <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
-          </Link>
-        </div>
+          </>
+        ) : (
+          <div className="ml-auto pr-5">
+            <Link href={dashboardHref} className="flex items-center gap-2.5">
+              <div className="text-right hidden sm:block">
+                <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
+                <p className="text-xs leading-tight mt-0.5 text-gray-500">Portal</p>
+              </div>
+              <Image src="/logo-symbol.png" alt="First Equity Funding" width={32} height={32} className="h-8 w-auto" />
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Sidebar — extends fully to top of screen (behind top bar on left) */}
@@ -266,7 +296,16 @@ export function PortalShell({
       {/* Main content */}
       <main className={`min-h-screen bg-gray-50 transition-all duration-200 ${pinned ? 'md:ml-60' : 'md:ml-16'}`}>
         <div className={`pt-20 md:pt-20 pb-8 ${maxWidth} mx-auto px-4 md:px-8`}>
-          {children}
+          <ImpersonationProvider value={{ isImpersonating: !!impersonation }}>
+            {impersonation && (
+              <ImpersonationBanner
+                kind={impersonation.kind}
+                name={impersonation.name}
+                exitHref={impersonation.exitHref}
+              />
+            )}
+            {children}
+          </ImpersonationProvider>
         </div>
       </main>
     </div>
