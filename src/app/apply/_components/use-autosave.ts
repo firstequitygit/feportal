@@ -7,8 +7,15 @@ export type AutosaveStatus =
   | { state: 'saved'; at: number }
   | { state: 'error'; message: string }
 
-/** Debounced PATCH to /api/apply/draft. No-op until a resumeToken exists. */
-export function useAutosave(resumeToken: string | null, data: unknown, currentStep: number): AutosaveStatus {
+/** Debounced PATCH to /api/apply/draft. No-op until a resumeToken exists,
+ *  or when `disabled` is true (used by test mode to keep nothing written
+ *  to loan_applications). */
+export function useAutosave(
+  resumeToken: string | null,
+  data: unknown,
+  currentStep: number,
+  disabled = false,
+): AutosaveStatus {
   const [status, setStatus] = useState<AutosaveStatus>({ state: 'idle' })
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -32,13 +39,14 @@ export function useAutosave(resumeToken: string | null, data: unknown, currentSt
   }, [data, currentStep])
 
   useEffect(() => {
+    if (disabled) return
     if (!resumeToken) return
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       save(resumeToken)
     }, 1500)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [resumeToken, save])
+  }, [resumeToken, save, disabled])
 
   return status
 }
