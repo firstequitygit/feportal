@@ -116,7 +116,7 @@ export function PortalShell({
     })
   }
 
-  const displayName = userName ?? userRole
+  const displayName = (userName ?? userRole).replace(/\s*\(Admin\)\s*$/, '')
   const initials = displayName.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'
 
   async function handleLogout() {
