@@ -1,6 +1,6 @@
 'use client'
 import { Fragment, useState } from "react"
-import { Mail, Phone, Calendar, MapPin } from "lucide-react"
+import { Mail, Phone, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
@@ -12,9 +12,6 @@ import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { StreetViewImage } from "@/components/ui/street-view-image"
 import { isVisible, type FieldDef, type ApplicationData } from "@/lib/application-fields"
 import { validators } from "./validators"
-
-// Names of address line-1 fields that get a MapPin icon
-const ADDRESS_LINE1_NAMES = new Set(['address_street', 'property_street', 'prior_address_street'])
 
 type Props = {
   fields: FieldDef[]
@@ -29,7 +26,7 @@ type Props = {
 
 // Shared focus + border classes applied across all input types
 const focusClasses = "focus:outline-none focus:ring-2 focus:ring-[#1F5D8F]/40 focus:border-[#1F5D8F]"
-const baseInputClasses = `w-full rounded-md border bg-white px-3 py-2.5 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed`
+const baseInputClasses = `h-10 w-full rounded-md border bg-white px-3 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed`
 const validBorder = "border-gray-300"
 const invalidBorder = "border-red-500"
 
@@ -97,7 +94,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                     <div className="relative">
                       <select
                         id={id}
-                        className={`appearance-none w-full rounded-md border bg-white px-3 py-2.5 pr-9 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`}
+                        className={`h-10 appearance-none w-full rounded-md border bg-white px-3 pr-9 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`}
                         aria-invalid={isInvalid || undefined}
                         value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}>
                         <option value="">Select</option>
@@ -175,28 +172,23 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                     </div>
                   ) : f.address ? (
                     <>
-                      <div className="relative">
-                        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
-                        <div className="pl-10">
-                          <AddressAutocomplete
-                            id={id}
-                            value={(v as string) ?? ''}
-                            onChange={(val) => onChange(f.name, val)}
-                            onPlaceSelected={(parts) => {
-                              onChange(f.name, parts.street)
-                              onChange(f.address!.city, parts.city)
-                              onChange(f.address!.state, parts.state)
-                              onChange(f.address!.zip, parts.zip)
-                              if (f.address!.lat && parts.lat !== undefined)
-                                onChange(f.address!.lat, parts.lat)
-                              if (f.address!.lng && parts.lng !== undefined)
-                                onChange(f.address!.lng, parts.lng)
-                            }}
-                            invalid={isInvalid}
-                            placeholder={f.placeholder}
-                          />
-                        </div>
-                      </div>
+                      <AddressAutocomplete
+                        id={id}
+                        value={(v as string) ?? ''}
+                        onChange={(val) => onChange(f.name, val)}
+                        onPlaceSelected={(parts) => {
+                          onChange(f.name, parts.street)
+                          onChange(f.address!.city, parts.city)
+                          onChange(f.address!.state, parts.state)
+                          onChange(f.address!.zip, parts.zip)
+                          if (f.address!.lat && parts.lat !== undefined)
+                            onChange(f.address!.lat, parts.lat)
+                          if (f.address!.lng && parts.lng !== undefined)
+                            onChange(f.address!.lng, parts.lng)
+                        }}
+                        invalid={isInvalid}
+                        placeholder={f.placeholder}
+                      />
                       {f.address.streetView && (
                         <StreetViewImage
                           lat={(scope[f.address.lat ?? ''] as string | undefined)}
@@ -211,16 +203,15 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                       f.type === 'email' ? Mail :
                       f.type === 'tel' ? Phone :
                       f.type === 'date' ? Calendar :
-                      ADDRESS_LINE1_NAMES.has(f.name) ? MapPin :
                       null
                     return LeadIcon ? (
                       <div className="relative">
-                        <LeadIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+                        <LeadIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
                         <Input id={id}
                           type={inputType}
                           inputMode={f.type === 'number' ? 'decimal' : undefined}
                           placeholder={f.placeholder}
-                          className={isInvalid ? 'border-red-500 py-2.5 pl-10' : `${validBorder} ${focusClasses} py-2.5 pl-10 rounded-md`}
+                          className={isInvalid ? 'border-red-500 h-10 pl-10 rounded-md' : `${validBorder} ${focusClasses} h-10 pl-10 rounded-md`}
                           aria-invalid={isInvalid || undefined}
                           value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
                           onBlur={() => handleBlur(f.name, f.type, v)} />
@@ -230,7 +221,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         type={inputType}
                         inputMode={f.type === 'number' ? 'decimal' : undefined}
                         placeholder={f.placeholder}
-                        className={isInvalid ? 'border-red-500 py-2.5' : `${validBorder} ${focusClasses} py-2.5 rounded-md`}
+                        className={isInvalid ? 'border-red-500 h-10 rounded-md' : `${validBorder} ${focusClasses} h-10 rounded-md`}
                         aria-invalid={isInvalid || undefined}
                         value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
                         onBlur={() => handleBlur(f.name, f.type, v)} />

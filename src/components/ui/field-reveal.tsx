@@ -43,7 +43,10 @@ export function FieldReveal({
       style={{
         maxHeight,
         opacity,
-        overflow: 'hidden',
+        // Only clip during the slide animation. Once maxHeight is "none",
+        // allow children to overflow (needed by absolute-positioned dropdowns
+        // like the address autocomplete suggestions).
+        overflow: maxHeight === 'none' ? 'visible' : 'hidden',
         transition: 'max-height 180ms ease, opacity 180ms ease',
       }}
     >

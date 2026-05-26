@@ -342,8 +342,8 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
               <p className="font-medium text-red-800">
                 {liveMissing.length} {liveMissing.length === 1 ? 'field needs' : 'fields need'} attention
               </p>
-              <ul className="mt-1 space-y-0.5 text-red-700">
-                {liveMissing.slice(0, 5).map((name) => {
+              <ul className="mt-1 max-h-48 space-y-0.5 overflow-y-auto pr-1 text-red-700">
+                {liveMissing.map((name) => {
                   const dot = name.indexOf(".")
                   const rawName = dot === -1 ? name : name.slice(dot + 1)
                   const field = ALL_FIELDS.find((f) => f.name === rawName)

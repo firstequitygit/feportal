@@ -33,7 +33,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     return (
       <div
         className={cn(
-          'flex items-center rounded-md border bg-white transition-colors',
+          'flex h-10 items-center rounded-md border bg-white transition-colors',
           invalid
             ? 'border-red-500'
             : 'border-gray-300 focus-within:border-[#1F5D8F] focus-within:ring-2 focus-within:ring-[#1F5D8F]/40',
@@ -50,7 +50,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           onBlur={(e) => { setFocused(false); onBlur?.(e) }}
           onChange={(e) => onChange(stripToDigits(e.target.value))}
           aria-invalid={invalid || undefined}
-          className="w-full bg-transparent py-2.5 pr-3 text-right outline-none text-sm"
+          className="h-full w-full bg-transparent pr-3 text-right outline-none text-sm"
           {...rest}
         />
       </div>

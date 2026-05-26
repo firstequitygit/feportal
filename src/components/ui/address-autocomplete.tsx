@@ -1,11 +1,12 @@
 "use client"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { MapPin } from "lucide-react"
 import { useGoogleMaps } from "@/app/apply/_components/use-google-maps"
 
 const focusClasses =
   "focus:outline-none focus:ring-2 focus:ring-[#1F5D8F]/40 focus:border-[#1F5D8F]"
 const baseClasses =
-  "w-full rounded-md border bg-white px-3 py-2.5 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+  "h-10 w-full rounded-md border bg-white pl-10 pr-3 text-sm transition-colors outline-none disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
 
 export interface PlaceParts {
   street: string
@@ -198,6 +199,10 @@ export function AddressAutocomplete({
 
   return (
     <div ref={containerRef} className="relative">
+      <MapPin
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+        aria-hidden
+      />
       <input
         ref={inputRef}
         id={id}
