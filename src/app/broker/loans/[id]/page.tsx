@@ -76,10 +76,11 @@ export default async function BrokerLoanPage({
     .map(lpId => (lpRows ?? []).find(r => r.id === lpId))
     .filter((r): r is { id: string; full_name: string; email: string | null; phone: string | null; title: string | null } => !!r)
 
-  const [{ data: conditions }, { data: documents }, { data: events }] = await Promise.all([
+  const [{ data: conditions }, { data: documents }, { data: events }, { data: loanDetails }] = await Promise.all([
     adminClient.from('conditions').select('*').eq('loan_id', loan.id).order('created_at', { ascending: true }),
     adminClient.from('documents').select('*').eq('loan_id', loan.id).order('created_at', { ascending: false }),
     adminClient.from('loan_events').select('*').eq('loan_id', loan.id).order('created_at', { ascending: false }),
+    adminClient.from('loan_details').select('appraisal_paid_date').eq('loan_id', loan.id).maybeSingle(),
   ])
 
   const signedUrlMap: Record<string, string> = {}
@@ -148,6 +149,7 @@ export default async function BrokerLoanPage({
               { label: 'Est. Closing Date',    value: formatDate(loan.estimated_closing_date) },
               { label: 'Origination Date',     value: formatDate(loan.origination_date) },
               { label: 'Maturity Date',        value: formatDate(loan.maturity_date) },
+              { label: 'Appraisal Paid Date',  value: formatDate(loanDetails?.appraisal_paid_date ?? null) },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm">
                 <span className="text-gray-500">{label}</span>
