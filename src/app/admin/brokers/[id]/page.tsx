@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { resolveImpersonation } from '@/lib/impersonate'
 
 export default async function AdminBrokerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -30,6 +31,9 @@ export default async function AdminBrokerDetailPage({ params }: { params: Promis
     .or(`broker_id.eq.${id},broker_id_2.eq.${id}`)
     .order('updated_at', { ascending: false })
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const showViewAsTrigger = !impersonation
+
   return (
     <PortalShell
       userName={null}
@@ -38,6 +42,7 @@ export default async function AdminBrokerDetailPage({ params }: { params: Promis
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-4xl"
+      showViewAsTrigger={showViewAsTrigger}
     >
       <div className="mb-4">
         <Link href="/admin/brokers" className="text-sm text-primary hover:underline">← All brokers</Link>

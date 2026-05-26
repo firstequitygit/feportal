@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveImpersonation } from '@/lib/impersonate'
 
 /**
  * Reporting auth + scoping helper.
@@ -33,6 +34,8 @@ export interface ReportContext {
   loanScopeId: string | null
   /** Admins only — when true, surface super-admin-only sidebar entries. */
   isSuperAdmin: boolean
+  /** When true, show the View-As trigger in the header (admin + not impersonating). */
+  showViewAsTrigger: boolean
 }
 
 export async function getReportContext(): Promise<ReportContext> {
@@ -55,6 +58,7 @@ export async function getReportContext(): Promise<ReportContext> {
   ])
 
   if (adminUser) {
+    const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
     return {
       role: 'admin',
       // Admins show "Administrator" on every page — match the rest of /admin/*
@@ -65,6 +69,7 @@ export async function getReportContext(): Promise<ReportContext> {
       loanScopeColumn: null,
       loanScopeId: null,
       isSuperAdmin: adminUser.is_super ?? false,
+      showViewAsTrigger: !impersonation,
     }
   }
   if (lo) {
@@ -76,6 +81,7 @@ export async function getReportContext(): Promise<ReportContext> {
       loanScopeColumn: 'loan_officer_id',
       loanScopeId: lo.id,
       isSuperAdmin: false,
+      showViewAsTrigger: false,
     }
   }
   if (lp) {
@@ -87,6 +93,7 @@ export async function getReportContext(): Promise<ReportContext> {
       loanScopeColumn: 'loan_processor_id',
       loanScopeId: lp.id,
       isSuperAdmin: false,
+      showViewAsTrigger: false,
     }
   }
   if (uw) {
@@ -98,6 +105,7 @@ export async function getReportContext(): Promise<ReportContext> {
       loanScopeColumn: 'underwriter_id',
       loanScopeId: uw.id,
       isSuperAdmin: false,
+      showViewAsTrigger: false,
     }
   }
 

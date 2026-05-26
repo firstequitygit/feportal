@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { Building2, ShieldCheck, FileSearch } from 'lucide-react'
+import { resolveImpersonation } from '@/lib/impersonate'
 
 // Admin Vendors page — same aggregation as the LO version but unscoped:
 // every active loan in the portal contributes vendor rows. Links point at
@@ -105,6 +106,9 @@ export default async function AdminVendorsPage() {
   const insuranceVendors = aggregate(details, 'insurance')
   const appraiserVendors = aggregate(details, 'appraisal')
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const showViewAsTrigger = !impersonation
+
   return (
     <PortalShell
       userName={admin.full_name}
@@ -113,6 +117,7 @@ export default async function AdminVendorsPage() {
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-3xl"
+      showViewAsTrigger={showViewAsTrigger}
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Vendors</h2>
       <p className="text-sm text-gray-500 mb-6">

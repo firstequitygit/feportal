@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminBrokersGrid, type AdminBrokerRow } from './admin-brokers-grid'
+import { resolveImpersonation } from '@/lib/impersonate'
 
 export default async function AdminBrokersPage() {
   const supabase = await createClient()
@@ -50,8 +51,11 @@ export default async function AdminBrokersPage() {
     loan_officers: [...(officersByBroker.get(b.id) ?? [])].sort(),
   }))
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const showViewAsTrigger = !impersonation
+
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl" showViewAsTrigger={showViewAsTrigger}>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Brokers</h2>
       <p className="text-sm text-gray-500 mb-6">
         All brokers in the portal. Brokers are added via the &quot;Invite Broker&quot; button in the
