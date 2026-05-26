@@ -5,6 +5,7 @@ import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
 import { AvailableLoans } from '@/components/available-loans'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 export default async function UnderwriterLoansPage() {
   const supabase = await createClient()
@@ -13,12 +14,9 @@ export default async function UnderwriterLoansPage() {
 
   const adminClient = createAdminClient()
 
-  const { data: uw } = await adminClient
-    .from('underwriters')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
+  const uw = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'underwriter', user.id
+  )
   if (!uw) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
@@ -71,8 +69,15 @@ export default async function UnderwriterLoansPage() {
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed' && !archivedSet.has(l.id))
   const closedLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage === 'Closed' && !archivedSet.has(l.id))
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'underwriter'
+
   return (
-    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter">
+    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
+        kind: 'underwriter',
+        name: uw.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Loans</h2>
       <AvailableLoans
         loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
