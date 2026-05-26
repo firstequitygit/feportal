@@ -1,22 +1,22 @@
 // Hourly cron: reconcile portal Loan Details ↔ Airtable Deals base.
 //
-// Vercel Hobby caps function execution around 60s, so we can't sync 2000+
-// loans in one shot. Each run processes BATCH_SIZE loans ordered by oldest
+// Each run processes BATCH_SIZE loans ordered by oldest
 // airtable_last_synced_at first, then stamps each loan's timestamp so the
-// next run picks up where this one left off. Full base rotates in
-// ~ceil(total / BATCH_SIZE) hours — about two days for the current
-// dataset.
+// next run picks up where this one left off. The full base still can't
+// fit in a single function call (~35 min at current volume), but with the
+// Pro plan's 5-minute timeout we can move ~250 loans per hour — full
+// rotation every ~10 hours.
 //
 // Protected by CRON_SECRET — only Vercel cron should hit this.
 
 import { NextResponse } from 'next/server'
 import { syncAllLoansToAirtable } from '@/lib/airtable'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Roughly 1s/loan worst-case (Supabase fetch + Airtable lookup + PATCH).
-// 40 leaves ~20s of slack before the Hobby plan kills the function.
-const BATCH_SIZE = 40
+// 250 leaves ~50s of slack before Pro's 300s function cap kicks in.
+const BATCH_SIZE = 250
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
