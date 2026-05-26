@@ -81,7 +81,7 @@ export async function sendApplicationNotifications(args: {
 
   // 6. Internal email -> processing inbox + assigned LO.
   const processingInbox = process.env.APPLICATIONS_PROCESSING_INBOX || null
-  const loEmail = resolveLoanOfficerEmail(loanOfficerName)
+  const loEmail = await resolveLoanOfficerEmail(loanOfficerName)
   const to = [processingInbox, loEmail].filter((e): e is string => !!e && e.includes('@'))
   if (to.length > 0) {
     try {

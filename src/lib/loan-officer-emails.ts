@@ -1,25 +1,25 @@
-// Interim loan-officer email routing. The application stores only the LO's
-// display name (data.primary.loan_officer_assigned). There is no name->email
-// link yet; the planned replacement drives this from active LO portal users.
-// When that lands, replace ONLY the body of resolveLoanOfficerEmail - callers
-// and the signature stay the same.
+// Resolves the assigned LO's email from the loan_officers table at runtime.
+// The application stores only the display name (data.primary.loan_officer_assigned);
+// this lookup keeps notification routing always in sync with the portal's LO list
+// without redeploying. "Other" and any unrecognized name resolve to null.
 
-// TODO(user): fill in the real addresses. "Other" intentionally has no email.
-export const LOAN_OFFICER_EMAILS: Record<string, string> = {
-  'Christian Pepe': '',
-  'Anthony Palmiotto': '',
-  'Cory J Anderson': '',
-  'Ryan Commesso': '',
-  'Bill McGrorry': '',
-  'Vincent Gruosso': '',
-  'Adam Scovill': '',
-  'Garry Merritt': '',
-  'Christopher Marcigliano': '',
-}
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /** Resolve the assigned loan officer's email, or null when unknown/"Other"/unmapped. */
-export function resolveLoanOfficerEmail(name: string | null | undefined): string | null {
+export async function resolveLoanOfficerEmail(name: string | null | undefined): Promise<string | null> {
   if (!name) return null
-  const email = LOAN_OFFICER_EMAILS[name.trim()]
-  return email && email.includes('@') ? email : null
+  const trimmed = name.trim()
+  if (!trimmed || trimmed === 'Other') return null
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('loan_officers')
+      .select('email')
+      .eq('full_name', trimmed)
+      .maybeSingle()
+    const email = (data?.email as string | null) ?? null
+    return email && email.includes('@') ? email : null
+  } catch {
+    return null
+  }
 }
