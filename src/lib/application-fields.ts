@@ -95,7 +95,7 @@ export const BORROWER_FIELDS: FieldDef[] = [
   { name: 'cell_phone', label: 'Cell Phone', type: 'tel', required: true, placeholder: '(732) 555-0100', section: 'Contact information' },
   { name: 'other_phone', label: 'Other Phone', type: 'tel', placeholder: '(732) 555-0100', section: 'Contact information' },
   { name: 'credit_score', label: 'Estimated Credit Score', type: 'select', options: CREDIT_SCORE_OPTIONS, required: true,
-    section: 'Credit',
+    section: 'About you',
     helpTooltip: "Helps us route your file to the right loan product. We'll pull credit ourselves during underwriting." },
   { name: 'address_street', label: 'Address Line 1', type: 'text', required: true, placeholder: '123 Main St', section: 'Current address',
     address: { city: 'address_city', state: 'address_state', zip: 'address_zip', lat: 'address_lat', lng: 'address_lng' } },
@@ -130,7 +130,9 @@ export const EXPERIENCE_FIELDS: FieldDef[] = [
   { name: 'experience_explanation', label: 'Experience Explanation', type: 'textarea' },
 ]
 
-// Per-borrower declarations (Step 4) - all yes/no
+// Per-borrower declarations (Step 4) - all yes/no.
+// Citizenship questions live on Step 1 (us_citizen / permanent_resident_alien)
+// so the financial/legal-history declarations don't duplicate them.
 export const DECLARATION_FIELDS: FieldDef[] = [
   { name: 'd_liens', label: 'Do you have any outstanding liens or judgements against you?', type: 'yesno', required: true },
   { name: 'd_bankruptcy', label: 'Have you declared bankruptcy or had a foreclosure in the past 4 years?', type: 'yesno', required: true },
@@ -138,8 +140,6 @@ export const DECLARATION_FIELDS: FieldDef[] = [
   { name: 'd_foreclosure_obligation', label: 'Have you directly or indirectly been obligated on any loan which resulted in foreclosure, transfer of title in lieu of foreclosure, or judgement?', type: 'yesno', required: true },
   { name: 'd_lawsuit', label: 'Are you a party to a lawsuit?', type: 'yesno', required: true },
   { name: 'd_down_payment_borrowed', label: 'Is any part of the down payment borrowed?', type: 'yesno', required: true },
-  { name: 'd_us_citizen', label: 'Are you a US Citizen?', type: 'yesno', required: true },
-  { name: 'd_permanent_resident', label: 'Are you a permanent resident alien?', type: 'yesno', required: true },
   { name: 'd_intent_to_occupy', label: 'Do you intend to occupy the subject property?', type: 'yesno', required: true },
 ]
 
@@ -231,6 +231,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'requested_loan_amount', label: 'Requested Loan Amount', type: 'currency', section: 'Financing' },
   { name: 'reserves_post_closing', label: 'Reserves Post Closing', type: 'currency', section: 'Financing',
     helpTooltip: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
+  { name: 'other_details', label: 'Anything else we should know?', type: 'textarea', section: 'Financing' },
   { name: 'has_broker', label: 'Do you have an outside mortgage broker?', type: 'yesno', section: 'Mortgage broker' },
   { name: 'broker_name', label: "Broker's Name", type: 'text', placeholder: 'Jane Doe', section: 'Mortgage broker',
     visibleWhen: (d) => d.has_broker === true },
@@ -253,7 +254,6 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'insurance_contact_email', label: 'Insurance Contact Email', type: 'email', placeholder: 'insure@example.com', section: 'Insurance vendor',
     visibleWhen: (d) => d.has_insurance_vendor === true },
   { name: 'insurance_contact_phone', label: 'Insurance Contact Phone', type: 'tel', placeholder: '(732) 555-0100', visibleWhen: (d) => d.has_insurance_vendor === true, section: 'Insurance vendor' },
-  { name: 'other_details', label: 'Other Details', type: 'textarea', section: 'Notes' },
 ]
 
 // Step 1 primary-only fields (in addition to BORROWER_FIELDS for the primary)

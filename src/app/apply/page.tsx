@@ -22,11 +22,36 @@ async function checkIsAdmin(): Promise<boolean> {
   }
 }
 
+async function fetchLoanOfficerOptions(): Promise<string[]> {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('loan_officers')
+      .select('full_name')
+      .order('full_name')
+    const names = (data ?? [])
+      .map((lo) => (lo.full_name as string | null) ?? '')
+      .filter((n) => n.trim().length > 0)
+    return [...names, 'Other']
+  } catch {
+    return ['Other']
+  }
+}
+
 export default async function ApplyPage() {
-  const isAdmin = await checkIsAdmin()
+  const [isAdmin, loanOfficerOptions] = await Promise.all([
+    checkIsAdmin(),
+    fetchLoanOfficerOptions(),
+  ])
   return (
     <Suspense>
-      <Wizard initialData={{}} initialStep={1} initialToken={null} isAdmin={isAdmin} />
+      <Wizard
+        initialData={{}}
+        initialStep={1}
+        initialToken={null}
+        isAdmin={isAdmin}
+        loanOfficerOptions={loanOfficerOptions}
+      />
     </Suspense>
   )
 }

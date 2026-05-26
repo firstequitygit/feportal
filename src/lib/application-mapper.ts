@@ -84,8 +84,8 @@ export function mapApplication(data: ApplicationData): MappedApplication {
     foreclosure_obligation: b(primary.d_foreclosure_obligation),
     party_to_lawsuit: b(primary.d_lawsuit),
     down_payment_borrowed: b(primary.d_down_payment_borrowed),
-    us_citizen: b(primary.d_us_citizen),
-    permanent_resident: b(primary.d_permanent_resident),
+    us_citizen: b(primary.us_citizen),
+    permanent_resident: b(primary.permanent_resident_alien),
     intent_to_occupy: b(primary.d_intent_to_occupy),
     explanation: s(data.declarations_explanation),
     per_borrower: borrowers.map((_, i) => {
@@ -93,8 +93,9 @@ export function mapApplication(data: ApplicationData): MappedApplication {
       return {
         d_liens: b(src.d_liens), d_bankruptcy: b(src.d_bankruptcy), d_delinquent: b(src.d_delinquent),
         d_foreclosure_obligation: b(src.d_foreclosure_obligation), d_lawsuit: b(src.d_lawsuit),
-        d_down_payment_borrowed: b(src.d_down_payment_borrowed), d_us_citizen: b(src.d_us_citizen),
-        d_permanent_resident: b(src.d_permanent_resident),
+        d_down_payment_borrowed: b(src.d_down_payment_borrowed),
+        d_us_citizen: b(src.us_citizen),
+        d_permanent_resident: b(src.permanent_resident_alien),
         d_intent_to_occupy: b(src.d_intent_to_occupy),
         hmda_ethnicity: s(src.hmda_ethnicity), hmda_race: s(src.hmda_race), hmda_sex: s(src.hmda_sex),
       }

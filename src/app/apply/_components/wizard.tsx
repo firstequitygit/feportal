@@ -40,8 +40,12 @@ function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
   return v === undefined || v === null || v === ""
 }
 
-export function Wizard({ initialData, initialStep, initialToken, isAdmin = false }: {
-  initialData: ApplicationData; initialStep: number; initialToken: string | null; isAdmin?: boolean
+export function Wizard({ initialData, initialStep, initialToken, isAdmin = false, loanOfficerOptions }: {
+  initialData: ApplicationData
+  initialStep: number
+  initialToken: string | null
+  isAdmin?: boolean
+  loanOfficerOptions: string[]
 }) {
   const [data, setData] = useState<ApplicationData>(initialData ?? {})
   const [step, setStep] = useState(initialStep || 1)
@@ -84,6 +88,23 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   const devSkipRequired =
     process.env.NODE_ENV !== "production" &&
     searchParams.get("dev") === "1"
+
+  // Pre-fill loan officer from a referral link like /apply?lo=anthony-palmiotto.
+  // Matches case-insensitively against the DB-driven loan officer list, ignoring
+  // non-letter chars so URLs can use kebab, snake, or plain space-separated.
+  useEffect(() => {
+    const loParam = searchParams.get('lo')
+    if (!loParam) return
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+    const target = norm(loParam)
+    const match = loanOfficerOptions.find((opt) => norm(opt) === target)
+    if (!match) return
+    setData((d) => {
+      const cur = (d.primary as Record<string, unknown>) ?? {}
+      if (cur.loan_officer_assigned) return d
+      return { ...d, primary: { ...cur, loan_officer_assigned: match } }
+    })
+  }, [searchParams, loanOfficerOptions])
 
   const autosaveStatus = useAutosave(token, data, step, testMode)
 
@@ -213,7 +234,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   }
 
   const stepEl = [
-    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} />,
+    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} loanOfficerOptions={loanOfficerOptions} />,
     <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} token={token} testMode={testMode} />,
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,

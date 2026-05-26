@@ -4,11 +4,12 @@ import { BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, type ApplicationData } from '@/l
 import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingBorrowers } from '../_components/repeating-borrowers'
 
-export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
+export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOfficerOptions }: {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   ensureDraft: (email: string, firstName: string) => void
   missingFields?: string[]
+  loanOfficerOptions: string[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
@@ -40,6 +41,7 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields }: {
         onChange={setPrimary}
         idPrefix="primary."
         missingFields={missingFields}
+        optionsOverride={{ loan_officer_assigned: loanOfficerOptions }}
       />
       <div>
         <h3 className="mb-4 text-base font-semibold text-gray-900">Co-Borrowers</h3>

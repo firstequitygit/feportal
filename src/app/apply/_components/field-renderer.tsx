@@ -24,6 +24,8 @@ type Props = {
   missingFields?: string[]
   /** Optional render slot inserted at the end of each named section's items. */
   afterSection?: Record<string, React.ReactNode>
+  /** Replaces the static options/optionsWhen list for the keyed field name. */
+  optionsOverride?: Record<string, readonly string[]>
 }
 
 // Shared focus + border classes applied across all input types
@@ -36,7 +38,7 @@ function inputClasses(isInvalid: boolean) {
   return `${baseInputClasses} ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`
 }
 
-export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection }: Props) {
+export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection, optionsOverride }: Props) {
   const [blurErrors, setBlurErrors] = useState<Record<string, string | null>>({})
 
   function handleBlur(name: string, type: string, value: unknown) {
@@ -76,7 +78,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
             const isInvalid = missingFields?.includes(fullName) ?? false
             const wide = f.type === 'textarea' || f.type === 'radio' || f.type === 'file' || f.type === 'signature'
             const blurErr = blurErrors[f.name] ?? null
-            const options = f.optionsWhen ? f.optionsWhen(data, scope) : f.options
+            const options = optionsOverride?.[f.name] ?? (f.optionsWhen ? f.optionsWhen(data, scope) : f.options)
             return (
               <FieldReveal key={f.name} show={true}>
                 <div className={`space-y-1 ${wide ? 'sm:col-span-2' : ''}`}>
