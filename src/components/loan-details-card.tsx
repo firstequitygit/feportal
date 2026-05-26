@@ -60,6 +60,7 @@ export interface LoanDetails {
   // Appraisal / Review Tracking
   appraisal_received_date?: string | null
   appraisal_effective_date?: string | null
+  appraisal_paid_date?: string | null
 
   // Valuation / Collateral
   purchase_price?: number | null
@@ -994,6 +995,15 @@ export function LoanDetailsCard({
           </Section>
 
           <Section title="Appraisal / Review Tracking">
+            <DetailRow label="Appraisal Paid Date">
+              <EditableLoanField
+                loanId={loanId}
+                field="appraisal_paid_date"
+                type="date"
+                currentValue={d.appraisal_paid_date ?? null}
+                display={formatDate(d.appraisal_paid_date)}
+              />
+            </DetailRow>
             <DetailRow label="Appraisal Received Date">
               <EditableLoanField
                 loanId={loanId}
