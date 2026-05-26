@@ -214,7 +214,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   const stepEl = [
     <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} />,
-    <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} token={token} />,
+    <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} token={token} testMode={testMode} />,
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,
     <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}

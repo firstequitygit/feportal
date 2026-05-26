@@ -176,32 +176,23 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                       </p>
                     </div>
                   ) : f.address ? (
-                    <>
-                      <AddressAutocomplete
-                        id={id}
-                        value={(v as string) ?? ''}
-                        onChange={(val) => onChange(f.name, val)}
-                        onPlaceSelected={(parts) => {
-                          onChange(f.name, parts.street)
-                          onChange(f.address!.city, parts.city)
-                          onChange(f.address!.state, parts.state)
-                          onChange(f.address!.zip, parts.zip)
-                          if (f.address!.lat && parts.lat !== undefined)
-                            onChange(f.address!.lat, parts.lat)
-                          if (f.address!.lng && parts.lng !== undefined)
-                            onChange(f.address!.lng, parts.lng)
-                        }}
-                        invalid={isInvalid}
-                        placeholder={f.placeholder}
-                      />
-                      {f.address.streetView && (
-                        <StreetViewImage
-                          lat={(scope[f.address.lat ?? ''] as string | undefined)}
-                          lng={(scope[f.address.lng ?? ''] as string | undefined)}
-                          address={(v as string | undefined) ?? undefined}
-                        />
-                      )}
-                    </>
+                    <AddressAutocomplete
+                      id={id}
+                      value={(v as string) ?? ''}
+                      onChange={(val) => onChange(f.name, val)}
+                      onPlaceSelected={(parts) => {
+                        onChange(f.name, parts.street)
+                        onChange(f.address!.city, parts.city)
+                        onChange(f.address!.state, parts.state)
+                        onChange(f.address!.zip, parts.zip)
+                        if (f.address!.lat && parts.lat !== undefined)
+                          onChange(f.address!.lat, parts.lat)
+                        if (f.address!.lng && parts.lng !== undefined)
+                          onChange(f.address!.lng, parts.lng)
+                      }}
+                      invalid={isInvalid}
+                      placeholder={f.placeholder}
+                    />
                   ) : (() => {
                     const inputType = f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'
                     const LeadIcon =
@@ -239,6 +230,19 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
               </FieldReveal>
             )
           })}
+          {(() => {
+            const sv = g.items.find(f => f.address?.streetView)
+            if (!sv) return null
+            return (
+              <div className="sm:col-span-2">
+                <StreetViewImage
+                  lat={(scope[sv.address!.lat ?? ''] as string | undefined)}
+                  lng={(scope[sv.address!.lng ?? ''] as string | undefined)}
+                  address={(scope[sv.name] as string | undefined) ?? undefined}
+                />
+              </div>
+            )
+          })()}
         </Fragment>
       ))}
     </div>

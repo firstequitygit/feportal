@@ -160,6 +160,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'has_deal', label: 'Do you have a deal?', type: 'yesno', required: true, section: 'Your deal' },
   { name: 'purchase_or_refi', label: 'Purchase or Refi', type: 'select', options: PURCHASE_REFI_OPTIONS, required: true, section: 'Your deal' },
   { name: 'loan_type', label: 'Loan Type', type: 'select', options: LOAN_TYPE_OPTIONS, required: true, section: 'Your deal' },
+  { name: 'deal_source', label: 'Deal Source', type: 'select', options: DEAL_SOURCE_OPTIONS, section: 'Your deal' },
   { name: 'property_type', label: 'Property Type', type: 'select', required: true, section: 'Property',
     optionsWhen: (d) => isDSCR(d) ? PROPERTY_TYPE_OPTIONS_DSCR : PROPERTY_TYPE_OPTIONS_BRIDGE },
   { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true, placeholder: '789 Elm St', section: 'Property',
@@ -168,13 +169,12 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'property_city', label: 'City', type: 'text', required: true, placeholder: 'Toms River', section: 'Property' },
   { name: 'property_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Property' },
   { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property' },
-  { name: 'deal_source', label: 'Deal Source', type: 'select', options: DEAL_SOURCE_OPTIONS, section: 'Property' },
   // Purchase-only fields
   { name: 'purchase_price', label: 'Purchase Price', type: 'currency',
     visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing' },
   { name: 'cash_for_down_payment', label: 'Cash For Down Payment', type: 'currency',
     visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Financing',
-    help: 'How much cash do the borrowers have available for a downpayment?' },
+    helpTooltip: 'How much cash do the borrowers have available for a downpayment?' },
   // Refinance-only fields
   { name: 'date_purchased', label: 'Date Purchased', type: 'date',
     visibleWhen: isRefi, requiredWhen: isRefi, section: 'Refinance details' },
@@ -230,7 +230,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   // Financing (non-purchase fields always visible)
   { name: 'requested_loan_amount', label: 'Requested Loan Amount', type: 'currency', section: 'Financing' },
   { name: 'reserves_post_closing', label: 'Reserves Post Closing', type: 'currency', section: 'Financing',
-    help: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
+    helpTooltip: 'How much cash will borrowers have post closing? Include checking, savings, 401k, IRA etc.' },
   { name: 'has_broker', label: 'Do you have an outside mortgage broker?', type: 'yesno', section: 'Mortgage broker' },
   { name: 'broker_name', label: "Broker's Name", type: 'text', placeholder: 'Jane Doe', section: 'Mortgage broker',
     visibleWhen: (d) => d.has_broker === true },
@@ -270,7 +270,7 @@ export const PRIMARY_EXTRA_FIELDS: FieldDef[] = [
 export interface UnitData { currently_rented?: boolean; current_rent?: number; market_rent?: number }
 export const UNIT_FIELDS: FieldDef[] = [
   { name: 'currently_rented', label: 'Is this unit rented?', type: 'yesno', required: true,
-    help: 'Yes = currently leased to a tenant. No = vacant.' },
+    helpTooltip: 'Yes = currently leased to a tenant. No = vacant.' },
   { name: 'current_rent', label: 'Current Monthly Rent', type: 'currency',
     visibleWhen: (_d, s) => s?.currently_rented === true,
     requiredWhen: (_d, s) => s?.currently_rented === true },

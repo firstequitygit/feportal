@@ -4,11 +4,12 @@ import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingUnits } from '../_components/repeating-units'
 import { PropertyDocuments, type PropertyDoc } from '../_components/property-documents'
 
-export function Step2Deal({ data, set, missingFields, token }: {
+export function Step2Deal({ data, set, missingFields, token, testMode = false }: {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
   token: string | null
+  testMode?: boolean
 }) {
   const gateField = DEAL_FIELDS.find(f => f.name === 'has_deal')!
   const restFields = DEAL_FIELDS.filter(f => f.name !== 'has_deal')
@@ -38,6 +39,7 @@ export function Step2Deal({ data, set, missingFields, token }: {
               token={token}
               documents={(data.property_documents as PropertyDoc[] | undefined) ?? []}
               set={set}
+              testMode={testMode}
             />
           </div>
         </>

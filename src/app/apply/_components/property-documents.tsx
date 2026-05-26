@@ -41,9 +41,10 @@ interface Props {
   token: string | null
   documents: PropertyDoc[]
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
+  testMode?: boolean
 }
 
-export function PropertyDocuments({ token, documents, set }: Props) {
+export function PropertyDocuments({ token, documents, set, testMode = false }: Props) {
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [dragActive, setDragActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -146,7 +147,9 @@ export function PropertyDocuments({ token, documents, set }: Props) {
       {disabled ? (
         <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center">
           <p className="text-sm text-gray-400">
-            Enter your email on Step 1 to enable document uploads.
+            {testMode
+              ? 'Document uploads are skipped in test mode.'
+              : 'Enter your email on Step 1 to enable document uploads.'}
           </p>
         </div>
       ) : (
