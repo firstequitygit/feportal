@@ -5,6 +5,7 @@ import { PortalShell } from '@/components/portal-shell'
 import { InboxView, type InboxItem } from '@/components/inbox-view'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 export default async function LoanOfficerInbox() {
   const supabase = await createClient()
@@ -13,12 +14,9 @@ export default async function LoanOfficerInbox() {
 
   const adminClient = createAdminClient()
 
-  const { data: lo } = await adminClient
-    .from('loan_officers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
+  const lo = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'loan_officer', user.id
+  )
   if (!lo) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
@@ -77,12 +75,20 @@ export default async function LoanOfficerInbox() {
     }
   })
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_officer'
+
   return (
     <PortalShell
       userName={lo.full_name}
       userRole="Loan Officer"
       dashboardHref="/loan-officer/inbox"
       variant="loan-officer"
+      impersonation={isImpersonating ? {
+        kind: 'loan_officer',
+        name: lo.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
       <DashboardStats {...metrics} />

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { LoBorrowersGrid, type LoBorrowerRow } from './lo-borrowers-grid'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 export default async function LoanOfficerBorrowersPage() {
   const supabase = await createClient()
@@ -10,8 +11,9 @@ export default async function LoanOfficerBorrowersPage() {
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-  const { data: lo } = await adminClient
-    .from('loan_officers').select('id, full_name').eq('auth_user_id', user.id).single()
+  const lo = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'loan_officer', user.id
+  )
   if (!lo) redirect('/login')
 
   // Pull this LO's active loans with the borrower slots + identifying fields for most-recent
@@ -60,8 +62,15 @@ export default async function LoanOfficerBorrowersPage() {
     }
   })
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_officer'
+
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-7xl">
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-7xl" impersonation={isImpersonating ? {
+        kind: 'loan_officer',
+        name: lo.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Borrowers</h2>
       <p className="text-sm text-gray-500 mb-6">
         Every borrower across every loan assigned to you. Click a cell to edit

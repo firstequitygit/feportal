@@ -33,7 +33,7 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
-import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
@@ -61,10 +61,9 @@ export default async function LoanOfficerLoanPage({
   const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
   const isImpersonating = impersonation?.kind === 'loan_officer'
 
-  const { data: lo } = isImpersonating
-    ? await adminClient.from('loan_officers').select('*').eq('id', impersonation.id).maybeSingle()
-    : await adminClient.from('loan_officers').select('*').eq('auth_user_id', user.id).maybeSingle()
-
+  const lo = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'loan_officer', user.id
+  )
   if (!lo) redirect('/login')
 
   // Verify this loan is assigned to this LO (admins previewing bypass)
@@ -124,10 +123,11 @@ export default async function LoanOfficerLoanPage({
   const underwriter = loan.underwriters as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
 
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer">
-      {isImpersonating && impersonation && (
-        <ImpersonationBanner kind="loan_officer" name={lo.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
-      )}
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" impersonation={isImpersonating ? {
+        kind: 'loan_officer',
+        name: lo.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/loan-officer/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans
