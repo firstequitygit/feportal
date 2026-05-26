@@ -12,6 +12,9 @@
 // the returned impersonatorRole for the "Exit preview" link.
 
 import type { createAdminClient } from '@/lib/supabase/admin'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import { verifyViewAsCookie, VIEW_AS_COOKIE } from '@/lib/view-as-cookie'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -42,6 +45,25 @@ const KIND_PARAMS = {
 const ADMIN_ONLY_KINDS: ImpersonationKind[] = ['loan_officer', 'loan_processor', 'underwriter']
 
 /**
+ * Read the signed view-as cookie, verify the admin still exists, and return
+ * an ImpersonationContext. Returns null if cookie missing, invalid, or admin
+ * no longer exists.
+ */
+export async function readImpersonationCookie(supa: Admin): Promise<ImpersonationContext | null> {
+  const c = await cookies()
+  const payload = verifyViewAsCookie(c.get(VIEW_AS_COOKIE)?.value)
+  if (!payload) return null
+  const { data: admin } = await supa
+    .from('admin_users').select('id').eq('id', payload.admin_id).maybeSingle()
+  if (!admin) return null
+  return {
+    kind: payload.kind,
+    id: payload.target_id,
+    impersonatorRole: 'admin',
+  }
+}
+
+/**
  * @param loanIdForAccessCheck Required when LO/LP should be allowed to
  *   impersonate. Omit (admin-only) on dashboard and broker home, where
  *   there's no single loan to verify against.
@@ -52,6 +74,10 @@ export async function resolveImpersonation(
   searchParams: { [k: string]: string | string[] | undefined } | undefined,
   options: { loanIdForAccessCheck?: string } = {},
 ): Promise<ImpersonationContext | null> {
+  // New: cookie-based admin global picker takes precedence.
+  const cookieCtx = await readImpersonationCookie(supa)
+  if (cookieCtx) return cookieCtx
+
   if (!searchParams) return null
 
   // Find which (if any) impersonation kind was requested.
@@ -113,7 +139,47 @@ function pickString(v: string | string[] | undefined): string | null {
 }
 
 /**
- * Build the exit-link target — where the banner's "Exit preview" button
+ * For mutation API routes. Returns a 403 NextResponse if the request is
+ * coming from an active View-As session; otherwise returns null and the
+ * route proceeds normally.
+ */
+export async function assertNotImpersonating(): Promise<NextResponse | null> {
+  const c = await cookies()
+  if (c.get(VIEW_AS_COOKIE)) {
+    return NextResponse.json(
+      { error: 'Read-only preview: exit View As to make changes.' },
+      { status: 403 }
+    )
+  }
+  return null
+}
+
+const ROLE_TABLE = {
+  loan_officer:   'loan_officers',
+  loan_processor: 'loan_processors',
+  underwriter:    'underwriters',
+} as const
+
+/**
+ * For LO/LP/UW role home pages. If the view-as cookie targets this role,
+ * returns that target's row. Otherwise returns the auth user's own role row.
+ */
+export async function getEffectiveRoleRow<T extends Record<string, unknown> = Record<string, unknown>>(
+  supa: Admin,
+  kind: 'loan_officer' | 'loan_processor' | 'underwriter',
+  authUserId: string,
+): Promise<T | null> {
+  const ctx = await readImpersonationCookie(supa)
+  if (ctx?.kind === kind) {
+    const { data } = await supa.from(ROLE_TABLE[kind]).select('*').eq('id', ctx.id).maybeSingle()
+    return (data ?? null) as T | null
+  }
+  const { data } = await supa.from(ROLE_TABLE[kind]).select('*').eq('auth_user_id', authUserId).maybeSingle()
+  return (data ?? null) as T | null
+}
+
+/**
+ * Build the exit-link target -- where the banner's "Exit preview" button
  * should send the impersonator back to. Routes to the impersonator's own
  * portal so they land back where they started.
  */
