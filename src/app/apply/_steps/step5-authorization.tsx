@@ -20,12 +20,13 @@ const AUTH_TEXT = `AUTHORIZATION TO RELEASE INFORMATION - I/We have applied for 
 
 const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Funding, LP to: (1) order a credit report and background check on all borrowers named in this application; (2) order an appraisal and any draw inspections as required for this loan; and (3) charge the card on file for the application processing fee described above. You acknowledge that all fees are non-refundable regardless of whether a loan is ultimately made. This authorization does not constitute a commitment by First Equity Funding, LP to make a loan, nor does it constitute a guarantee of any particular loan terms or approval.`
 
-export function Step5Authorization({ data, set, missingFields, token, onEdit }: {
+export function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false }: {
   data: ApplicationData
   set: (patch: Record<string, unknown>) => void
   missingFields?: string[]
   token: string | null
   onEdit?: (step: number) => void
+  testMode?: boolean
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const printed = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
@@ -265,9 +266,14 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit }: 
             >
               {ready ? 'Save card on file' : 'Loading payment form...'}
             </button>
-            {!token && (
+            {!token && !testMode && (
               <p className="text-xs text-red-600">
                 Enter your email in Step 1 first so we can attach the card to your application.
+              </p>
+            )}
+            {testMode && (
+              <p className="text-xs text-amber-700">
+                Card collection is skipped in test mode. Auto-submit still works.
               </p>
             )}
           </>

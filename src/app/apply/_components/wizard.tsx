@@ -211,7 +211,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,
     <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
-      token={token} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
+      token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
   ][step - 1]
 
   return (
