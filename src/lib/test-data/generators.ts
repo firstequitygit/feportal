@@ -78,13 +78,13 @@ export function randomSSN(): string {
 }
 
 export function randomPhone(): string {
-  // (NXX) NXX-XXXX where N is 2-9.
-  const a = 2 + Math.floor(Math.random() * 8)
-  const b = 100 + Math.floor(Math.random() * 900)
-  const c = 2 + Math.floor(Math.random() * 8)
-  const d = 100 + Math.floor(Math.random() * 900)
-  const e = 1000 + Math.floor(Math.random() * 9000)
-  return `(${a}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}) ${c}${b.toString().slice(0, 2)}-${e.toString().slice(0, 4)}${d.toString().slice(0, 0)}`.replace(/\s+/g, ' ').trim()
+  // (NXX) NXX-XXXX where the area code and exchange leading digit are 2-9.
+  const areaFirst = 2 + Math.floor(Math.random() * 8)
+  const areaRest = Math.floor(Math.random() * 100).toString().padStart(2, '0')
+  const exchFirst = 2 + Math.floor(Math.random() * 8)
+  const exchRest = Math.floor(Math.random() * 100).toString().padStart(2, '0')
+  const line = (1000 + Math.floor(Math.random() * 9000)).toString()
+  return `(${areaFirst}${areaRest}) ${exchFirst}${exchRest}-${line}`
 }
 
 export function randomEmail(first: string, last: string): string {
