@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { Toaster } from "sonner";
 import { InactivityTimer } from "@/components/inactivity-timer";
+import { getAppSettings } from "@/lib/app-settings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,15 +15,18 @@ export const metadata: Metadata = {
   description: "First Equity Funding Online Portal",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getAppSettings()
+  const idleTimeoutMs = settings.idle_timeout_hours * 60 * 60 * 1000
+
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <InactivityTimer />
+        <InactivityTimer idleTimeoutMs={idleTimeoutMs} />
         <div className="flex-1">
           {children}
         </div>
