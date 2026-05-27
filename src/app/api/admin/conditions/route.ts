@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
@@ -26,6 +27,8 @@ async function getLoanWithContacts(adminClient: ReturnType<typeof createAdminCli
 
 // POST — add a condition
 export async function POST(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const admin = await verifyAdmin()
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -134,6 +137,8 @@ export async function POST(request: Request) {
 
 // PATCH — update condition status or assigned_to
 export async function PATCH(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const admin = await verifyAdmin()
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -255,6 +260,8 @@ async function sendBorrowerStatusNotification({
 
 // DELETE — remove a condition
 export async function DELETE(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { conditionId } = await request.json()
