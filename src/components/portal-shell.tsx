@@ -180,8 +180,16 @@ export function PortalShell({
             location across every page. */}
         <div className="ml-auto mr-3">
           {impersonation ? (
-            <Link
-              href={impersonation.exitHref}
+            <button
+              type="button"
+              onClick={async () => {
+                // POST clears the cookie when present; harmless no-op for
+                // URL-based impersonation (no cookie to clear). Then navigate
+                // to the page-supplied exitHref (strips any ?as_* params).
+                try { await fetch('/api/admin/view-as/exit', { method: 'POST' }) } catch { /* ignore */ }
+                router.push(impersonation.exitHref)
+                router.refresh()
+              }}
               className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-amber-100 text-amber-900 border border-amber-300 rounded-md hover:bg-amber-200"
               title="Exit View As preview"
             >
@@ -190,7 +198,7 @@ export function PortalShell({
                 Viewing as <strong>{IMPERSONATION_KIND_LABEL[impersonation.kind]}{impersonation.name ? ` · ${impersonation.name}` : ''}</strong>
               </span>
               <X className="w-3.5 h-3.5" />
-            </Link>
+            </button>
           ) : showViewAsTrigger ? (
             <AdminViewAsTrigger />
           ) : null}

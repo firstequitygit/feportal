@@ -175,6 +175,38 @@ const ROLE_TABLE = {
   underwriter:    'underwriters',
 } as const
 
+const KIND_TABLE = {
+  borrower:       'borrowers',
+  broker:         'brokers',
+  loan_officer:   'loan_officers',
+  loan_processor: 'loan_processors',
+  underwriter:    'underwriters',
+} as const
+
+/**
+ * Returns the impersonation prop ready to hand to PortalShell, derived from
+ * the View-As cookie. Admin pages call this so the persistent header pill
+ * stays visible on the admin's own pages while a global impersonation is
+ * active. Returns null when no cookie is set.
+ */
+export async function getCookieImpersonationForShell(
+  supa: Admin,
+  authUserId: string,
+): Promise<{ kind: ImpersonationKind; name: string | null; exitHref: string } | null> {
+  const ctx = await readImpersonationCookie(supa, authUserId)
+  if (!ctx) return null
+  const { data } = await supa
+    .from(KIND_TABLE[ctx.kind])
+    .select('full_name')
+    .eq('id', ctx.id)
+    .maybeSingle()
+  return {
+    kind: ctx.kind,
+    name: (data as { full_name: string | null } | null)?.full_name ?? null,
+    exitHref: '/admin',
+  }
+}
+
 /**
  * For LO/LP/UW role home pages. If the view-as cookie targets this role,
  * returns that target's row. Otherwise returns the auth user's own role row.

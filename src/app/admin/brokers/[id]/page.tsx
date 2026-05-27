@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { PortalShell } from '@/components/portal-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -15,6 +16,8 @@ export default async function AdminBrokerDetailPage({ params }: { params: Promis
   const adminClient = createAdminClient()
   const { data: admin } = await adminClient.from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/dashboard')
+
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
 
   const { data: broker } = await adminClient
     .from('brokers')
@@ -37,6 +40,7 @@ export default async function AdminBrokerDetailPage({ params }: { params: Promis
       dashboardHref="/admin"
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
+      impersonation={impersonation}
       maxWidth="max-w-4xl"
     >
       <div className="mb-4">
