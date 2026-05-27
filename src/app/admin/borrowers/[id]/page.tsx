@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { resolveImpersonation } from '@/lib/impersonate'
 
 export default async function AdminBorrowerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -31,9 +30,6 @@ export default async function AdminBorrowerDetailPage({ params }: { params: Prom
     .or(`borrower_id.eq.${id},borrower_id_2.eq.${id},borrower_id_3.eq.${id},borrower_id_4.eq.${id}`)
     .order('updated_at', { ascending: false })
 
-  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
-  const showViewAsTrigger = !impersonation
-
   return (
     <PortalShell
       userName={null}
@@ -42,7 +38,6 @@ export default async function AdminBorrowerDetailPage({ params }: { params: Prom
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-4xl"
-      showViewAsTrigger={showViewAsTrigger}
     >
       <div className="mb-4">
         <Link href="/admin/borrowers" className="text-sm text-primary hover:underline">← All borrowers</Link>

@@ -34,7 +34,6 @@ import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'

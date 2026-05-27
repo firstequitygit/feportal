@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { SettingsSidebar } from '@/components/settings-sidebar'
-import { resolveImpersonation } from '@/lib/impersonate'
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -17,9 +16,6 @@ export default async function SettingsLayout({ children }: { children: React.Rea
     .single()
   if (!admin) redirect('/dashboard')
 
-  const impersonation = await resolveImpersonation(createAdminClient(), user.id, undefined)
-  const showViewAsTrigger = !impersonation
-
   return (
     <PortalShell
       userName={admin.full_name}
@@ -28,7 +24,6 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-7xl"
-      showViewAsTrigger={showViewAsTrigger}
     >
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Settings</h2>

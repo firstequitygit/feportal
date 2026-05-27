@@ -32,7 +32,6 @@ import { DocumentsList } from '@/components/documents-list'
 import { formatDate } from '@/lib/format-date'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { buildViewAsOptions } from '@/lib/view-as-options'
-import { resolveImpersonation } from '@/lib/impersonate'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
@@ -102,9 +101,6 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
 
   if (!loan) notFound()
 
-  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
-  const showViewAsTrigger = !impersonation
-
   const isArchived = (archivedIds ?? []).some((r: { loan_id: string }) => r.loan_id === id)
 
   // Generate signed download URLs for each document (valid for 1 hour)
@@ -124,7 +120,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-5xl" showViewAsTrigger={showViewAsTrigger}>
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-5xl">
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/admin" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Overview

@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminLoansClient, type LoanWithMeta } from '@/components/admin-loans-client'
 import { Building2, Users, AlertCircle } from 'lucide-react'
-import { resolveImpersonation } from '@/lib/impersonate'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -69,9 +68,6 @@ export default async function AdminPage() {
   // at the DB query above.
   void archivedIds // referenced for clarity; not needed for filtering anymore
 
-  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
-  const showViewAsTrigger = !impersonation
-
   const loansWithMeta: LoanWithMeta[] = (loans ?? []).map(loan => ({
     ...loan,
     archived: false, // all loans returned by the DB query are non-archived
@@ -92,7 +88,6 @@ export default async function AdminPage() {
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       maxWidth="max-w-7xl"
-      showViewAsTrigger={showViewAsTrigger}
     >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
 

@@ -47,7 +47,6 @@ export default async function ReportsLandingPage() {
       dashboardHref={ctx.dashboardHref}
       variant={ctx.shellVariant}
       isSuperAdmin={ctx.isSuperAdmin}
-      showViewAsTrigger={ctx.showViewAsTrigger}
     >
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Reports</h2>

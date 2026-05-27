@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { AdminDeleteLoanButton } from '@/components/admin-delete-loan-button'
-import { resolveImpersonation } from '@/lib/impersonate'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -54,11 +53,8 @@ export default async function ArchivedLoansPage() {
     from += 1000
   }
 
-  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
-  const showViewAsTrigger = !impersonation
-
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl" showViewAsTrigger={showViewAsTrigger}>
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           Archived Loans
           <span className="ml-2 text-base font-normal text-gray-400">{totalArchived ?? loans?.length ?? 0} loan{(totalArchived ?? loans?.length ?? 0) !== 1 ? 's' : ''}</span>

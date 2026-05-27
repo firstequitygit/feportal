@@ -12,7 +12,6 @@ import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -107,10 +106,12 @@ export default async function BrokerLoanPage({
       userRole="Broker"
       dashboardHref="/broker"
       variant="broker"
+      impersonation={isImpersonating && impersonation ? {
+        kind: 'broker',
+        name: broker.full_name,
+        exitHref: impersonationExitHref(loan.id, impersonation.impersonatorRole),
+      } : null}
     >
-      {isImpersonating && impersonation && (
-        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />
-      )}
       <LoanRealtimeRefresh loanId={loan.id} />
       <Link href="/broker" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
         ← Back to My Loans
