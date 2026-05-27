@@ -29,6 +29,7 @@ export function InactivityTimer() {
 
     timeoutRef.current = setTimeout(async () => {
       setShowWarning(false)
+      await fetch('/api/admin/view-as/exit', { method: 'POST' }).catch(() => {})
       const supabase = createClient()
       await supabase.auth.signOut()
       router.push('/login')
