@@ -2,7 +2,36 @@
 
 **Date:** 2026-05-22
 **Branch:** `feature/admin-settings` (off `main`; merged after manual testing)
-**Status:** Approved for spec review
+**Status:** Approved; amended 2026-05-26 to match the actual state of `main`
+
+## 0. Amendment (2026-05-26)
+
+After approval, inspection of `main` showed commit `daceef0` ("Admin: Settings hub
+for user management + sidebar header fix") already shipped a Settings hub that this
+spec assumed didn't exist:
+
+- `/admin/settings` route exists with `layout.tsx` rendering `PortalShell` + a
+  client-side `SettingsSidebar` (`src/components/settings-sidebar.tsx`).
+- Sub-pages exist at `/admin/settings/users/{loan-officers, loan-processors,
+  underwriters, admins}`; the old top-level `/admin/loan-officers` etc. pages were
+  consolidated here.
+- The hub is **admin-only**; only the "Admins" sub-item is super-admin-gated
+  (`isSuperAdmin ? [...USERS_SUBITEMS, ADMINS_SUBITEM] : USERS_SUBITEMS`).
+- `ADMIN_NAV` in `portal-shell.tsx` already contains the top-level `/admin/settings`
+  entry.
+
+**Reconciliation:**
+- Drop the "create the page + add the top-level nav item" work. Add **two sub-pages
+  under the existing hub** instead: `/admin/settings/session` and
+  `/admin/settings/permissions`, and a new "System" group in `SettingsSidebar`
+  containing both.
+- **Gating override:** Section 2 said super-admin-only. The two new sub-pages are
+  **admin-only** to match the existing hub's posture, since v1 is read-only
+  (decided 2026-05-26).
+- All other content (Section 3 module extractions, Section 5 matrix, Section 6
+  verification, Section 7 deferrals) stands unchanged.
+
+---
 
 ## 1. Summary & intent
 
