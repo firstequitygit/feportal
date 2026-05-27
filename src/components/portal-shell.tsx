@@ -10,7 +10,9 @@ import { AirtableSyncButton } from '@/components/airtable-sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
 import { InviteBroker } from '@/components/invite-broker'
 import { AdminViewAsTrigger } from '@/components/admin-view-as-trigger'
+import { AdminViewToggle } from '@/components/admin-view-toggle'
 import { ImpersonationProvider } from '@/components/impersonation-provider'
+import type { StaffContext } from '@/lib/types'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
@@ -42,6 +44,10 @@ interface Props {
     name: string | null
     exitHref: string
   } | null
+  /** Staff identity context for the admin/base view toggle. Pass when the
+   *  page knows the visitor's StaffContext; the toggle self-hides unless
+   *  the user has both admin + a base role. */
+  staffContext?: StaffContext | null
   children: React.ReactNode
 }
 
@@ -107,6 +113,7 @@ export function PortalShell({
   // kept for back-compat; settings shell handles super-admin nav now
   isSuperAdmin = false,
   impersonation,
+  staffContext,
   children,
 }: Props) {
   const showViewAsTrigger = variant === 'admin' && !impersonation
@@ -178,7 +185,8 @@ export function PortalShell({
             The pill is the source of truth for "currently impersonating" — it
             replaces the body banner so the indicator + exit live in one fixed
             location across every page. */}
-        <div className="ml-auto mr-3">
+        <div className="ml-auto mr-3 flex items-center gap-3">
+          {staffContext?.can_toggle ? <AdminViewToggle context={staffContext} /> : null}
           {impersonation ? (
             <button
               type="button"
