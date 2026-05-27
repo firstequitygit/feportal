@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { randomBytes } from 'node:crypto'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 const ADJECTIVES = ['Brisk', 'Calm', 'Eager', 'Quiet', 'Sharp', 'Steady', 'Swift', 'Vivid']
 const NOUNS      = ['Anchor', 'Beacon', 'Cedar', 'Drift', 'Ember', 'Falcon', 'Granite', 'Harbor']
@@ -25,6 +26,8 @@ async function verifySuperAdmin() {
 // POST — create a new admin login. Returns the generated temp password
 // so the caller can share it out-of-band.
 export async function POST(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifySuperAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { email, full_name } = await request.json()
@@ -70,6 +73,8 @@ export async function POST(request: Request) {
 // DELETE — remove an admin. Super-admins can delete other admins; the
 // component side blocks self-delete, but we double-check here.
 export async function DELETE(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const auth = await verifySuperAdmin()
   if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

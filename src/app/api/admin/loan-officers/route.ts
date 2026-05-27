@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 async function verifyAdmin() {
   const supabase = await createClient()
@@ -23,6 +24,8 @@ function parsePipedriveUserId(raw: unknown): number | null | undefined {
 
 // POST — create loan officer
 export async function POST(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { full_name, title, email, phone, pipedrive_user_id } = await request.json()
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
 
 // PATCH — update loan officer
 export async function PATCH(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, full_name, title, email, phone, pipedrive_user_id } = await request.json()
@@ -75,6 +80,8 @@ export async function PATCH(request: Request) {
 
 // DELETE — remove loan officer (clean up FKs + auth user)
 export async function DELETE(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await request.json()

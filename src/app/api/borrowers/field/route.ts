@@ -11,6 +11,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * table and an audit event is written to loan_events.
  */
 
+import { assertNotImpersonating } from '@/lib/impersonate'
+
 type FieldType = 'text' | 'boolean'
 
 interface FieldConfig {
@@ -30,6 +32,8 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
 }
 
 export async function PATCH(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

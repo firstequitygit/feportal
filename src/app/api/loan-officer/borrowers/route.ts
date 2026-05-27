@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 // PATCH — Loan Officers can edit borrower contact details (name / email /
 // phone), but only for borrowers who are on at least one loan they own.
 // Email is never changed for a borrower with a portal login (would break
 // their sign-in); same rule the sync uses.
 export async function PATCH(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

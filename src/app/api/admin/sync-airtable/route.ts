@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncAllLoansToAirtable, syncLoanToAirtable } from '@/lib/airtable'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 export const maxDuration = 300
 
@@ -25,6 +26,8 @@ export const maxDuration = 300
 const BATCH_SIZE = 250
 
 export async function POST(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
