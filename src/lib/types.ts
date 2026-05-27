@@ -150,6 +150,13 @@ export interface Condition {
   description: string | null
   status: ConditionStatus
   assigned_to: AssignedTo
+  /**
+   * Optional pin to a specific staff member on the loan. When set, the
+   * condition is targeted at that one person instead of every assignee in
+   * the role. References whichever staff table matches assigned_to
+   * (loan_officers / loan_processors / underwriters).
+   */
+  assigned_to_staff_id: string | null
   category: ConditionCategory | null
   rejection_reason: string | null
   response: string | null

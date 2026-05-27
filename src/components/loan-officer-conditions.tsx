@@ -11,12 +11,20 @@ import { BulkActionBar, BulkActionButton } from '@/components/bulk-action-bar'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { useImpersonation } from '@/components/impersonation-provider'
 
+export interface LoanStaffSummary {
+  loan_officer?: { id: string; full_name: string } | null
+  loan_processor?: { id: string; full_name: string } | null
+  loan_processor_2?: { id: string; full_name: string } | null
+  underwriter?: { id: string; full_name: string } | null
+}
+
 interface Props {
   loanId: string
   propertyAddress: string | null
   conditions: Condition[]
   documents: Document[]
   signedUrlMap: Record<string, string>
+  loanStaff?: LoanStaffSummary
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -53,7 +61,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, isImpersonating,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, isImpersonating, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
 }: {
   condition: Condition
   docs: Document[]
@@ -62,6 +70,7 @@ function ConditionRow({
   uploading: boolean
   selected: boolean
   selectable: boolean
+  loanStaff?: LoanStaffSummary
   onToggleSelect: () => void
   onUpload: (files: FileList) => void
   fileRef: (el: HTMLInputElement | null) => void
@@ -158,7 +167,18 @@ function ConditionRow({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${assignedToColor(condition.assigned_to)}`}>
-            {assignedToLabel(condition.assigned_to)}
+            {(() => {
+              if (condition.assigned_to_staff_id && loanStaff) {
+                const candidates =
+                  condition.assigned_to === 'loan_officer'   ? [loanStaff.loan_officer] :
+                  condition.assigned_to === 'loan_processor' ? [loanStaff.loan_processor, loanStaff.loan_processor_2] :
+                  condition.assigned_to === 'underwriter'    ? [loanStaff.underwriter] :
+                                                               []
+                const match = candidates.find(c => c && c.id === condition.assigned_to_staff_id)
+                if (match) return match.full_name
+              }
+              return assignedToLabel(condition.assigned_to)
+            })()}
           </span>
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColor(condition.status)}`}>
             {condition.status}
@@ -277,7 +297,7 @@ function ConditionRow({
   )
 }
 
-export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap }: Props) {
+export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap, loanStaff }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -290,6 +310,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
   const [addTitle, setAddTitle] = useState('')
   const [addDescription, setAddDescription] = useState('')
   const [addAssignedTo, setAddAssignedTo] = useState<AssignedTo>('borrower')
+  const [addAssignedToStaffId, setAddAssignedToStaffId] = useState<string>('')
   const [addCategory, setAddCategory] = useState<ConditionCategory | ''>('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
@@ -446,6 +467,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
         title: addTitle.trim(),
         description: addDescription.trim() || null,
         assignedTo: addAssignedTo,
+        assignedToStaffId: addAssignedToStaffId || null,
         category: addCategory || null,
       }),
     })
@@ -456,6 +478,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       setAddDescription('')
       setAddCategory('')
       setAddAssignedTo('borrower')
+      setAddAssignedToStaffId('')
       setAddSaving(false)
       router.refresh()
     } else {
@@ -510,12 +533,34 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                 {(['borrower', 'loan_officer', 'loan_processor'] as AssignedTo[]).map(opt => (
                   <label key={opt} className="flex items-center gap-1.5 text-sm cursor-pointer">
                     <input type="radio" name="lo-assign" value={opt} checked={addAssignedTo === opt}
-                      onChange={() => setAddAssignedTo(opt)} className="accent-primary" />
+                      onChange={() => { setAddAssignedTo(opt); setAddAssignedToStaffId('') }} className="accent-primary" />
                     {opt === 'borrower' ? 'Borrower' : opt === 'loan_officer' ? 'Loan Officer' : 'Loan Processor'}
                   </label>
                 ))}
               </div>
             </div>
+            {addAssignedTo !== 'borrower' && loanStaff && (() => {
+              const candidates =
+                addAssignedTo === 'loan_officer'   ? [loanStaff.loan_officer].filter(Boolean) :
+                addAssignedTo === 'loan_processor' ? [loanStaff.loan_processor, loanStaff.loan_processor_2].filter(Boolean) :
+                                                     []
+              if (candidates.length === 0) return null
+              return (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-gray-500 font-medium">Specific person (optional)</p>
+                  <select
+                    value={addAssignedToStaffId}
+                    onChange={e => setAddAssignedToStaffId(e.target.value)}
+                    className="w-full text-sm px-3 py-2 rounded border border-gray-200 bg-white text-gray-700"
+                  >
+                    <option value="">— Everyone in role —</option>
+                    {(candidates as { id: string; full_name: string }[]).map(p => (
+                      <option key={p.id} value={p.id}>{p.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )
+            })()}
             {addError && <p className="text-xs text-red-600">{addError}</p>}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAddCondition} disabled={addSaving}>
@@ -550,6 +595,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                     signedUrlMap={signedUrlMap} canUpload={canUpload} uploading={uploadingSet.has(condition.id)}
                     selected={selectedConditions.has(condition.id)}
                     selectable={condition.status !== 'Satisfied' && condition.status !== 'Waived'}
+                    loanStaff={loanStaff}
                     onToggleSelect={() => toggleConditionSelection(condition.id)}
                     onUpload={(files) => handleUpload(condition.id, files)}
                     fileRef={(el) => { fileInputRefs.current[condition.id] = el }}

@@ -68,10 +68,10 @@ export default async function LoanOfficerLoanPage({
   // Verify this loan is assigned to this LO (admins previewing bypass)
   const loanQuery = isImpersonating
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
         .eq('id', id).single()
     : adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_processors!loan_processor_id(full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone, title), underwriters(full_name, email, phone, title)')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
         .eq('id', id)
         .eq('loan_officer_id', lo.id).single()
   const { data: loan } = await loanQuery
@@ -421,6 +421,16 @@ export default async function LoanOfficerLoanPage({
           conditions={(conditions ?? []) as Condition[]}
           documents={(documents ?? []) as Document[]}
           signedUrlMap={signedUrlMap}
+          loanStaff={{
+            loan_officer:
+              (loan.loan_officers as unknown as { id: string; full_name: string } | null) ?? null,
+            loan_processor:
+              (loan.loan_processors as unknown as { id: string; full_name: string } | null) ?? null,
+            loan_processor_2:
+              ((loan as unknown as { loan_processor_2: { id: string; full_name: string } | null }).loan_processor_2) ?? null,
+            underwriter:
+              (loan.underwriters as unknown as { id: string; full_name: string } | null) ?? null,
+          }}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
