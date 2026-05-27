@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPortalSetting, setPortalSetting } from '@/lib/portal-settings'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 const ALLOWED_KEYS = ['applications_processing_inbox'] as const
 type AllowedKey = (typeof ALLOWED_KEYS)[number]
@@ -71,6 +72,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
+
   const gate = await requireAdmin()
   if ('error' in gate) return gate.error
 
