@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const TIMEOUT_MS = 30 * 60 * 1000       // 30 minutes
-const WARNING_MS = 28 * 60 * 1000       // warn at 28 minutes (2 min before)
+const WARNING_LEAD_MS = 2 * 60 * 1000 // warn 2 minutes before logout
 const EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
 
-export function InactivityTimer() {
+interface Props {
+  idleTimeoutMs: number
+}
+
+export function InactivityTimer({ idleTimeoutMs }: Props) {
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -23,9 +26,11 @@ export function InactivityTimer() {
     clearTimers()
     setShowWarning(false)
 
-    warningRef.current = setTimeout(() => {
-      setShowWarning(true)
-    }, WARNING_MS)
+    // If the configured idle is <= the warning lead, skip the warning step.
+    const warnAt = Math.max(0, idleTimeoutMs - WARNING_LEAD_MS)
+    if (warnAt > 0) {
+      warningRef.current = setTimeout(() => setShowWarning(true), warnAt)
+    }
 
     timeoutRef.current = setTimeout(async () => {
       setShowWarning(false)
@@ -33,7 +38,7 @@ export function InactivityTimer() {
       const supabase = createClient()
       await supabase.auth.signOut()
       router.push('/login')
-    }, TIMEOUT_MS)
+    }, idleTimeoutMs)
   }
 
   useEffect(() => {
@@ -43,7 +48,8 @@ export function InactivityTimer() {
       clearTimers()
       EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idleTimeoutMs])
 
   if (!showWarning) return null
 
