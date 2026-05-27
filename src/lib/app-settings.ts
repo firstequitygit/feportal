@@ -36,7 +36,22 @@ export async function getAppSettings(): Promise<AppSettings> {
 
   // If the row is missing or unreadable, fall back to defaults so the app
   // never wedges on a settings outage. The defaults match the migration.
-  const value: AppSettings = error || !data ? DEFAULTS : (data as AppSettings)
+  // numeric(3,1) is serialized as a string by PostgREST; coerce numeric columns.
+  let value: AppSettings
+  if (error || !data) {
+    value = DEFAULTS
+  } else {
+    const row = data as Record<string, unknown>
+    value = {
+      idle_timeout_hours: Number(row.idle_timeout_hours),
+      absolute_session_hours: Number(row.absolute_session_hours),
+      session_epoch: Number(row.session_epoch),
+      maintenance_banner_enabled: Boolean(row.maintenance_banner_enabled),
+      maintenance_banner_message: String(row.maintenance_banner_message ?? ''),
+      updated_at: String(row.updated_at ?? new Date(0).toISOString()),
+      updated_by: (row.updated_by as string | null) ?? null,
+    }
+  }
   cache = { value, expiresAt: Date.now() + TTL_MS }
   return value
 }
