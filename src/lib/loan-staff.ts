@@ -76,15 +76,30 @@ export interface StaffDirectory {
  * UW, not just the loan's assigned ones.
  */
 export async function fetchStaffDirectory(adminClient: AdminClient): Promise<StaffDirectory> {
-  const [{ data: los }, { data: lps }, { data: uws }] = await Promise.all([
-    adminClient.from('loan_officers').select('id, full_name').order('full_name'),
-    adminClient.from('loan_processors').select('id, full_name').order('full_name'),
-    adminClient.from('underwriters').select('id, full_name').order('full_name'),
+  const [{ data: los }, { data: lps }, { data: uws }, { data: admins }] = await Promise.all([
+    adminClient.from('loan_officers').select('id, full_name, auth_user_id').order('full_name'),
+    adminClient.from('loan_processors').select('id, full_name, auth_user_id').order('full_name'),
+    adminClient.from('underwriters').select('id, full_name, auth_user_id').order('full_name'),
+    adminClient.from('admin_users').select('auth_user_id'),
   ])
+
+  // Exclude staff rows whose auth user is also an admin — same human, two
+  // hats, but the "Other" dropdown is for non-admin staff only.
+  const adminAuthIds = new Set<string>(
+    (admins ?? [])
+      .map(a => (a as { auth_user_id: string | null }).auth_user_id)
+      .filter((id): id is string => !!id)
+  )
+  function notAdmin(row: { auth_user_id: string | null }): boolean {
+    return !row.auth_user_id || !adminAuthIds.has(row.auth_user_id)
+  }
+  const strip = (rows: Array<{ id: string; full_name: string; auth_user_id: string | null }>) =>
+    rows.filter(notAdmin).map(r => ({ id: r.id, full_name: r.full_name }))
+
   return {
-    loan_officers: (los ?? []) as { id: string; full_name: string }[],
-    loan_processors: (lps ?? []) as { id: string; full_name: string }[],
-    underwriters: (uws ?? []) as { id: string; full_name: string }[],
+    loan_officers:   strip((los ?? []) as { id: string; full_name: string; auth_user_id: string | null }[]),
+    loan_processors: strip((lps ?? []) as { id: string; full_name: string; auth_user_id: string | null }[]),
+    underwriters:    strip((uws ?? []) as { id: string; full_name: string; auth_user_id: string | null }[]),
   }
 }
 
