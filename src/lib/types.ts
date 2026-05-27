@@ -230,3 +230,10 @@ export const PIPEDRIVE_LOAN_TYPE_MAP: Record<number, LoanType> = {
 // status) in Pipedrive — that data lives in Supabase only. Kept
 // here as an empty const so existing imports don't break.
 export const PIPEDRIVE_PERSON_FIELDS = {} as const
+
+// /apply wizard's user-facing loan-type label -> portal LoanType.
+export const APPLICATION_LOAN_TYPE_MAP: Record<string, LoanType> = {
+  'Fix & Flip/Renovation': 'Fix & Flip (Bridge)',
+  'New Construction':       'New Construction',
+  'DSCR Rental Loan':       'Rental (DSCR)',
+}

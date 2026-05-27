@@ -418,3 +418,105 @@ export async function sendConditionallyApprovedAlert(loanId: string) {
     html,
   }).catch(err => console.error(`Conditionally Approved alert to ${OMAYRA_EMAIL} failed:`, err))
 }
+﻿function fmtAmount(amount: number | null | undefined): string | null {
+  if (amount === null || amount === undefined || Number.isNaN(amount)) return null
+  return `$${Number(amount).toLocaleString('en-US')}`
+}
+
+const wrap = (title: string, bodyHtml: string) => `
+  <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+    <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+      <h1 style="margin: 0; color: white; font-size: 18px;">${title}</h1>
+    </div>
+    <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+      ${bodyHtml}
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+      <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+    </div>
+  </div>`
+
+export async function sendApplicationResumeEmail(email: string, token: string, firstName: string | null) {
+  const link = `${PORTAL_URL}/apply/resume/${token}`
+  const html = wrap('Your loan application - saved', `
+    <p style="font-size: 15px; margin-top: 0;">Hi ${firstName ?? 'there'},</p>
+    <p style="font-size: 15px;">Your loan application has been saved. You can return any time using the secure link below - your answers will be exactly where you left off.</p>
+    <p style="margin-top: 24px;">
+      <a href="${link}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Resume application</a>
+    </p>
+    <p style="font-size: 13px; color: #555; margin-top: 24px;">Keep this email - the link is private to you.</p>`)
+  await getTransporter().sendMail({
+    from: `First Equity Funding <${process.env.GMAIL_USER}>`,
+    to: email, subject: 'Resume your First Equity loan application', html,
+  }).catch(err => console.error(`Resume email to ${email} failed:`, err))
+}
+
+export async function sendApplicationSubmittedEmail(
+  email: string,
+  firstName: string | null,
+  propertyAddress: string,
+  activationLink: string | null,
+  recap?: { loanType?: string | null; loanAmount?: number | null },
+) {
+  const amount = fmtAmount(recap?.loanAmount)
+  const recapRows = [
+    `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Property</td><td style="padding:4px 0;font-size:13px;"><strong>${propertyAddress}</strong></td></tr>`,
+    recap?.loanType ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Loan type</td><td style="padding:4px 0;font-size:13px;">${recap.loanType}</td></tr>` : '',
+    amount ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Requested amount</td><td style="padding:4px 0;font-size:13px;">${amount}</td></tr>` : '',
+  ].join('')
+
+  const activationBlock = activationLink ? `
+    <p style="font-size: 15px;">Activate your portal account to track your loan, upload documents, and message your team.</p>
+    <p style="margin-top: 20px;">
+      <a href="${activationLink}" style="background-color: #1F5D8F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Activate your portal account</a>
+    </p>
+    <p style="font-size: 12px; color: #999; margin-top: 16px;">This link is private to you and expires in 24 hours.</p>` : ''
+
+  const html = wrap('Application received', `
+    <p style="font-size: 15px; margin-top: 0;">Hi ${firstName ?? 'there'},</p>
+    <p style="font-size: 15px;">We've received your loan application. Our team will review it and reach out with next steps. Thank you for choosing First Equity Funding.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">${recapRows}</table>
+    ${activationBlock}`)
+
+  await getTransporter().sendMail({
+    to: email, subject: 'We received your First Equity loan application', html,
+  }).catch(err => console.error(`Submitted email to ${email} failed:`, err))
+}
+
+export async function sendApplicationInternalNotice(opts: {
+  to: string[]
+  applicantName: string
+  propertyAddress: string
+  loanType: string | null
+  loanAmount: number | null
+  loanId: string
+  pdfUrl: string | null
+  loanOfficerName: string | null
+}) {
+  const amount = fmtAmount(opts.loanAmount)
+  const pdfButton = opts.pdfUrl ? `
+    <p style="margin-top: 20px;">
+      <a href="${opts.pdfUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">Download application (PDF)</a>
+    </p>
+    <p style="font-size: 12px; color: #6b7280;">The application is also saved to the loan in the portal.</p>`
+    : `<p style="font-size: 13px; color: #b91c1c;">Application PDF could not be generated; check the loan in the portal.</p>`
+
+  const html = wrap('New loan application', `
+    <p style="font-size: 15px; margin-top: 0;">A new application was submitted.</p>
+    <p style="font-size: 15px;">
+      <strong>Applicant:</strong> ${opts.applicantName}<br/>
+      <strong>Property:</strong> ${opts.propertyAddress}<br/>
+      ${opts.loanType ? `<strong>Loan type:</strong> ${opts.loanType}<br/>` : ''}
+      ${amount ? `<strong>Requested amount:</strong> ${amount}<br/>` : ''}
+      <strong>Assigned loan officer:</strong> ${opts.loanOfficerName ?? 'Unassigned'}
+    </p>
+    ${pdfButton}
+    <p style="margin-top: 20px;">
+      <a href="${PORTAL_URL}/admin/loans/${opts.loanId}" style="color:#1F5D8F;font-size:13px;">Open the loan in the portal</a>
+    </p>`)
+
+  await getTransporter().sendMail({
+    to: opts.to,
+    subject: `New loan application - ${opts.propertyAddress}`,
+    html,
+  }).catch(err => console.error(`Internal notice to ${opts.to.join(', ')} failed:`, err))
+}

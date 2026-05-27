@@ -72,11 +72,13 @@ export async function proxy(request: NextRequest) {
   }
 
   // Unauthenticated: send to login (API routes handle their own auth) and reset the timer.
+  // /apply is the public loan-application intake — must not be gated.
   if (!user) {
     if (
       !pathname.startsWith('/login') &&
       !pathname.startsWith('/auth') &&
-      !pathname.startsWith('/api/')
+      !pathname.startsWith('/api/') &&
+      !pathname.startsWith('/apply')
     ) {
       return clearTracking(redirectTo('/login'))
     }
