@@ -244,3 +244,33 @@ export const APPLICATION_LOAN_TYPE_MAP: Record<string, LoanType> = {
   'New Construction':       'New Construction',
   'DSCR Rental Loan':       'Rental (DSCR)',
 }
+
+// Staff identity model (see 20260527-staff-users-additive migration).
+// staff_users is 1:1 with auth.users for staff humans only — borrowers and
+// brokers stay in their own tables, unchanged. base_role is nullable so an
+// admin-only human (no LO/LP/UW assignment) is representable.
+export type BaseRole = 'loan_officer' | 'loan_processor' | 'underwriter'
+export type ViewMode = 'admin' | 'base'
+
+export interface StaffUser {
+  id: string
+  auth_user_id: string
+  email: string
+  full_name: string | null
+  phone: string | null
+  title: string | null
+  base_role: BaseRole | null
+  is_admin: boolean
+  is_super: boolean
+  last_view_mode: ViewMode
+  created_at: string
+  updated_at: string
+}
+
+export type StaffContextKind = 'admin' | BaseRole
+
+export interface StaffContext {
+  staff_user: StaffUser
+  active_kind: StaffContextKind
+  can_toggle: boolean
+}
