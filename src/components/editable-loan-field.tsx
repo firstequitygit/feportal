@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 export type EditableFieldType =
   | 'text'
@@ -52,6 +53,7 @@ export function EditableLoanField({
   apiEndpoint = '/api/loans/field',
 }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState<string>(
     currentValue === null || currentValue === undefined ? '' : String(currentValue),
@@ -113,6 +115,7 @@ export function EditableLoanField({
   if (type === 'boolean') {
     const checked = currentValue === true
     async function toggle() {
+      if (isImpersonating) return
       setSaving(true)
       setError(null)
       const data = await save(!checked)
@@ -121,11 +124,14 @@ export function EditableLoanField({
       setSaving(false)
     }
     return (
-      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+      <label
+        className={`inline-flex items-center gap-2 select-none ${isImpersonating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+        title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+      >
         <input
           type="checkbox"
           checked={checked}
-          disabled={saving}
+          disabled={saving || isImpersonating}
           onChange={toggle}
           className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
         />
@@ -227,28 +233,30 @@ export function EditableLoanField({
     const text = (typeof currentValue === 'string' && currentValue.trim()) || ''
     return (
       <button
-        onClick={() => setEditing(true)}
-        className="text-left w-full text-gray-900 hover:text-primary transition-colors"
-        title="Click to edit"
+        onClick={isImpersonating ? undefined : () => setEditing(true)}
+        disabled={isImpersonating}
+        className={`text-left w-full text-gray-900 hover:text-primary transition-colors ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+        title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Click to edit'}
       >
         {text ? (
           <span className="block whitespace-pre-wrap font-medium">{text}</span>
         ) : (
           <span className="block text-gray-400 italic">— click to add</span>
         )}
-        <span className="text-xs text-gray-400 mt-0.5 inline-block">edit</span>
+        {!isImpersonating && <span className="text-xs text-gray-400 mt-0.5 inline-block">edit</span>}
       </button>
     )
   }
 
   return (
     <button
-      onClick={() => setEditing(true)}
-      className="font-medium text-gray-900 hover:text-primary transition-colors text-left"
-      title="Click to edit"
+      onClick={isImpersonating ? undefined : () => setEditing(true)}
+      disabled={isImpersonating}
+      className={`font-medium text-gray-900 hover:text-primary transition-colors text-left ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+      title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Click to edit'}
     >
       {display}
-      <span className="text-xs text-gray-400 ml-1.5">edit</span>
+      {!isImpersonating && <span className="text-xs text-gray-400 ml-1.5">edit</span>}
     </button>
   )
 }

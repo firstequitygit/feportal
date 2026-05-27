@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 function shortStage(s: PipelineStage | string): string {
   return s.split(' /')[0].trim()
@@ -15,6 +16,7 @@ interface Props {
 
 export function EditableLoanStage({ loanId, currentStage }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,9 +46,9 @@ export function EditableLoanStage({ loanId, currentStage }: Props) {
       <select
         value={currentStage ?? ''}
         onChange={(e) => handleChange(e.target.value)}
-        disabled={saving}
-        className="text-sm font-semibold border border-gray-200 hover:border-gray-300 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:border-primary disabled:opacity-50"
-        title="Change stage"
+        disabled={saving || isImpersonating}
+        className={`text-sm font-semibold border border-gray-200 hover:border-gray-300 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:border-primary disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+        title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Change stage'}
       >
         {!currentStage && <option value="">Unknown</option>}
         {PIPELINE_STAGES.map(s => (

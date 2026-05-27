@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Database } from 'lucide-react'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 /**
  * Per-loan Airtable sync. POSTs to the same admin endpoint as the global
@@ -25,6 +26,7 @@ interface SyncResult {
 
 export function LoanAirtableSyncButton({ loanId }: { loanId: string }) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [syncing, setSyncing] = useState(false)
 
   async function handleSync() {
@@ -67,9 +69,10 @@ export function LoanAirtableSyncButton({ loanId }: { loanId: string }) {
     <Button
       variant="outline"
       size="sm"
-      onClick={handleSync}
-      disabled={syncing}
-      className="gap-1.5"
+      onClick={isImpersonating ? undefined : handleSync}
+      disabled={syncing || isImpersonating}
+      title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+      className={`gap-1.5 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <Database className={`w-3.5 h-3.5 ${syncing ? 'animate-pulse' : ''}`} />
       {syncing ? 'Syncing…' : 'Sync to Airtable'}

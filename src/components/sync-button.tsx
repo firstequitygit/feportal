@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 export function SyncButton({ collapsed = false }: { collapsed?: boolean } = {}) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [syncing, setSyncing] = useState(false)
 
   async function handleSync() {
@@ -31,15 +33,18 @@ export function SyncButton({ collapsed = false }: { collapsed?: boolean } = {}) 
 
   if (collapsed) {
     return (
-      <Button variant="outline" size="icon-sm" onClick={handleSync} disabled={syncing}
-        aria-label="Sync Pipedrive" title="Sync Pipedrive">
+      <Button variant="outline" size="icon-sm" onClick={isImpersonating ? undefined : handleSync} disabled={syncing || isImpersonating}
+        aria-label="Sync Pipedrive" title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Sync Pipedrive'}
+        className={isImpersonating ? 'opacity-50 cursor-not-allowed' : undefined}>
         <RefreshCw className={syncing ? 'animate-spin' : ''} />
       </Button>
     )
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+    <Button variant="outline" size="sm" onClick={isImpersonating ? undefined : handleSync} disabled={syncing || isImpersonating}
+      title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+      className={isImpersonating ? 'opacity-50 cursor-not-allowed' : undefined}>
       {syncing ? 'Syncing…' : 'Sync Pipedrive'}
     </Button>
   )

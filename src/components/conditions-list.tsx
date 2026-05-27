@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FileText, Info } from 'lucide-react'
 import { type Condition, type Document, type ConditionStatus, CONDITION_CATEGORIES } from '@/lib/types'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 interface Props {
   loanId: string
@@ -29,6 +30,7 @@ function statusColor(status: ConditionStatus): string {
 
 export function ConditionsList({ loanId, propertyAddress, conditions, documents, signedUrlMap = {} }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const supabase = createClient()
   const [uploadingSet, setUploadingSet] = useState<Set<string>>(new Set())
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -219,7 +221,7 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
                       <div className="mt-3 bg-blue-50 border border-blue-100 rounded px-3 py-2">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
                           <p className="text-xs text-gray-500 font-medium">Your response</p>
-                          {canUpload && (
+                          {canUpload && !isImpersonating && (
                             <button
                               onClick={() => openReply(condition.id, condition.response)}
                               className="text-xs text-primary hover:opacity-80"
@@ -231,7 +233,7 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
                         <p className="text-xs text-gray-800 whitespace-pre-wrap">{condition.response}</p>
                       </div>
                     )}
-                    {canUpload && (
+                    {canUpload && !isImpersonating && (
                       <div className="mt-3">
                         <input
                           ref={(el) => { fileInputRefs.current[condition.id] = el }}
