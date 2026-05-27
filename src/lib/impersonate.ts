@@ -49,12 +49,22 @@ const ADMIN_ONLY_KINDS: ImpersonationKind[] = ['loan_officer', 'loan_processor',
  * an ImpersonationContext. Returns null if cookie missing, invalid, or admin
  * no longer exists.
  */
-export async function readImpersonationCookie(supa: Admin): Promise<ImpersonationContext | null> {
+export async function readImpersonationCookie(
+  supa: Admin,
+  authUserId: string,
+): Promise<ImpersonationContext | null> {
   const c = await cookies()
   const payload = verifyViewAsCookie(c.get(VIEW_AS_COOKIE)?.value)
   if (!payload) return null
+  // Cookie is bound to the admin who created it. Reject if the current
+  // auth user is not that same admin (still in admin_users, still linked
+  // to the same auth_user_id).
   const { data: admin } = await supa
-    .from('admin_users').select('id').eq('id', payload.admin_id).maybeSingle()
+    .from('admin_users')
+    .select('id')
+    .eq('id', payload.admin_id)
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
   if (!admin) return null
   return {
     kind: payload.kind,
@@ -75,7 +85,7 @@ export async function resolveImpersonation(
   options: { loanIdForAccessCheck?: string } = {},
 ): Promise<ImpersonationContext | null> {
   // New: cookie-based admin global picker takes precedence.
-  const cookieCtx = await readImpersonationCookie(supa)
+  const cookieCtx = await readImpersonationCookie(supa, authUserId)
   if (cookieCtx) return cookieCtx
 
   if (!searchParams) return null
@@ -169,7 +179,7 @@ export async function getEffectiveRoleRow<T extends Record<string, unknown> = Re
   kind: 'loan_officer' | 'loan_processor' | 'underwriter',
   authUserId: string,
 ): Promise<T | null> {
-  const ctx = await readImpersonationCookie(supa)
+  const ctx = await readImpersonationCookie(supa, authUserId)
   if (ctx?.kind === kind) {
     const { data } = await supa.from(ROLE_TABLE[kind]).select('*').eq('id', ctx.id).maybeSingle()
     return (data ?? null) as T | null
