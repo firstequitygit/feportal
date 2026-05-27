@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminTemplatesManager } from '@/components/admin-templates-manager'
 import { type ConditionTemplate } from '@/lib/types'
@@ -16,6 +17,7 @@ export default async function AdminTemplatesPage() {
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
   const { data: templates } = await adminClient
     .from('condition_templates')
     .select('*')
@@ -23,7 +25,7 @@ export default async function AdminTemplatesPage() {
     .order('title')
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-3xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} impersonation={impersonation} maxWidth="max-w-3xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Condition Templates</h2>
       <AdminTemplatesManager initialTemplates={(templates ?? []) as ConditionTemplate[]} />
     </PortalShell>

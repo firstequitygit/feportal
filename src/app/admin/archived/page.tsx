@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
@@ -22,6 +23,7 @@ export default async function ArchivedLoansPage() {
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
 
   // Fetch archived loans directly via the column, paginated. (Previously
   // fetched IDs via get_archived_loan_ids then used .in('id', ids) — that URL
@@ -54,7 +56,7 @@ export default async function ArchivedLoansPage() {
   }
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} impersonation={impersonation} maxWidth="max-w-7xl">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           Archived Loans
           <span className="ml-2 text-base font-normal text-gray-400">{totalArchived ?? loans?.length ?? 0} loan{(totalArchived ?? loans?.length ?? 0) !== 1 ? 's' : ''}</span>

@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { fetchAllBorrowers, fetchAllBrokers } from '@/lib/fetch-all-borrowers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type Condition, type ConditionTemplate } from '@/lib/types'
@@ -66,6 +67,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
 
   const [
     { data: loan },
@@ -120,7 +122,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-5xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} impersonation={impersonation} maxWidth="max-w-5xl">
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/admin" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Overview
