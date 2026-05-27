@@ -12,7 +12,6 @@ import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -48,17 +47,20 @@ export default async function BrokerLoanPage({
     : await adminClient.from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
   if (!broker) redirect('/login')
 
-  // Loan must have this broker in either slot — admins previewing bypass
-  // the slot filter so they can preview any loan from the broker's view.
-  const loanQuery = isImpersonating
+  // Cookie-based impersonation (global View-As) enforces slot membership —
+  // admin can ONLY view loans the impersonated broker is actually on.
+  // Query-param impersonation (legacy per-loan dropdown) preserves the
+  // historical "admin chose the loan deliberately" permissive behavior.
+  const enforceSlot = !isImpersonating || impersonation?.source === 'cookie'
+  const loanQuery = enforceSlot
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
-        .eq('id', id).single()
-    : adminClient.from('loans')
         .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
         .eq('id', id)
         .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
         .single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
+        .eq('id', id).single()
   const { data: loan } = await loanQuery
   if (!loan) notFound()
 
@@ -107,10 +109,12 @@ export default async function BrokerLoanPage({
       userRole="Broker"
       dashboardHref="/broker"
       variant="broker"
+      impersonation={isImpersonating && impersonation ? {
+        kind: 'broker',
+        name: broker.full_name,
+        exitHref: impersonationExitHref(loan.id, impersonation.impersonatorRole),
+      } : null}
     >
-      {isImpersonating && impersonation && (
-        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />
-      )}
       <LoanRealtimeRefresh loanId={loan.id} />
       <Link href="/broker" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
         ← Back to My Loans

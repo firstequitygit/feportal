@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LoanStatus } from '@/lib/types'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 interface Props {
   loanId: string
@@ -31,6 +32,7 @@ function badgeLabel(status: LoanStatus): string {
 // assignment checks.
 export function LoanStatusControl({ loanId, currentStatus, cancellationReason }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [showCancelPrompt, setShowCancelPrompt] = useState(false)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -95,16 +97,18 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
         {currentStatus === 'active' && (
           <>
             <button
-              onClick={handleHold}
-              disabled={saving}
-              className="ml-auto text-xs border border-amber-300 text-amber-800 hover:bg-amber-50 px-2 py-1 rounded-md disabled:opacity-50"
+              onClick={isImpersonating ? undefined : handleHold}
+              disabled={saving || isImpersonating}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+              className={`ml-auto text-xs border border-amber-300 text-amber-800 hover:bg-amber-50 px-2 py-1 rounded-md disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Place On Hold
             </button>
             <button
-              onClick={handleStartCancel}
-              disabled={saving}
-              className="text-xs border border-red-300 text-red-700 hover:bg-red-50 px-2 py-1 rounded-md disabled:opacity-50"
+              onClick={isImpersonating ? undefined : handleStartCancel}
+              disabled={saving || isImpersonating}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+              className={`text-xs border border-red-300 text-red-700 hover:bg-red-50 px-2 py-1 rounded-md disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Cancel Loan
             </button>
@@ -114,16 +118,18 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
         {currentStatus === 'on_hold' && (
           <>
             <button
-              onClick={handleResume}
-              disabled={saving}
-              className="ml-auto text-xs border border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md disabled:opacity-50"
+              onClick={isImpersonating ? undefined : handleResume}
+              disabled={saving || isImpersonating}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+              className={`ml-auto text-xs border border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Resume
             </button>
             <button
-              onClick={handleStartCancel}
-              disabled={saving}
-              className="text-xs border border-red-300 text-red-700 hover:bg-red-50 px-2 py-1 rounded-md disabled:opacity-50"
+              onClick={isImpersonating ? undefined : handleStartCancel}
+              disabled={saving || isImpersonating}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+              className={`text-xs border border-red-300 text-red-700 hover:bg-red-50 px-2 py-1 rounded-md disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Cancel Loan
             </button>
@@ -132,9 +138,10 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
 
         {currentStatus === 'cancelled' && (
           <button
-            onClick={handleReactivate}
-            disabled={saving}
-            className="ml-auto text-xs border border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md disabled:opacity-50"
+            onClick={isImpersonating ? undefined : handleReactivate}
+            disabled={saving || isImpersonating}
+            title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+            className={`ml-auto text-xs border border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded-md disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Reactivate
           </button>
@@ -161,9 +168,10 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
           />
           <div className="flex gap-2">
             <button
-              onClick={handleConfirmCancel}
-              disabled={saving}
-              className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:opacity-90 disabled:opacity-50"
+              onClick={isImpersonating ? undefined : handleConfirmCancel}
+              disabled={saving || isImpersonating}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+              className={`text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:opacity-90 disabled:opacity-50 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {saving ? 'Cancelling…' : 'Confirm Cancellation'}
             </button>

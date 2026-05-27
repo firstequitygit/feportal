@@ -12,7 +12,6 @@ import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -53,15 +52,17 @@ export default async function LoanPage({
 
   if (!borrower) redirect('/login')
 
-  // Borrower may be any of the four borrower slots on the loan. Admins
-  // bypass the row-level filter so they can preview any loan from the
-  // impersonated borrower's perspective.
-  const loanQuery = isImpersonating
-    ? adminClient.from('loans').select('*').eq('id', id).single()
-    : supabase.from('loans').select('*')
+  // Cookie-based impersonation (global View-As) enforces slot membership —
+  // admin can ONLY view loans the impersonated borrower is actually on.
+  // Query-param impersonation (legacy per-loan dropdown) preserves the
+  // historical "admin chose the loan deliberately" permissive behavior.
+  const enforceSlot = !isImpersonating || impersonation?.source === 'cookie'
+  const loanQuery = enforceSlot
+    ? (isImpersonating ? adminClient : supabase).from('loans').select('*')
         .eq('id', id)
         .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
         .single()
+    : adminClient.from('loans').select('*').eq('id', id).single()
   const { data: loan } = await loanQuery
 
   if (!loan) notFound()
@@ -114,10 +115,16 @@ export default async function LoanPage({
     .order('created_at', { ascending: false })
 
   return (
-    <PortalShell userName={borrower.full_name ?? user.email ?? null} userRole="Borrower" dashboardHref="/dashboard">
-        {isImpersonating && impersonation && (
-          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref(loan.id, impersonation.impersonatorRole)} />
-        )}
+    <PortalShell
+      userName={borrower.full_name ?? user.email ?? null}
+      userRole="Borrower"
+      dashboardHref="/dashboard"
+      impersonation={isImpersonating && impersonation ? {
+        kind: 'borrower',
+        name: borrower.full_name,
+        exitHref: impersonationExitHref(loan.id, impersonation.impersonatorRole),
+      } : null}
+    >
         <LoanRealtimeRefresh loanId={loan.id} />
         {/* Back link */}
         <Link href="/dashboard" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">

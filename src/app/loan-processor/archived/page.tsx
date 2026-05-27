@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -17,12 +18,9 @@ export default async function LoanProcessorArchivedPage() {
 
   const adminClient = createAdminClient()
 
-  const { data: lp } = await adminClient
-    .from('loan_processors')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
@@ -42,8 +40,15 @@ export default async function LoanProcessorArchivedPage() {
         : archivedQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
     : { data: [] }
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_processor'
+
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor" variant="loan-processor">
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor" variant="loan-processor" impersonation={isImpersonating ? {
+        kind: 'loan_processor',
+        name: lp.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">
         Archived Loans
         <span className="ml-2 text-base font-normal text-gray-400">{(loans ?? []).length} loan{(loans ?? []).length !== 1 ? 's' : ''}</span>

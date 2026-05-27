@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 async function verifyAdmin() {
   const supabase = await createClient()
@@ -15,6 +16,8 @@ async function verifyAdmin() {
 // broker_id set to null via FK cascade — the borrower becomes the contact
 // again) AND deletes the Supabase auth user if one is linked.
 export async function DELETE(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await request.json()
@@ -40,6 +43,8 @@ export async function DELETE(request: Request) {
 // PATCH — Admins can edit broker contact details (name / company / email / phone).
 // Email is locked if the broker has a portal login, to avoid breaking sign-in.
 export async function PATCH(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()

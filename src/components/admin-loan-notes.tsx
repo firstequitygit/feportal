@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 interface LoanNote {
   id: string
@@ -27,6 +28,7 @@ function formatDateTime(val: string): string {
 }
 
 export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/notes' }: Props) {
+  const { isImpersonating } = useImpersonation()
   const [notes, setNotes] = useState<LoanNote[]>(initialNotes)
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -94,8 +96,10 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
           />
           <Button
             size="sm"
-            onClick={addNote}
-            disabled={saving || !content.trim()}
+            onClick={isImpersonating ? undefined : addNote}
+            disabled={saving || !content.trim() || isImpersonating}
+            title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+            className={isImpersonating ? 'opacity-50 cursor-not-allowed' : undefined}
           >
             {saving ? 'Saving…' : 'Add Note'}
           </Button>
@@ -111,12 +115,14 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
                   <p className="text-xs text-gray-400">
                     {note.created_by} · {formatDateTime(note.created_at)}
                   </p>
-                  <button
-                    onClick={() => deleteNote(note.id)}
-                    className="text-xs text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    Delete
-                  </button>
+                  {!isImpersonating && (
+                    <button
+                      onClick={() => deleteNote(note.id)}
+                      className="text-xs text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

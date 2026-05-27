@@ -7,6 +7,7 @@ import { LoanListSorted } from '@/components/loan-list-sorted'
 import { AvailableLoans } from '@/components/available-loans'
 import { Building2, Users, AlertCircle } from 'lucide-react'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 export default async function LoanProcessorLoansPage() {
   const supabase = await createClient()
@@ -15,12 +16,9 @@ export default async function LoanProcessorLoansPage() {
 
   const adminClient = createAdminClient()
 
-  const { data: lp } = await adminClient
-    .from('loan_processors')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) redirect('/login')
 
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
@@ -95,8 +93,15 @@ export default async function LoanProcessorLoansPage() {
   const youOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.you, 0)
   const totalOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.total, 0)
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_processor'
+
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor">
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" impersonation={isImpersonating ? {
+        kind: 'loan_processor',
+        name: lp.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Loans</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

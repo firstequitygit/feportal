@@ -10,7 +10,6 @@ import { PortalShell } from '@/components/portal-shell'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatStage(stage: PipelineStage | string | null): string {
   if (!stage) return 'Unknown'
@@ -161,10 +160,16 @@ export default async function DashboardPage({
   }
 
   return (
-    <PortalShell userName={borrower.full_name ?? user.email ?? null} userRole="Borrower" dashboardHref="/dashboard">
-        {isImpersonating && (
-          <ImpersonationBanner kind="borrower" name={borrower.full_name} exitHref={impersonationExitHref()} />
-        )}
+    <PortalShell
+      userName={borrower.full_name ?? user.email ?? null}
+      userRole="Borrower"
+      dashboardHref="/dashboard"
+      impersonation={isImpersonating ? {
+        kind: 'borrower',
+        name: borrower.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}
+    >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">My Loans</h2>
 
         {/* Stats */}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 async function verifyAdmin() {
   const supabase = await createClient()
@@ -12,6 +13,8 @@ async function verifyAdmin() {
 }
 
 export async function DELETE(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   if (!await verifyAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { loanId } = await request.json()

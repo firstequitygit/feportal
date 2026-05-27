@@ -9,10 +9,12 @@ import { SyncButton } from '@/components/sync-button'
 import { AirtableSyncButton } from '@/components/airtable-sync-button'
 import { InviteBorrower } from '@/components/invite-borrower'
 import { InviteBroker } from '@/components/invite-broker'
+import { AdminViewAsTrigger } from '@/components/admin-view-as-trigger'
+import { ImpersonationProvider } from '@/components/impersonation-provider'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings, Eye,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -32,8 +34,24 @@ interface Props {
   maxWidth?: string
   /** Admin only: when true, surface the super-admin-only nav items (Admins). */
   isSuperAdmin?: boolean
+  /** When set, render the "Viewing as X / Exit" header pill and wrap children
+   *  in ImpersonationProvider with isImpersonating=true. When null/undefined
+   *  on the admin variant, the "View as" trigger button is rendered instead. */
+  impersonation?: {
+    kind: 'borrower' | 'broker' | 'loan_officer' | 'loan_processor' | 'underwriter'
+    name: string | null
+    exitHref: string
+  } | null
   children: React.ReactNode
 }
+
+const IMPERSONATION_KIND_LABEL = {
+  borrower:       'Borrower',
+  broker:         'Broker',
+  loan_officer:   'Loan Officer',
+  loan_processor: 'Loan Processor',
+  underwriter:    'Underwriter',
+} as const
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/admin',                  label: 'Overview',            icon: LayoutDashboard, exact: true },
@@ -88,8 +106,10 @@ export function PortalShell({
   maxWidth = 'max-w-5xl',
   // kept for back-compat; settings shell handles super-admin nav now
   isSuperAdmin = false,
+  impersonation,
   children,
 }: Props) {
+  const showViewAsTrigger = variant === 'admin' && !impersonation
   const [open, setOpen] = useState(false)          // mobile drawer (unchanged)
   const [pinned, setPinned] = useState(true)       // desktop pin; default = today's look
   const [mouseOver, setMouseOver] = useState(false)
@@ -154,8 +174,28 @@ export function PortalShell({
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Logo pushed to top-right */}
-        <div className="ml-auto pr-5">
+        {/* Persistent header slot: impersonation pill > "View as" trigger > nothing.
+            The pill is the source of truth for "currently impersonating" — it
+            replaces the body banner so the indicator + exit live in one fixed
+            location across every page. */}
+        <div className="ml-auto mr-3">
+          {impersonation ? (
+            <Link
+              href={impersonation.exitHref}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-amber-100 text-amber-900 border border-amber-300 rounded-md hover:bg-amber-200"
+              title="Exit View As preview"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>
+                Viewing as <strong>{IMPERSONATION_KIND_LABEL[impersonation.kind]}{impersonation.name ? ` · ${impersonation.name}` : ''}</strong>
+              </span>
+              <X className="w-3.5 h-3.5" />
+            </Link>
+          ) : showViewAsTrigger ? (
+            <AdminViewAsTrigger />
+          ) : null}
+        </div>
+        <div className="pr-5">
           <Link href={dashboardHref} className="flex items-center gap-2.5">
             <div className="text-right hidden sm:block">
               <p className="font-bold text-sm leading-tight tracking-tight text-gray-900">First Equity Funding</p>
@@ -266,7 +306,9 @@ export function PortalShell({
       {/* Main content */}
       <main className={`min-h-screen bg-gray-50 transition-all duration-200 ${pinned ? 'md:ml-60' : 'md:ml-16'}`}>
         <div className={`pt-20 md:pt-20 pb-8 ${maxWidth} mx-auto px-4 md:px-8`}>
-          {children}
+          <ImpersonationProvider value={{ isImpersonating: !!impersonation }}>
+            {children}
+          </ImpersonationProvider>
         </div>
       </main>
     </div>

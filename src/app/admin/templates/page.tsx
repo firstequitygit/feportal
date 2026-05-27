@@ -15,7 +15,8 @@ export default async function AdminTemplatesPage() {
     .from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/dashboard')
 
-  const { data: templates } = await createAdminClient()
+  const adminClient = createAdminClient()
+  const { data: templates } = await adminClient
     .from('condition_templates')
     .select('*')
     .order('loan_type', { ascending: true, nullsFirst: true })

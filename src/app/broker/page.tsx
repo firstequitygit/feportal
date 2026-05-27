@@ -7,7 +7,6 @@ import { Building2, ChevronRight } from 'lucide-react'
 import { PortalShell } from '@/components/portal-shell'
 import { type PipelineStage } from '@/lib/types'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -69,10 +68,12 @@ export default async function BrokerDashboardPage({
       userRole="Broker"
       dashboardHref="/broker"
       variant="broker"
+      impersonation={isImpersonating ? {
+        kind: 'broker',
+        name: broker.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}
     >
-      {isImpersonating && (
-        <ImpersonationBanner kind="broker" name={broker.full_name} exitHref={impersonationExitHref()} />
-      )}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">My Loans</h2>
         <p className="text-sm text-gray-500 mt-1">

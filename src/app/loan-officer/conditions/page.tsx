@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 function statusBadge(status: string | null) {
   switch (status) {
@@ -23,12 +24,9 @@ export default async function LoanOfficerConditionsPage() {
 
   const adminClient = createAdminClient()
 
-  const { data: lo } = await adminClient
-    .from('loan_officers')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
+  const lo = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'loan_officer', user.id
+  )
   if (!lo) redirect('/login')
 
   // Get all loans assigned to this LO
@@ -59,8 +57,15 @@ export default async function LoanOfficerConditionsPage() {
   const received    = (conditions ?? []).filter(c => c.status === 'Received')
   const cleared     = (conditions ?? []).filter(c => c.status === 'Satisfied' || c.status === 'Waived')
 
+  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const isImpersonating = impersonation?.kind === 'loan_officer'
+
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer" variant="loan-officer">
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer" variant="loan-officer" impersonation={isImpersonating ? {
+        kind: 'loan_officer',
+        name: lo.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">
         Conditions
         <span className="ml-2 text-base font-normal text-gray-400">{(conditions ?? []).length} total</span>

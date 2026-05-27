@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 interface Props {
   loanId: string
@@ -19,6 +20,7 @@ function formatDisplay(val: string | null): string {
 
 export function EditableClosingDate({ loanId, currentDate }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(currentDate?.split('T')[0] ?? '')
   const [saving, setSaving] = useState(false)
@@ -79,12 +81,13 @@ export function EditableClosingDate({ loanId, currentDate }: Props) {
 
   return (
     <button
-      onClick={() => setEditing(true)}
-      className="font-medium text-gray-900 hover:text-primary transition-colors"
-      title="Click to edit"
+      onClick={isImpersonating ? undefined : () => setEditing(true)}
+      disabled={isImpersonating}
+      className={`font-medium text-gray-900 hover:text-primary transition-colors ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+      title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Click to edit'}
     >
       {formatDisplay(currentDate)}
-      <span className="text-xs text-gray-400 ml-1.5">edit</span>
+      {!isImpersonating && <span className="text-xs text-gray-400 ml-1.5">edit</span>}
     </button>
   )
 }

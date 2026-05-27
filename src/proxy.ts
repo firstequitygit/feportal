@@ -62,6 +62,7 @@ export async function proxy(request: NextRequest) {
   const clearTracking = (res: NextResponse) => {
     res.cookies.set(ACTIVITY_COOKIE, '', { path: '/', maxAge: 0 })
     res.cookies.set(START_COOKIE, '', { path: '/', maxAge: 0 })
+    res.cookies.set('fe_view_as', '', { path: '/', maxAge: 0 })
     return res
   }
   const stampActivity = (res: NextResponse, sessionStart: number) => {

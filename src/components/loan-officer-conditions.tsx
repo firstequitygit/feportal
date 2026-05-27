@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { type Condition, type Document, type ConditionStatus, type AssignedTo, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 import { BulkActionBar, BulkActionButton } from '@/components/bulk-action-bar'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { useImpersonation } from '@/components/impersonation-provider'
 
 interface Props {
   loanId: string
@@ -52,7 +53,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, isImpersonating,
 }: {
   condition: Condition
   docs: Document[]
@@ -68,6 +69,7 @@ function ConditionRow({
   onSaveResponse: (conditionId: string, response: string) => Promise<void>
   onChangeStatus: (conditionId: string, status: ConditionStatus, rejectionReason?: string) => Promise<void>
   onChangeCategory: (conditionId: string, category: ConditionCategory | null) => Promise<void>
+  isImpersonating: boolean
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showReply, setShowReply] = useState(false)
@@ -134,8 +136,9 @@ function ConditionRow({
             <select
               value={condition.category ?? ''}
               onChange={(e) => onChangeCategory(condition.id, (e.target.value || null) as ConditionCategory | null)}
-              className="text-xs text-gray-600 bg-transparent border border-transparent hover:border-gray-200 rounded cursor-pointer focus:outline-none focus:border-gray-300 px-1.5 py-0.5"
-              title="Change category"
+              disabled={isImpersonating}
+              className={`text-xs text-gray-600 bg-transparent border border-transparent hover:border-gray-200 rounded cursor-pointer focus:outline-none focus:border-gray-300 px-1.5 py-0.5 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Change category'}
             >
               <option value="">Uncategorized</option>
               {CONDITION_CATEGORIES.map(c => (
@@ -169,8 +172,9 @@ function ConditionRow({
           <select
             value={condition.status}
             onChange={e => handleStatusSelect(e.target.value as ConditionStatus)}
-            disabled={statusChanging || pendingRejection}
-            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 disabled:opacity-50"
+            disabled={statusChanging || pendingRejection || isImpersonating}
+            className={`text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 disabled:opacity-50 ${isImpersonating ? 'cursor-not-allowed' : ''}`}
+            title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
           >
             {CHANGEABLE_STATUSES.map(s => (
               <option key={s} value={s}>{s}</option>
@@ -222,7 +226,7 @@ function ConditionRow({
           })}
         </div>
       )}
-      {canUpload && (
+      {canUpload && !isImpersonating && (
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <div>
             <input ref={fileRef} type="file" multiple className="hidden"
@@ -275,6 +279,7 @@ function ConditionRow({
 
 export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap }: Props) {
   const router = useRouter()
+  const { isImpersonating } = useImpersonation()
   const supabase = createClient()
   const [uploadingSet, setUploadingSet] = useState<Set<string>>(new Set())
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -476,7 +481,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
-          {!adding && (
+          {!adding && !isImpersonating && (
             <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
               + Add Condition
             </button>
@@ -551,7 +556,8 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                     onDeleteDoc={handleDeleteDoc}
                     onSaveResponse={handleSaveResponse}
                     onChangeStatus={handleChangeStatus}
-                    onChangeCategory={handleChangeCategory} />
+                    onChangeCategory={handleChangeCategory}
+                    isImpersonating={isImpersonating} />
                 )
               })}
             </CardContent>
@@ -567,22 +573,24 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
         </Card>
       )}
 
-      <BulkActionBar
-        count={selectedConditions.size}
-        onClear={() => setSelectedConditions(new Set())}
-        saving={bulkSaving}
-        error={bulkError}
-      >
-        <BulkActionButton onClick={() => handleBulkStatus('Received')} disabled={bulkSaving}>
-          ◑ Mark Received
-        </BulkActionButton>
-        <BulkActionButton onClick={() => handleBulkStatus('Satisfied')} disabled={bulkSaving}>
-          ✓ Mark Satisfied
-        </BulkActionButton>
-        <BulkActionButton onClick={() => handleBulkStatus('Waived')} disabled={bulkSaving}>
-          — Waive
-        </BulkActionButton>
-      </BulkActionBar>
+      {!isImpersonating && (
+        <BulkActionBar
+          count={selectedConditions.size}
+          onClear={() => setSelectedConditions(new Set())}
+          saving={bulkSaving}
+          error={bulkError}
+        >
+          <BulkActionButton onClick={() => handleBulkStatus('Received')} disabled={bulkSaving}>
+            ◑ Mark Received
+          </BulkActionButton>
+          <BulkActionButton onClick={() => handleBulkStatus('Satisfied')} disabled={bulkSaving}>
+            ✓ Mark Satisfied
+          </BulkActionButton>
+          <BulkActionButton onClick={() => handleBulkStatus('Waived')} disabled={bulkSaving}>
+            — Waive
+          </BulkActionButton>
+        </BulkActionBar>
+      )}
     </div>
   )
 }

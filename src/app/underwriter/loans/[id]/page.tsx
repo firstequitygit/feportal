@@ -28,8 +28,7 @@ import { LoanType } from '@/lib/types'
 const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction']
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
-import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
-import { ImpersonationBanner } from '@/components/impersonation-banner'
+import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
@@ -55,10 +54,9 @@ export default async function UnderwriterLoanPage({
   const impersonation = await resolveImpersonation(adminClient, user.id, sp, { loanIdForAccessCheck: id })
   const isImpersonating = impersonation?.kind === 'underwriter'
 
-  const { data: uw } = isImpersonating
-    ? await adminClient.from('underwriters').select('*').eq('id', impersonation.id).maybeSingle()
-    : await adminClient.from('underwriters').select('*').eq('auth_user_id', user.id).maybeSingle()
-
+  const uw = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
+    adminClient, 'underwriter', user.id
+  )
   if (!uw) redirect('/login')
 
   const loanQuery = isImpersonating
@@ -107,10 +105,11 @@ export default async function UnderwriterLoanPage({
 
 
   return (
-    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter">
-      {isImpersonating && impersonation && (
-        <ImpersonationBanner kind="underwriter" name={uw.full_name} exitHref={impersonationExitHref(id, impersonation.impersonatorRole)} />
-      )}
+    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
+        kind: 'underwriter',
+        name: uw.full_name,
+        exitHref: impersonationExitHref(),
+      } : null}>
       <LoanRealtimeRefresh loanId={id} />
       <Link href="/underwriter/loans" className="text-sm text-primary hover:opacity-80 mb-4 inline-block">
           ← Back to Loans

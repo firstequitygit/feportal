@@ -5,8 +5,11 @@ import { fetchAllDeals } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 export async function POST() {
+  const block = await assertNotImpersonating()
+  if (block) return block
   // Only authenticated staff (admin/LO/LP/UW) can trigger a sync
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

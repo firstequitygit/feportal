@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertNotImpersonating } from '@/lib/impersonate'
 
 interface StaffContext {
   userEmail: string | null
@@ -62,6 +63,8 @@ async function verifyLoanAccess(loanId: string, ctx: StaffContext): Promise<bool
 }
 
 export async function POST(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const ctx = await getStaffContext()
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -90,6 +93,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const block = await assertNotImpersonating()
+  if (block) return block
   const ctx = await getStaffContext()
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
