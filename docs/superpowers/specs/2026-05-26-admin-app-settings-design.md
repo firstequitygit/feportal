@@ -17,6 +17,10 @@ Changing the inbox requires editing Vercel and triggering a redeploy. Ops needs 
 
 Move the processing inbox value into the database, editable by admins via a new admin settings page. `apply-notify.ts` reads from the DB at notification time. The existing env var becomes a fallback so the transition is zero-downtime.
 
+## Naming note (2026-05-26 patch)
+
+This spec originally used the table name `portal_settings`. That name is already taken in production by an unrelated single-row table holding session-timeout + maintenance-banner config (super-admin RLS only). To avoid the conflict and the RLS asymmetry, the new generic key/value table is named **`portal_settings`** everywhere below. Helper file is `src/lib/portal-settings.ts`, helper functions are `getPortalSetting` / `setPortalSetting`. Architecture is otherwise unchanged.
+
 ## Non-goals (v1)
 
 - No audit history table. Just a `updated_by` + `updated_at` pair on the row.
@@ -25,47 +29,47 @@ Move the processing inbox value into the database, editable by admins via a new 
 
 ## Architecture
 
-A small key/value `app_settings` table, a tiny server-side helper, one admin page, and one API route. `apply-notify.ts` gains one DB read with env fallback.
+A small key/value `portal_settings` table, a tiny server-side helper, one admin page, and one API route. `apply-notify.ts` gains one DB read with env fallback.
 
 ### 1. Schema
 
-New migration: `supabase/migrations/20260526-app-settings.sql`.
+New migration: `supabase/migrations/20260526-portal-settings.sql`.
 
 ```sql
-create table app_settings (
+create table portal_settings (
   key text primary key,
   value text not null default '',
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id) on delete set null
 );
 
-alter table app_settings enable row level security;
+alter table portal_settings enable row level security;
 
-create policy "admin_users select" on app_settings for select
+create policy "portal_settings admin select" on portal_settings for select
   using (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 
-create policy "admin_users insert" on app_settings for insert
+create policy "portal_settings admin insert" on portal_settings for insert
   with check (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 
-create policy "admin_users update" on app_settings for update
+create policy "portal_settings admin update" on portal_settings for update
   using (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 ```
 
-- No seed row. On day one the table is empty, `getAppSetting` returns `null`, and `apply-notify.ts` falls back to the env var. Behavior is identical to today's deploy.
+- No seed row. On day one the table is empty, `getPortalSetting` returns `null`, and `apply-notify.ts` falls back to the env var. Behavior is identical to today's deploy.
 - Service-role bypass on the SDK side lets `apply-notify.ts` read without a logged-in admin user, since it runs in the borrower's `/apply` submit path.
 - `updated_by` is nullable + `on delete set null` so deleting an admin user does not break the row.
 
 ### 2. Server helper
 
-New file: `src/lib/app-settings.ts`.
+New file: `src/lib/portal-settings.ts`.
 
 ```ts
-export async function getAppSetting(key: string): Promise<string | null>
-export async function setAppSetting(key: string, value: string, updatedBy: string): Promise<void>
+export async function getPortalSetting(key: string): Promise<string | null>
+export async function setPortalSetting(key: string, value: string, updatedBy: string): Promise<void>
 ```
 
-- `getAppSetting` uses a service-role Supabase client. Returns `null` only when the row is missing. An empty-string value is a real admin choice ("no central inbox") and is returned as `""`, not coerced to `null`.
-- `setAppSetting` upserts the row and stamps `updated_by` + `updated_at`. Called only from the admin API route.
+- `getPortalSetting` uses a service-role Supabase client. Returns `null` only when the row is missing. An empty-string value is a real admin choice ("no central inbox") and is returned as `""`, not coerced to `null`.
+- `setPortalSetting` upserts the row and stamps `updated_by` + `updated_at`. Called only from the admin API route.
 
 ### 3. `apply-notify.ts` change
 
@@ -78,7 +82,7 @@ const processingInbox = process.env.APPLICATIONS_PROCESSING_INBOX || null
 with:
 
 ```ts
-const dbInbox = await getAppSetting('applications_processing_inbox')
+const dbInbox = await getPortalSetting('applications_processing_inbox')
 const processingInbox = dbInbox ?? process.env.APPLICATIONS_PROCESSING_INBOX ?? null
 ```
 
@@ -98,7 +102,7 @@ Semantics summary:
 New: `src/app/admin/settings/notifications/page.tsx`.
 
 - Server component, runs the same `admin_users` gate as `src/app/admin/settings/layout.tsx:13-18` (parent layout already gates; this page inherits it). No extra gate needed here, but the API route gates independently since it does not go through the layout.
-- Fetches current value via `getAppSetting('applications_processing_inbox')` plus last-edited metadata (join `updated_by` to `admin_users.full_name`).
+- Fetches current value via `getPortalSetting('applications_processing_inbox')` plus last-edited metadata (join `updated_by` to `admin_users.full_name`).
 - Renders a shadcn `Card` containing:
   - `Label` "Processing inbox email"
   - `Input type="email"` (single field)
@@ -141,8 +145,8 @@ Two-step, zero-downtime:
 
 | Status | Path |
 |---|---|
-| NEW | `supabase/migrations/20260526-app-settings.sql` |
-| NEW | `src/lib/app-settings.ts` |
+| NEW | `supabase/migrations/20260526-portal-settings.sql` |
+| NEW | `src/lib/portal-settings.ts` |
 | NEW | `src/app/admin/settings/notifications/page.tsx` (server) |
 | NEW | `src/app/admin/settings/notifications/notifications-form.tsx` (client form) |
 | NEW | `src/app/api/admin/settings/route.ts` |
@@ -153,7 +157,7 @@ Two-step, zero-downtime:
 
 - **Auth-adjacent change.** New admin page + new admin-only API route. `playwright-role-gates` must pass in Phase 6 (each of the five roles attempts to load the page and hit the API; only admin succeeds).
 - **Production notification path.** `apply-notify.ts` is called on every /apply submission. A bug here silently breaks ops notifications. Fallback chain (`DB -> env -> null`) must be exercised manually (set DB value, clear DB value, leave row missing) before declaring done.
-- **RLS.** Borrowers and the other four roles must not be able to SELECT `app_settings`. Verified by RLS policies above; spot-check with a non-admin session in Phase 6.
+- **RLS.** Borrowers and the other four roles must not be able to SELECT `portal_settings`. Verified by RLS policies above; spot-check with a non-admin session in Phase 6.
 
 ## Open implementation questions
 

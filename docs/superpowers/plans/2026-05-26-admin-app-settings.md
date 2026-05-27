@@ -4,7 +4,7 @@
 
 **Goal:** Replace the hardcoded `APPLICATIONS_PROCESSING_INBOX` env var with a DB-backed value editable by admins from a new portal settings page, with env-var fallback so the transition is zero-downtime.
 
-**Architecture:** Generic key/value `app_settings` table (one row per setting) + small server helper (`getAppSetting` / `setAppSetting`) + admin-gated UI page + admin-gated API route. `apply-notify.ts` gains one DB read with env-var fallback. Each setting gets its own purpose-built page; the generic table is ready for future settings but there is no generic admin UI.
+**Architecture:** Generic key/value `portal_settings` table (one row per setting) + small server helper (`getPortalSetting` / `setPortalSetting`) + admin-gated UI page + admin-gated API route. `apply-notify.ts` gains one DB read with env-var fallback. Each setting gets its own purpose-built page; the generic table is ready for future settings but there is no generic admin UI.
 
 **Tech Stack:** Next.js 16 (App Router, React Server Components), Supabase (Postgres + RLS), shadcn/ui, Tailwind v4.
 
@@ -36,8 +36,8 @@ The repo has no automated test suite. Build success (`npm run build`) is the cor
 
 | Status | Path | Responsibility |
 |---|---|---|
-| NEW | `supabase/migrations/20260526-app-settings.sql` | Schema + RLS for `app_settings` |
-| NEW | `src/lib/app-settings.ts` | `getAppSetting` + `setAppSetting` server helpers |
+| NEW | `supabase/migrations/20260526-portal-settings.sql` | Schema + RLS for `portal_settings` (renamed from `app_settings`; that name is already taken by the session-config table) |
+| NEW | `src/lib/portal-settings.ts` | `getPortalSetting` + `setPortalSetting` server helpers |
 | NEW | `src/app/api/admin/settings/route.ts` | GET + PUT, admin gate, validation |
 | NEW | `src/app/admin/settings/notifications/notifications-form.tsx` | Client form (single email input + Save) |
 | NEW | `src/app/admin/settings/notifications/page.tsx` | Server page, fetches current value + last-edit metadata |
@@ -46,38 +46,38 @@ The repo has no automated test suite. Build success (`npm run build`) is the cor
 
 ---
 
-## Task 1: Create the `app_settings` table
+## Task 1: Create the `portal_settings` table
 
 **Files:**
-- Create: `supabase/migrations/20260526-app-settings.sql`
+- Create: `supabase/migrations/20260526-portal-settings.sql`
 - Apply via: `mcp__claude_ai_Supabase__apply_migration` (or `supabase db push` locally)
 
 - [ ] **Step 1: Write the migration file**
 
 ```sql
--- app_settings: key/value store for admin-editable runtime configuration.
+-- portal_settings: key/value store for admin-editable runtime configuration.
 -- v1 holds a single key (applications_processing_inbox); table is generic to allow future settings.
 
-create table app_settings (
+create table portal_settings (
   key text primary key,
   value text not null default '',
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id) on delete set null
 );
 
-alter table app_settings enable row level security;
+alter table portal_settings enable row level security;
 
-create policy "admin_users select" on app_settings for select
+create policy "portal_settings admin select" on portal_settings for select
   using (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 
-create policy "admin_users insert" on app_settings for insert
+create policy "portal_settings admin insert" on portal_settings for insert
   with check (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 
-create policy "admin_users update" on app_settings for update
+create policy "portal_settings admin update" on portal_settings for update
   using (exists (select 1 from admin_users where auth_user_id = auth.uid()));
 
-comment on table app_settings is 'Admin-editable runtime configuration. One row per setting key.';
-comment on column app_settings.value is 'Empty string is a valid value (means "unset by admin choice"). Distinguish from missing row, which means "never configured".';
+comment on table portal_settings is 'Admin-editable runtime configuration. One row per setting key.';
+comment on column portal_settings.value is 'Empty string is a valid value (means "unset by admin choice"). Distinguish from missing row, which means "never configured".';
 ```
 
 - [ ] **Step 2: Apply the migration**
@@ -99,7 +99,7 @@ Run via `mcp__claude_ai_Supabase__execute_sql`:
 ```sql
 select column_name, data_type, is_nullable, column_default
 from information_schema.columns
-where table_name = 'app_settings'
+where table_name = 'portal_settings'
 order by ordinal_position;
 ```
 
@@ -108,7 +108,7 @@ Expected: 4 rows (`key text not null`, `value text not null '' default`, `update
 And confirm RLS:
 
 ```sql
-select polname, cmd from pg_policies where tablename = 'app_settings';
+select polname, cmd from pg_policies where tablename = 'portal_settings';
 ```
 
 Expected: 3 policies (`admin_users select`, `admin_users insert`, `admin_users update`).
@@ -116,16 +116,16 @@ Expected: 3 policies (`admin_users select`, `admin_users insert`, `admin_users u
 - [ ] **Step 4: Commit**
 
 ```powershell
-git add supabase/migrations/20260526-app-settings.sql
-git commit -m "feat(db): add app_settings table for admin-editable runtime config"
+git add supabase/migrations/20260526-portal-settings.sql
+git commit -m "feat(db): add portal_settings table for admin-editable runtime config"
 ```
 
 ---
 
-## Task 2: Server helper `src/lib/app-settings.ts`
+## Task 2: Server helper `src/lib/portal-settings.ts`
 
 **Files:**
-- Create: `src/lib/app-settings.ts`
+- Create: `src/lib/portal-settings.ts`
 
 - [ ] **Step 1: Write the helper**
 
@@ -133,22 +133,22 @@ git commit -m "feat(db): add app_settings table for admin-editable runtime confi
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Reads an admin-editable runtime setting from the app_settings table.
+ * Reads an admin-editable runtime setting from the portal_settings table.
  *
  * Returns null only when the row is missing (never-configured).
  * Returns "" when the admin has explicitly cleared the value.
  * Callers MUST distinguish null (fall back to env) from "" (admin chose "none").
  */
-export async function getAppSetting(key: string): Promise<string | null> {
+export async function getPortalSetting(key: string): Promise<string | null> {
   const supabase = createAdminClient()
   const { data, error } = await supabase
-    .from('app_settings')
+    .from('portal_settings')
     .select('value')
     .eq('key', key)
     .maybeSingle()
 
   if (error) {
-    console.error(`getAppSetting(${key}) failed:`, error)
+    console.error(`getPortalSetting(${key}) failed:`, error)
     return null
   }
   return data?.value ?? null
@@ -158,20 +158,20 @@ export async function getAppSetting(key: string): Promise<string | null> {
  * Upserts an admin-editable runtime setting and stamps updated_by + updated_at.
  * Caller is responsible for admin authorization; this helper does not check.
  */
-export async function setAppSetting(
+export async function setPortalSetting(
   key: string,
   value: string,
   updatedBy: string,
 ): Promise<void> {
   const supabase = createAdminClient()
   const { error } = await supabase
-    .from('app_settings')
+    .from('portal_settings')
     .upsert(
       { key, value, updated_by: updatedBy, updated_at: new Date().toISOString() },
       { onConflict: 'key' },
     )
   if (error) {
-    throw new Error(`setAppSetting(${key}) failed: ${error.message}`)
+    throw new Error(`setPortalSetting(${key}) failed: ${error.message}`)
   }
 }
 ```
@@ -187,7 +187,7 @@ Expected: build succeeds with no new TypeScript errors. (The helper is not yet i
 - [ ] **Step 3: Commit**
 
 ```powershell
-git add src/lib/app-settings.ts
+git add src/lib/portal-settings.ts
 git commit -m "feat(lib): add app-settings helper for admin-editable runtime config"
 ```
 
@@ -206,7 +206,7 @@ git commit -m "feat(lib): add app-settings helper for admin-editable runtime con
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAppSetting, setAppSetting } from '@/lib/app-settings'
+import { getPortalSetting, setPortalSetting } from '@/lib/portal-settings'
 
 const ALLOWED_KEYS = ['applications_processing_inbox'] as const
 type AllowedKey = (typeof ALLOWED_KEYS)[number]
@@ -241,11 +241,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'invalid key' }, { status: 400 })
   }
 
-  const value = await getAppSetting(key)
+  const value = await getPortalSetting(key)
 
   const supabase = createAdminClient()
   const { data: row } = await supabase
-    .from('app_settings')
+    .from('portal_settings')
     .select('updated_at, updated_by')
     .eq('key', key)
     .maybeSingle()
@@ -296,7 +296,7 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  await setAppSetting(key, trimmed, gate.user.id)
+  await setPortalSetting(key, trimmed, gate.user.id)
   return NextResponse.json({ ok: true })
 }
 ```
@@ -444,7 +444,7 @@ git commit -m "feat(ui): add notifications-form client component"
 
 ```tsx
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAppSetting } from '@/lib/app-settings'
+import { getPortalSetting } from '@/lib/portal-settings'
 import { Card } from '@/components/ui/card'
 import { NotificationsForm } from './notifications-form'
 
@@ -454,11 +454,11 @@ export default async function NotificationsSettingsPage() {
   // Admin gate is enforced by the parent layout (src/app/admin/settings/layout.tsx).
   // No additional gate needed here.
 
-  const value = await getAppSetting(KEY)
+  const value = await getPortalSetting(KEY)
 
   const supabase = createAdminClient()
   const { data: row } = await supabase
-    .from('app_settings')
+    .from('portal_settings')
     .select('updated_at, updated_by')
     .eq('key', KEY)
     .maybeSingle()
@@ -631,7 +631,7 @@ git commit -m "feat(ui): add Notifications section to settings sidebar"
 In `src/lib/apply-notify.ts`, add a new import line in the existing import block at the top (after the other `@/lib/...` imports):
 
 ```ts
-import { getAppSetting } from '@/lib/app-settings'
+import { getPortalSetting } from '@/lib/portal-settings'
 ```
 
 - [ ] **Step 2: Replace the env read with a DB-first lookup**
@@ -649,7 +649,7 @@ Replace with:
   // 6. Internal email -> processing inbox + assigned LO.
   // Inbox value resolution: DB row (admin-editable, "" = admin chose "none") wins over env var.
   // Env var is the fallback for when the DB row has never been created.
-  const dbInbox = await getAppSetting('applications_processing_inbox')
+  const dbInbox = await getPortalSetting('applications_processing_inbox')
   const processingInbox = dbInbox ?? process.env.APPLICATIONS_PROCESSING_INBOX ?? null
 ```
 
@@ -690,9 +690,9 @@ If any of these fail, debug before invoking Phase 6.
 
 ## Out of scope (do not implement)
 
-- Audit history table (`app_settings_audit`) — spec defers this to v2.
+- Audit history table (`portal_settings_audit`) — spec defers this to v2.
 - Multi-recipient comma-separated list — spec specifies single email.
-- Generic admin UI for arbitrary `app_settings` keys — each setting gets its own page.
+- Generic admin UI for arbitrary `portal_settings` keys — each setting gets its own page.
 - Removing `APPLICATIONS_PROCESSING_INBOX` from Vercel — this is a follow-up cleanup PR after the DB value is confirmed in production. Leaving it in place during initial rollout preserves zero-downtime rollback.
 
 ---
@@ -701,7 +701,7 @@ If any of these fail, debug before invoking Phase 6.
 
 **Spec coverage:**
 - Schema + RLS — Task 1. ✓
-- Server helper `getAppSetting` / `setAppSetting` — Task 2. ✓
+- Server helper `getPortalSetting` / `setPortalSetting` — Task 2. ✓
 - `apply-notify.ts` DB-first read with env fallback + empty-string semantics — Task 7. ✓
 - Admin page at `/admin/settings/notifications` with last-edit metadata — Tasks 4 + 5. ✓
 - API route `GET ?key=...` and `PUT { key, value }` with admin gate + email regex + no commas — Task 3. ✓
@@ -711,6 +711,6 @@ If any of these fail, debug before invoking Phase 6.
 
 **Placeholder scan:** No TBDs. Every code step contains the actual code. Validation regex is explicit. `KEY` constant is consistent across Tasks 3, 4, 5 (always `'applications_processing_inbox'`).
 
-**Type consistency:** `getAppSetting(key: string): Promise<string | null>` signature matches its callers in Tasks 3, 5, and 7. `setAppSetting(key, value, updatedBy)` matches the single caller in Task 3. The PUT route's `EMAIL_RE` is the same regex spec'd.
+**Type consistency:** `getPortalSetting(key: string): Promise<string | null>` signature matches its callers in Tasks 3, 5, and 7. `setPortalSetting(key, value, updatedBy)` matches the single caller in Task 3. The PUT route's `EMAIL_RE` is the same regex spec'd.
 
 **Ambiguity:** Task 7's edit references "around line 86" — the explore confirmed the current line and surrounding context. If line numbers have shifted by the time Task 7 runs, search for `APPLICATIONS_PROCESSING_INBOX` in the file; there is exactly one match.
