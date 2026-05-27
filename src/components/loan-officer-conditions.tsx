@@ -207,9 +207,8 @@ function ConditionRow({
           <select
             value={condition.status}
             onChange={e => handleStatusSelect(e.target.value as ConditionStatus)}
-            disabled={statusChanging || pendingRejection || isImpersonating}
-            className={`text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 disabled:opacity-50 ${isImpersonating ? 'cursor-not-allowed' : ''}`}
-            title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
+            disabled={statusChanging || pendingRejection}
+            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 disabled:opacity-50"
           >
             {CHANGEABLE_STATUSES.map(s => (
               <option key={s} value={s}>{s}</option>

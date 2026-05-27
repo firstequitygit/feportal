@@ -249,8 +249,10 @@ function ConditionRow({
         </div>
       )}
 
-      {/* Review actions — shown when docs are present and condition is open */}
-      {canReview && !isImpersonating && (
+      {/* Review actions — shown when docs are present and condition is open.
+          Admins impersonating an underwriter can act on conditions; the API
+          recognizes the View-As cookie and applies the change as that UW. */}
+      {canReview && (
         <div className="mt-3">
           {!reviewing ? (
             <button

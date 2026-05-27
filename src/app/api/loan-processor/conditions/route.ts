@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { assertNotImpersonating } from '@/lib/impersonate'
+import { assertNotImpersonating, getEffectiveRoleRow } from '@/lib/impersonate'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
@@ -131,16 +131,18 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const block = await assertNotImpersonating()
-  if (block) return block
+  // Status changes allowed during admin impersonation — admins can already
+  // mutate conditions natively. getEffectiveRoleRow returns the impersonated
+  // LP when View-As is active, else the logged-in LP.
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const adminClient = createAdminClient()
 
-  const { data: lp } = await adminClient
-    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
+  const lp = await getEffectiveRoleRow<{ id: string; full_name: string; is_ops_manager: boolean | null }>(
+    adminClient, 'loan_processor', user.id
+  )
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { conditionId, status, rejectionReason } = await req.json()
