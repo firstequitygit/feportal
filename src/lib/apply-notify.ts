@@ -6,6 +6,7 @@ import { getSignedDocumentUrl } from '@/lib/supabase/signed-url'
 import { resolveLoanOfficerEmail } from '@/lib/loan-officer-emails'
 import { ensureBorrowerActivationLink } from '@/lib/invite-borrower'
 import { sendApplicationSubmittedEmail, sendApplicationInternalNotice } from '@/lib/email'
+import { getPortalSetting } from '@/lib/portal-settings'
 
 /** All post-submit side effects, each best-effort and individually logged.
  *  Intended to run inside Next.js after() so it stays off the response path. */
@@ -80,7 +81,10 @@ export async function sendApplicationNotifications(args: {
   }
 
   // 6. Internal email -> processing inbox + assigned LO.
-  const processingInbox = process.env.APPLICATIONS_PROCESSING_INBOX || null
+  // Inbox resolution: DB row (admin-editable; "" = admin chose "no central inbox") wins over env var.
+  // The env var remains as a fallback only when no row has ever been created.
+  const dbInbox = await getPortalSetting('applications_processing_inbox')
+  const processingInbox = dbInbox ?? process.env.APPLICATIONS_PROCESSING_INBOX ?? null
   const loEmail = await resolveLoanOfficerEmail(loanOfficerName)
   const to = [processingInbox, loEmail].filter((e): e is string => !!e && e.includes('@'))
   if (to.length > 0) {
