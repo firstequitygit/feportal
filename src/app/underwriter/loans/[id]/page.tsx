@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchStaffDirectory } from '@/lib/loan-staff'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { UnderwriterConditions } from '@/components/underwriter-conditions'
@@ -71,7 +72,7 @@ export default async function UnderwriterLoanPage({
 
   if (!loan) notFound()
 
-  const [{ data: conditions }, { data: documents }, { data: templates }, { data: notes }, { data: events }, { data: loanDetails }, { data: loanDemographics }] = await Promise.all([
+  const [{ data: conditions }, { data: documents }, { data: templates }, { data: notes }, { data: events }, { data: loanDetails }, { data: loanDemographics }, staffDirectory] = await Promise.all([
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('documents').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('condition_templates').select('*').order('title'),
@@ -79,6 +80,7 @@ export default async function UnderwriterLoanPage({
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
+    fetchStaffDirectory(adminClient),
   ])
 
   const conditionMap: Record<string, string> = {}
@@ -361,6 +363,7 @@ export default async function UnderwriterLoanPage({
             underwriter:
               ((loan as unknown as { underwriters: { id: string; full_name: string } | null }).underwriters) ?? null,
           }}
+          staffDirectory={staffDirectory}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

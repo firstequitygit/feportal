@@ -5,7 +5,7 @@ import { assertNotImpersonating } from '@/lib/impersonate'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
-import { validateStaffIdForRole, getStaffContact } from '@/lib/loan-staff'
+import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 
 async function verifyAdmin(): Promise<{ adminName: string } | null> {
   const supabase = await createClient()
@@ -36,26 +36,16 @@ export async function POST(request: Request) {
   const { loanId, title, description, assignedTo, assignedToStaffId, category } = await request.json()
   if (!loanId || !title) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' =
-    assignedTo === 'loan_officer' ? 'loan_officer' :
-    assignedTo === 'loan_processor' ? 'loan_processor' : 'borrower'
+  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' =
+    assignedTo === 'loan_officer'   ? 'loan_officer'   :
+    assignedTo === 'loan_processor' ? 'loan_processor' :
+    assignedTo === 'underwriter'    ? 'underwriter'    :
+                                       'borrower'
 
   const adminClient = createAdminClient()
 
-  // Validate optional specific-person pin against the loan's staff slots.
-  const { data: loanSlots } = await adminClient
-    .from('loans')
-    .select('loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id')
-    .eq('id', loanId)
-    .single()
-  const assigned_to_staff_id = loanSlots
-    ? validateStaffIdForRole(assigned_to, assignedToStaffId, {
-        loan_officer_id: loanSlots.loan_officer_id ?? null,
-        loan_processor_id: loanSlots.loan_processor_id ?? null,
-        loan_processor_id_2: loanSlots.loan_processor_id_2 ?? null,
-        underwriter_id: loanSlots.underwriter_id ?? null,
-      })
-    : null
+  // Validate the optional "Other" staff pin against the system-wide directory.
+  const assigned_to_staff_id = await validateStaffIdExists(adminClient, assigned_to, assignedToStaffId)
 
   const validCategories = ['initial', 'underwriting', 'pre_close', 'pre_funding']
   const condition_category = validCategories.includes(category) ? category : null
@@ -116,18 +106,30 @@ export async function POST(request: Request) {
       <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
     `
 
-    if (assigned_to === 'loan_officer' && lo?.email) {
+    if (assigned_to !== 'borrower' && assigned_to_staff_id) {
+      const pinned = await getStaffContact(adminClient, assigned_to, assigned_to_staff_id)
+      if (pinned?.email) {
+        const roleLabel =
+          assigned_to === 'loan_officer'   ? 'Loan Officer'   :
+          assigned_to === 'loan_processor' ? 'Loan Processor' :
+                                              'Underwriter'
+        const portalPath =
+          assigned_to === 'loan_officer'   ? '/loan-officer'   :
+          assigned_to === 'loan_processor' ? '/loan-processor' :
+                                              '/underwriter'
+        await sendEmail({
+          to: pinned.email,
+          subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
+          html: staffHtml(pinned.full_name, roleLabel, `${PORTAL_URL}${portalPath}`),
+        })
+      }
+    } else if (assigned_to === 'loan_officer' && lo?.email) {
       await sendEmail({        to: lo.email,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
       })
     } else if (assigned_to === 'loan_processor' && lps.length > 0) {
-      let recipients = lps
-      if (assigned_to_staff_id) {
-        const pinned = await getStaffContact(adminClient, 'loan_processor', assigned_to_staff_id)
-        if (pinned?.email) recipients = [pinned]
-      }
-      await Promise.all(recipients.map(processor => sendEmail({        to: processor.email!,
+      await Promise.all(lps.map(processor => sendEmail({        to: processor.email!,
         subject: `New condition assigned to you — ${loan?.property_address ?? 'a loan'}`,
         html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
       })))

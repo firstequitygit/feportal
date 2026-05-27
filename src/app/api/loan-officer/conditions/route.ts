@@ -5,7 +5,7 @@ import { assertNotImpersonating } from '@/lib/impersonate'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
-import { validateStaffIdForRole, getStaffContact } from '@/lib/loan-staff'
+import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -31,16 +31,14 @@ export async function POST(req: NextRequest) {
     .single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' =
-    assignedTo === 'loan_officer' ? 'loan_officer' :
-    assignedTo === 'loan_processor' ? 'loan_processor' : 'borrower'
+  // Accept all 4 roles so the "Other" UI path can pin to any staff member.
+  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' =
+    assignedTo === 'loan_officer'   ? 'loan_officer'   :
+    assignedTo === 'loan_processor' ? 'loan_processor' :
+    assignedTo === 'underwriter'    ? 'underwriter'    :
+                                       'borrower'
 
-  const assigned_to_staff_id = validateStaffIdForRole(assigned_to, assignedToStaffId, {
-    loan_officer_id: (loan as { loan_officer_id?: string | null }).loan_officer_id ?? null,
-    loan_processor_id: (loan as { loan_processor_id?: string | null }).loan_processor_id ?? null,
-    loan_processor_id_2: (loan as { loan_processor_id_2?: string | null }).loan_processor_id_2 ?? null,
-    underwriter_id: (loan as { underwriter_id?: string | null }).underwriter_id ?? null,
-  })
+  const assigned_to_staff_id = await validateStaffIdExists(adminClient, assigned_to, assignedToStaffId)
 
   const validCategories = ['initial', 'underwriting', 'pre_close', 'pre_funding']
   const condition_category = validCategories.includes(category) ? category : null
@@ -77,7 +75,22 @@ export async function POST(req: NextRequest) {
     const addr = loan.property_address ?? 'a loan'
     const conditionHtml = `<tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${title}</strong></td></tr>${description ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Details</td><td>${description}</td></tr>` : ''}`
 
-    if (assigned_to === 'borrower') {
+    // "Other" UI path: pinned to a specific staff member regardless of role.
+    // Bypasses the role-wide fan-out below.
+    if (assigned_to !== 'borrower' && assigned_to_staff_id) {
+      const pinned = await getStaffContact(adminClient, assigned_to, assigned_to_staff_id)
+      if (pinned?.email) {
+        const portalPath =
+          assigned_to === 'loan_officer'   ? '/loan-officer'   :
+          assigned_to === 'loan_processor' ? '/loan-processor' :
+                                              '/underwriter'
+        await sendEmail({
+          to: pinned.email,
+          subject: `New condition assigned to you — ${addr}`,
+          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${pinned.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}${portalPath}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+        })
+      }
+    } else if (assigned_to === 'borrower') {
       // Routes to the broker if one is assigned, else every borrower slot
       const contacts = await getLoanContacts(loanId)
       if (contacts.length > 0) {
@@ -97,13 +110,8 @@ export async function POST(req: NextRequest) {
         html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
       })
     } else if (assigned_to === 'loan_processor' && allLPs.length > 0) {
-      // Specific-person pin overrides the role-wide blast.
-      let recipients = allLPs
-      if (assigned_to_staff_id) {
-        const pinned = await getStaffContact(adminClient, 'loan_processor', assigned_to_staff_id)
-        if (pinned?.email) recipients = [pinned]
-      }
-      await Promise.all(recipients.map(p => sendEmail({
+      // Role-wide fan-out to every LP on the loan.
+      await Promise.all(allLPs.map(p => sendEmail({
         to: p.email!,
         subject: `New condition assigned to you — ${addr}`,
         html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${p.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllBorrowers, fetchAllBrokers } from '@/lib/fetch-all-borrowers'
+import { fetchStaffDirectory } from '@/lib/loan-staff'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanOfficerConditions } from '@/components/loan-officer-conditions'
@@ -87,6 +88,7 @@ export default async function LoanOfficerLoanPage({
     { data: allBrokers },
     { data: loanDetails },
     { data: loanDemographics },
+    staffDirectory,
   ] = await Promise.all([
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('documents').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
@@ -96,6 +98,7 @@ export default async function LoanOfficerLoanPage({
     fetchAllBrokers(adminClient).then(rows => ({ data: rows })),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
+    fetchStaffDirectory(adminClient),
   ])
 
   const conditionMap: Record<string, string> = {}
@@ -431,6 +434,7 @@ export default async function LoanOfficerLoanPage({
             underwriter:
               (loan.underwriters as unknown as { id: string; full_name: string } | null) ?? null,
           }}
+          staffDirectory={staffDirectory}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

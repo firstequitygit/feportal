@@ -41,29 +41,51 @@ export async function getLoanStaffSlots(
 }
 
 /**
- * Validates that a candidate staff id can be the specific-person target
- * for a condition with the given assigned_to role on this loan. Returns
- * the candidate (normalized to null on invalid) so callers can write it
- * directly into the conditions row.
+ * Validates that a candidate staff id exists in the staff table matching
+ * the assigned_to role. Used to confirm "Other" assignments — pinning a
+ * condition to any staff member in the system, not just the loan's own
+ * LO/LP/UW. Returns the candidate (or null on invalid/missing) so callers
+ * can write it straight into the conditions row.
  */
-export function validateStaffIdForRole(
+export async function validateStaffIdExists(
+  adminClient: AdminClient,
   assignedTo: AssignedTo,
   staffId: string | null | undefined,
-  slots: LoanStaff,
-): string | null {
+): Promise<string | null> {
   if (!staffId || staffId === '') return null
-  if (assignedTo === 'loan_officer') {
-    return staffId === slots.loan_officer_id ? staffId : null
+  const table =
+    assignedTo === 'loan_officer'   ? 'loan_officers'   :
+    assignedTo === 'loan_processor' ? 'loan_processors' :
+    assignedTo === 'underwriter'    ? 'underwriters'    :
+    null
+  if (!table) return null  // 'borrower' assignments never have a staff id.
+  const { data } = await adminClient
+    .from(table).select('id').eq('id', staffId).maybeSingle()
+  return data?.id ?? null
+}
+
+export interface StaffDirectory {
+  loan_officers: Array<{ id: string; full_name: string }>
+  loan_processors: Array<{ id: string; full_name: string }>
+  underwriters: Array<{ id: string; full_name: string }>
+}
+
+/**
+ * Fetches the system-wide staff directory used to populate the "Other"
+ * assignment dropdown on the condition-add forms. Includes every LO / LP /
+ * UW, not just the loan's assigned ones.
+ */
+export async function fetchStaffDirectory(adminClient: AdminClient): Promise<StaffDirectory> {
+  const [{ data: los }, { data: lps }, { data: uws }] = await Promise.all([
+    adminClient.from('loan_officers').select('id, full_name').order('full_name'),
+    adminClient.from('loan_processors').select('id, full_name').order('full_name'),
+    adminClient.from('underwriters').select('id, full_name').order('full_name'),
+  ])
+  return {
+    loan_officers: (los ?? []) as { id: string; full_name: string }[],
+    loan_processors: (lps ?? []) as { id: string; full_name: string }[],
+    underwriters: (uws ?? []) as { id: string; full_name: string }[],
   }
-  if (assignedTo === 'loan_processor') {
-    return staffId === slots.loan_processor_id || staffId === slots.loan_processor_id_2
-      ? staffId : null
-  }
-  if (assignedTo === 'underwriter') {
-    return staffId === slots.underwriter_id ? staffId : null
-  }
-  // 'borrower' assignments never have a staff id.
-  return null
 }
 
 /**

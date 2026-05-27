@@ -19,6 +19,12 @@ export interface LoanStaffSummary {
   underwriter?: { id: string; full_name: string } | null
 }
 
+export interface StaffDirectorySummary {
+  loan_officers: Array<{ id: string; full_name: string }>
+  loan_processors: Array<{ id: string; full_name: string }>
+  underwriters: Array<{ id: string; full_name: string }>
+}
+
 interface Props {
   loanId: string
   loanType?: string | null
@@ -28,6 +34,7 @@ interface Props {
   signedUrlMap: Record<string, string>   // doc.id → signed download URL
   templates?: ConditionTemplate[]
   loanStaff?: LoanStaffSummary
+  staffDirectory?: StaffDirectorySummary
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -60,7 +67,7 @@ function assignedToColor(assigned_to: AssignedTo): string {
 }
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory,
 }: {
   condition: Condition
   docs: Document[]
@@ -70,6 +77,7 @@ function ConditionRow({
   selected: boolean
   selectable: boolean
   loanStaff?: LoanStaffSummary
+  staffDirectory?: StaffDirectorySummary
   onToggleSelect: () => void
   onUpload: (files: FileList) => void
   fileRef: (el: HTMLInputElement | null) => void
@@ -181,14 +189,21 @@ function ConditionRow({
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${assignedToColor(condition.assigned_to)}`}>
             {(() => {
-              if (condition.assigned_to_staff_id && loanStaff) {
-                const candidates =
-                  condition.assigned_to === 'loan_officer'   ? [loanStaff.loan_officer] :
-                  condition.assigned_to === 'loan_processor' ? [loanStaff.loan_processor, loanStaff.loan_processor_2] :
-                  condition.assigned_to === 'underwriter'    ? [loanStaff.underwriter] :
+              if (condition.assigned_to_staff_id) {
+                const onLoan =
+                  condition.assigned_to === 'loan_officer'   ? [loanStaff?.loan_officer] :
+                  condition.assigned_to === 'loan_processor' ? [loanStaff?.loan_processor, loanStaff?.loan_processor_2] :
+                  condition.assigned_to === 'underwriter'    ? [loanStaff?.underwriter] :
                                                                []
-                const match = candidates.find(c => c && c.id === condition.assigned_to_staff_id)
-                if (match) return match.full_name
+                const onLoanMatch = onLoan.find(c => c && c.id === condition.assigned_to_staff_id)
+                if (onLoanMatch) return onLoanMatch.full_name
+                const directoryList =
+                  condition.assigned_to === 'loan_officer'   ? staffDirectory?.loan_officers ?? [] :
+                  condition.assigned_to === 'loan_processor' ? staffDirectory?.loan_processors ?? [] :
+                  condition.assigned_to === 'underwriter'    ? staffDirectory?.underwriters ?? [] :
+                                                               []
+                const dirMatch = directoryList.find(c => c.id === condition.assigned_to_staff_id)
+                if (dirMatch) return dirMatch.full_name
               }
               return assignedToLabel(condition.assigned_to)
             })()}
@@ -315,7 +330,7 @@ function ConditionRow({
   )
 }
 
-export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff }: Props) {
+export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -328,7 +343,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
   const [adding, setAdding] = useState(false)
   const [addTitle, setAddTitle] = useState('')
   const [addDescription, setAddDescription] = useState('')
-  const [addAssignedTo, setAddAssignedTo] = useState<AssignedTo>('borrower')
+  const [addAssignedTo, setAddAssignedTo] = useState<AssignedTo | 'other'>('borrower')
   const [addAssignedToStaffId, setAddAssignedToStaffId] = useState<string>('')
   const [addCategory, setAddCategory] = useState<ConditionCategory | ''>('')
   const [addSaving, setAddSaving] = useState(false)
@@ -537,7 +552,17 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
     const res = await fetch('/api/underwriter/conditions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loanId, title: addTitle.trim(), description: addDescription.trim() || null, assignedTo: addAssignedTo, assignedToStaffId: addAssignedToStaffId || null, category: addCategory || null }),
+      body: JSON.stringify((() => {
+        let resolvedRole: AssignedTo = addAssignedTo === 'other' ? 'borrower' : addAssignedTo
+        let staffId: string | null = null
+        if (addAssignedTo === 'other' && addAssignedToStaffId && staffDirectory) {
+          if (staffDirectory.loan_officers.some(s => s.id === addAssignedToStaffId)) resolvedRole = 'loan_officer'
+          else if (staffDirectory.loan_processors.some(s => s.id === addAssignedToStaffId)) resolvedRole = 'loan_processor'
+          else if (staffDirectory.underwriters.some(s => s.id === addAssignedToStaffId)) resolvedRole = 'underwriter'
+          staffId = addAssignedToStaffId
+        }
+        return { loanId, title: addTitle.trim(), description: addDescription.trim() || null, assignedTo: resolvedRole, assignedToStaffId: staffId, category: addCategory || null }
+      })()),
     })
     const data = await res.json()
     if (data.success) {
@@ -591,38 +616,48 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
             <div className="space-y-1.5">
               <p className="text-xs text-gray-500 font-medium">Assign to</p>
               <div className="flex gap-4 flex-wrap">
-                {(['borrower', 'loan_officer', 'loan_processor', 'underwriter'] as AssignedTo[]).map(opt => (
+                {(['borrower', 'loan_officer', 'loan_processor', 'underwriter', 'other'] as const).map(opt => (
                   <label key={opt} className="flex items-center gap-1.5 text-sm cursor-pointer">
                     <input type="radio" name="uw-assign" value={opt} checked={addAssignedTo === opt}
                       onChange={() => { setAddAssignedTo(opt); setAddAssignedToStaffId('') }} className="accent-primary" />
-                    {opt === 'borrower' ? 'Borrower' : opt === 'loan_officer' ? 'Loan Officer' : opt === 'loan_processor' ? 'Loan Processor' : 'Underwriter'}
+                    {opt === 'borrower' ? 'Borrower' : opt === 'loan_officer' ? 'Loan Officer' : opt === 'loan_processor' ? 'Loan Processor' : opt === 'underwriter' ? 'Underwriter' : 'Other'}
                   </label>
                 ))}
               </div>
             </div>
-            {addAssignedTo !== 'borrower' && loanStaff && (() => {
-              const candidates =
-                addAssignedTo === 'loan_officer'   ? [loanStaff.loan_officer].filter(Boolean) :
-                addAssignedTo === 'loan_processor' ? [loanStaff.loan_processor, loanStaff.loan_processor_2].filter(Boolean) :
-                addAssignedTo === 'underwriter'    ? [loanStaff.underwriter].filter(Boolean) :
-                                                     []
-              if (candidates.length === 0) return null
-              return (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-gray-500 font-medium">Specific person (optional)</p>
-                  <select
-                    value={addAssignedToStaffId}
-                    onChange={e => setAddAssignedToStaffId(e.target.value)}
-                    className="w-full text-sm px-3 py-2 rounded border border-gray-200 bg-white text-gray-700"
-                  >
-                    <option value="">— Everyone in role —</option>
-                    {(candidates as { id: string; full_name: string }[]).map(p => (
-                      <option key={p.id} value={p.id}>{p.full_name}</option>
-                    ))}
-                  </select>
-                </div>
-              )
-            })()}
+            {addAssignedTo === 'other' && staffDirectory && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-gray-500 font-medium">Staff member</p>
+                <select
+                  value={addAssignedToStaffId}
+                  onChange={e => setAddAssignedToStaffId(e.target.value)}
+                  className="w-full text-sm px-3 py-2 rounded border border-gray-200 bg-white text-gray-700"
+                >
+                  <option value="">— Select a person —</option>
+                  {staffDirectory.loan_officers.length > 0 && (
+                    <optgroup label="Loan Officers">
+                      {staffDirectory.loan_officers.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {staffDirectory.loan_processors.length > 0 && (
+                    <optgroup label="Loan Processors">
+                      {staffDirectory.loan_processors.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {staffDirectory.underwriters.length > 0 && (
+                    <optgroup label="Underwriters">
+                      {staffDirectory.underwriters.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+            )}
             {addError && <p className="text-xs text-red-600">{addError}</p>}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAddCondition} disabled={addSaving}>{addSaving ? 'Adding...' : 'Add Condition'}</Button>
@@ -658,6 +693,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
                     selected={selectedConditions.has(condition.id)}
                     selectable={condition.status !== 'Satisfied' && condition.status !== 'Waived'}
                     loanStaff={loanStaff}
+                    staffDirectory={staffDirectory}
                     onToggleSelect={() => toggleConditionSelection(condition.id)}
                     onUpload={(files) => handleUpload(condition.id, files)}
                     fileRef={(el) => { fileInputRefs.current[condition.id] = el }}
