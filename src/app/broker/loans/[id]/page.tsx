@@ -47,17 +47,20 @@ export default async function BrokerLoanPage({
     : await adminClient.from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
   if (!broker) redirect('/login')
 
-  // Loan must have this broker in either slot — admins previewing bypass
-  // the slot filter so they can preview any loan from the broker's view.
-  const loanQuery = isImpersonating
+  // Cookie-based impersonation (global View-As) enforces slot membership —
+  // admin can ONLY view loans the impersonated broker is actually on.
+  // Query-param impersonation (legacy per-loan dropdown) preserves the
+  // historical "admin chose the loan deliberately" permissive behavior.
+  const enforceSlot = !isImpersonating || impersonation?.source === 'cookie'
+  const loanQuery = enforceSlot
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
-        .eq('id', id).single()
-    : adminClient.from('loans')
         .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
         .eq('id', id)
         .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
         .single()
+    : adminClient.from('loans')
+        .select('*, borrowers!borrower_id(full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip)')
+        .eq('id', id).single()
   const { data: loan } = await loanQuery
   if (!loan) notFound()
 

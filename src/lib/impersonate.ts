@@ -30,6 +30,10 @@ export interface ImpersonationContext {
   impersonatorRole: ImpersonatorRole
   /** Optional display name (set by callers after loading the role row). */
   displayName?: string | null
+  /** Where this impersonation context came from. Cookie = global picker
+   *  (subject to slot-membership enforcement). Query param = legacy
+   *  per-loan dropdown (admin-chosen loan, permissive). */
+  source: 'cookie' | 'query_param'
 }
 
 /** Query-param names mapped to the kind they signal. */
@@ -70,6 +74,7 @@ export async function readImpersonationCookie(
     kind: payload.kind,
     id: payload.target_id,
     impersonatorRole: 'admin',
+    source: 'cookie',
   }
 }
 
@@ -140,7 +145,7 @@ export async function resolveImpersonation(
   }
 
   if (!impersonatorRole) return null
-  return { kind: requestedKind, id: requestedId, impersonatorRole }
+  return { kind: requestedKind, id: requestedId, impersonatorRole, source: 'query_param' }
 }
 
 function pickString(v: string | string[] | undefined): string | null {

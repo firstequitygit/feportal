@@ -52,15 +52,17 @@ export default async function LoanPage({
 
   if (!borrower) redirect('/login')
 
-  // Borrower may be any of the four borrower slots on the loan. Admins
-  // bypass the row-level filter so they can preview any loan from the
-  // impersonated borrower's perspective.
-  const loanQuery = isImpersonating
-    ? adminClient.from('loans').select('*').eq('id', id).single()
-    : supabase.from('loans').select('*')
+  // Cookie-based impersonation (global View-As) enforces slot membership —
+  // admin can ONLY view loans the impersonated borrower is actually on.
+  // Query-param impersonation (legacy per-loan dropdown) preserves the
+  // historical "admin chose the loan deliberately" permissive behavior.
+  const enforceSlot = !isImpersonating || impersonation?.source === 'cookie'
+  const loanQuery = enforceSlot
+    ? (isImpersonating ? adminClient : supabase).from('loans').select('*')
         .eq('id', id)
         .or(`borrower_id.eq.${borrower.id},borrower_id_2.eq.${borrower.id},borrower_id_3.eq.${borrower.id},borrower_id_4.eq.${borrower.id}`)
         .single()
+    : adminClient.from('loans').select('*').eq('id', id).single()
   const { data: loan } = await loanQuery
 
   if (!loan) notFound()
