@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, UserCog, ShieldCheck, UserCheck } from 'lucide-react'
+import { Users, UserCog, ShieldCheck, UserCheck, Settings } from 'lucide-react'
 
 interface Props {
   isSuperAdmin: boolean
@@ -13,6 +13,10 @@ interface SubItem {
   label: string
   icon: React.ComponentType<{ className?: string }>
 }
+
+const GENERAL_SUBITEMS: SubItem[] = [
+  { href: '/admin/settings/general', label: 'General', icon: Settings },
+]
 
 const USERS_SUBITEMS: SubItem[] = [
   { href: '/admin/settings/users/loan-officers',    label: 'Loan Officers',    icon: Users },
@@ -26,17 +30,14 @@ const ADMINS_SUBITEM: SubItem = {
   icon: ShieldCheck,
 }
 
-export function SettingsSidebar({ isSuperAdmin }: Props) {
-  const pathname = usePathname()
-  const subItems = isSuperAdmin ? [...USERS_SUBITEMS, ADMINS_SUBITEM] : USERS_SUBITEMS
-
+function NavSection({ heading, items, pathname }: { heading: string; items: SubItem[]; pathname: string }) {
   return (
-    <nav className="w-56 shrink-0 border-r border-gray-200 pr-4">
+    <div className="mb-4">
       <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Users
+        {heading}
       </div>
       <ul className="space-y-0.5">
-        {subItems.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <li key={href}>
@@ -55,6 +56,18 @@ export function SettingsSidebar({ isSuperAdmin }: Props) {
           )
         })}
       </ul>
+    </div>
+  )
+}
+
+export function SettingsSidebar({ isSuperAdmin }: Props) {
+  const pathname = usePathname()
+  const userSubItems = isSuperAdmin ? [...USERS_SUBITEMS, ADMINS_SUBITEM] : USERS_SUBITEMS
+
+  return (
+    <nav className="w-56 shrink-0 border-r border-gray-200 pr-4">
+      {isSuperAdmin && <NavSection heading="General" items={GENERAL_SUBITEMS} pathname={pathname} />}
+      <NavSection heading="Users" items={userSubItems} pathname={pathname} />
     </nav>
   )
 }
