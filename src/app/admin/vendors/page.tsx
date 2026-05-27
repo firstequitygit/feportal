@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { Building2, ShieldCheck, FileSearch } from 'lucide-react'
@@ -50,6 +51,8 @@ export default async function AdminVendorsPage() {
   const { data: admin } = await adminClient
     .from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/login')
+
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
 
   // All active loans, paginated past PostgREST's 1000-row cap.
   const allLoans: LoanRow[] = []
@@ -112,6 +115,7 @@ export default async function AdminVendorsPage() {
       dashboardHref="/admin"
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
+      impersonation={impersonation}
       maxWidth="max-w-3xl"
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Vendors</h2>

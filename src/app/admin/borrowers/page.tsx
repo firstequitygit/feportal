@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminBorrowersGrid, type AdminBorrowerRow } from './admin-borrowers-grid'
 
@@ -14,6 +15,7 @@ export default async function AdminBorrowersPage() {
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
   const [{ data: borrowers }, { data: loans }, { data: officers }] = await Promise.all([
     adminClient.from('borrowers').select('id, full_name, email, phone, created_at, auth_user_id').order('full_name'),
     adminClient.from('loans').select('borrower_id, borrower_id_2, borrower_id_3, borrower_id_4, loan_officer_id'),
@@ -53,7 +55,7 @@ export default async function AdminBorrowersPage() {
   }))
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} impersonation={impersonation} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Borrowers</h2>
       <p className="text-sm text-gray-500 mb-6">
         All borrowers in the portal. Adding borrowers happens via JotForm intake or the

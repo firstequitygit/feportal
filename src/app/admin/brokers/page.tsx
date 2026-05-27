@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminBrokersGrid, type AdminBrokerRow } from './admin-brokers-grid'
 
@@ -14,6 +15,7 @@ export default async function AdminBrokersPage() {
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
   const [{ data: brokers }, { data: loans }, { data: officers }] = await Promise.all([
     adminClient.from('brokers').select('id, full_name, email, phone, company_name, created_at, auth_user_id').order('full_name'),
     adminClient.from('loans').select('broker_id, broker_id_2, loan_officer_id'),
@@ -51,7 +53,7 @@ export default async function AdminBrokersPage() {
   }))
 
   return (
-    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} maxWidth="max-w-7xl">
+    <PortalShell userName={admin.full_name} userRole="Administrator" dashboardHref="/admin" variant="admin" isSuperAdmin={admin.is_super ?? false} impersonation={impersonation} maxWidth="max-w-7xl">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Brokers</h2>
       <p className="text-sm text-gray-500 mb-6">
         All brokers in the portal. Brokers are added via the &quot;Invite Broker&quot; button in the

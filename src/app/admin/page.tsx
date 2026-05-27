@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCookieImpersonationForShell } from '@/lib/impersonate'
 import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminLoansClient, type LoanWithMeta } from '@/components/admin-loans-client'
@@ -22,6 +23,7 @@ export default async function AdminPage() {
   if (!admin) redirect('/dashboard')
 
   const adminClient = createAdminClient()
+  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
 
   const [
     { data: loans },
@@ -87,6 +89,7 @@ export default async function AdminPage() {
       dashboardHref="/admin"
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
+      impersonation={impersonation}
       maxWidth="max-w-7xl"
     >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
