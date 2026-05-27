@@ -62,7 +62,9 @@ function NavSection({ heading, items, pathname }: { heading: string; items: SubI
 
 export function SettingsSidebar({ isSuperAdmin }: Props) {
   const pathname = usePathname()
-  const userSubItems = isSuperAdmin ? [...USERS_SUBITEMS, ADMINS_SUBITEM] : USERS_SUBITEMS
+  // Admins tab is visible to every admin (read-only for regular admins;
+  // super-admins additionally get create/delete in the manager).
+  const userSubItems = [...USERS_SUBITEMS, ADMINS_SUBITEM]
 
   return (
     <nav className="w-56 shrink-0 border-r border-gray-200 pr-4">
