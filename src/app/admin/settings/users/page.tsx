@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
-export default function LoanOfficersRedirect() {
+export default function SettingsUsersIndexPage() {
   redirect('/admin/settings/users/loan-officers')
 }

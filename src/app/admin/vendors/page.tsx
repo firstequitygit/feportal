@@ -48,7 +48,7 @@ export default async function AdminVendorsPage() {
 
   const adminClient = createAdminClient()
   const { data: admin } = await adminClient
-    .from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
+    .from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).single()
   if (!admin) redirect('/login')
 
   // All active loans, paginated past PostgREST's 1000-row cap.
@@ -107,7 +107,7 @@ export default async function AdminVendorsPage() {
 
   return (
     <PortalShell
-      userName={null}
+      userName={admin.full_name}
       userRole="Administrator"
       dashboardHref="/admin"
       variant="admin"
