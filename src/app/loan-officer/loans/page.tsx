@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
@@ -7,16 +6,21 @@ import { LoanListSorted } from '@/components/loan-list-sorted'
 import { Building2, Users, AlertCircle } from 'lucide-react'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { getEffectiveStaffContext } from '@/lib/staff-context'
 
 export default async function LoanOfficerLoansPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const ctx = await getEffectiveStaffContext()
+  if (!ctx) redirect('/login')
+  // Allow LO pages when in LO view OR when admin (admin retains universal
+  // access via View-As; getEffectiveRoleRow below applies the per-row gate).
+  if (ctx.active_kind !== 'loan_officer' && !ctx.staff_user.is_admin) {
+    redirect('/login')
+  }
 
   const adminClient = createAdminClient()
 
   const lo = await getEffectiveRoleRow<{ id: string; full_name: string | null; email: string | null }>(
-    adminClient, 'loan_officer', user.id
+    adminClient, 'loan_officer', ctx.staff_user.auth_user_id
   )
   if (!lo) redirect('/login')
 
@@ -69,11 +73,11 @@ export default async function LoanOfficerLoansPage() {
   const youOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.you, 0)
   const totalOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.total, 0)
 
-  const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
+  const impersonation = await resolveImpersonation(adminClient, ctx.staff_user.auth_user_id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_officer'
 
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" impersonation={isImpersonating ? {
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" staffContext={ctx} impersonation={isImpersonating ? {
         kind: 'loan_officer',
         name: lo.full_name,
         exitHref: impersonationExitHref(),

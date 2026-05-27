@@ -1,29 +1,31 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCookieImpersonationForShell } from '@/lib/impersonate'
+import { getEffectiveStaffContext } from '@/lib/staff-context'
 import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { AdminLoansClient, type LoanWithMeta } from '@/components/admin-loans-client'
 import { Building2, Users, AlertCircle } from 'lucide-react'
 
+const BASE_ROLE_HOME = {
+  loan_officer: '/loan-officer/loans',
+  loan_processor: '/loan-processor/loans',
+  underwriter: '/underwriter',
+} as const
+
 export default async function AdminPage() {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: admin } = await supabase
-    .from('admin_users')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!admin) redirect('/dashboard')
+  const ctx = await getEffectiveStaffContext()
+  if (!ctx) redirect('/dashboard')
+  if (ctx.active_kind !== 'admin') {
+    // Admin toggled to base view, or never had admin: bounce to their base
+    // home so the toggle stays one click away.
+    redirect(ctx.staff_user.base_role ? BASE_ROLE_HOME[ctx.staff_user.base_role] : '/login')
+  }
+  const admin = ctx.staff_user
 
   const adminClient = createAdminClient()
-  const impersonation = await getCookieImpersonationForShell(adminClient, user.id)
+  const impersonation = await getCookieImpersonationForShell(adminClient, ctx.staff_user.auth_user_id)
 
   const [
     { data: loans },
@@ -88,8 +90,9 @@ export default async function AdminPage() {
       userRole="Administrator"
       dashboardHref="/admin"
       variant="admin"
-      isSuperAdmin={admin.is_super ?? false}
+      isSuperAdmin={admin.is_super}
       impersonation={impersonation}
+      staffContext={ctx}
       maxWidth="max-w-7xl"
     >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
