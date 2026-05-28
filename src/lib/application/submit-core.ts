@@ -16,7 +16,7 @@ export interface SubmitDraftOpts {
 }
 
 export type SubmitResult =
-  | { ok: true; loanId: string | null; alreadySubmitted?: boolean }
+  | { ok: true; loanId: string | null; authorizeToken?: string | null; alreadySubmitted?: boolean }
   | { ok: false; status: number; error: string; missing?: string[] }
 
 /** Finalize a draft `loan_applications` row → portal rows. Pure side-effecting
@@ -67,7 +67,12 @@ export async function submitApplication(
     borrowerIds.push(brow.id)
   }
 
-  // 2. Insert loan.
+  // 2. Insert loan. Mint a per-loan authorize_token so the borrower's
+  //    separate credit-auth + payment step at /authorize/<token> has a
+  //    stable URL. application_kind defaults to 'borrower' for historical
+  //    rows in the DB; we set it explicitly here to match the variant
+  //    that just submitted.
+  const authorizeToken = crypto.randomUUID()
   const { data: loanRow, error: lerr } = await admin
     .from('loans')
     .insert({
@@ -81,6 +86,10 @@ export async function submitApplication(
       loan_amount: m.loan.loan_amount,
       entity_name: m.loan.entity_name,
       pipeline_stage: 'New Application',
+      application_kind: variant,
+      submitted_by_broker_id: opts.submittedByBrokerId ?? null,
+      authorize_token: authorizeToken,
+      authorization_status: 'pending',
     })
     .select('id').single()
   if (lerr || !loanRow) return { ok: false, status: 500, error: 'Failed to create loan' }
@@ -134,5 +143,5 @@ export async function submitApplication(
     }
   })
 
-  return { ok: true, loanId }
+  return { ok: true, loanId, authorizeToken }
 }
