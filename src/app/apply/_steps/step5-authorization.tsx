@@ -67,12 +67,18 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
   }, [])
 
   async function saveCard() {
-    if (!cardRef.current || !token) return
+    if (!cardRef.current) return
+    if (!testMode && !token) return
     if (!paymentSignature) { toast.error('Please sign the payment authorization before saving your card.'); return }
     if (!saveCardAgree) { toast.error('Please agree to save your card for future transactions.'); return }
     try {
       const result = await cardRef.current.tokenize()
       if (result.status !== 'OK' || !result.token) { toast.error('Card details invalid'); return }
+      if (testMode) {
+        setSaved({ last4: '1111', brand: 'TEST', feeCents: feeUsd * 100 })
+        toast.success('Test card validated (not saved to Square)')
+        return
+      }
       const res = await fetch('/api/apply/payment', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeToken: token, cardToken: result.token }),
@@ -243,7 +249,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1F5D8F] focus:ring-[#1F5D8F]/30"
         />
         <span>
-          I agree to save my card for future transactions
+          I authorize you to securely save my card and charge the application fee after my loan is reviewed.
           <span className="text-red-500 ml-1" aria-label="required">*</span>
         </span>
       </label>
@@ -261,7 +267,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
             <button
               type="button"
               onClick={saveCard}
-              disabled={!ready || !token}
+              disabled={!ready || (!token && !testMode)}
               className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
             >
               {ready ? 'Save card on file' : 'Loading payment form...'}
@@ -273,7 +279,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
             )}
             {testMode && (
               <p className="text-xs text-amber-700">
-                Card collection is skipped in test mode. Auto-submit still works.
+                Test mode: use a Square sandbox card (e.g. 4111 1111 1111 1111, any future expiry, any CVV, any ZIP). The card is validated but not saved to Square.
               </p>
             )}
           </>
