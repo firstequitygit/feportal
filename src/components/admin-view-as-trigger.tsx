@@ -25,16 +25,18 @@ export function AdminViewAsTrigger() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-        title="View as another user (Cmd/Ctrl+K)"
-      >
-        <Eye className="w-3.5 h-3.5" />
-        View as
-        <kbd className="ml-1 hidden sm:inline text-xs text-gray-400">⌘K</kbd>
-      </button>
+      <div className="inline-flex rounded-full border border-zinc-200 bg-white p-0.5 text-xs font-medium shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-zinc-600 transition-colors hover:bg-zinc-100"
+          title="View as another user (Cmd/Ctrl+K)"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          View as
+          <kbd className="ml-1 hidden sm:inline text-zinc-400">⌘K</kbd>
+        </button>
+      </div>
       <AdminViewAsModal open={open} onOpenChange={setOpen} />
     </>
   )
