@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     loanId: result.loanId,
+    ...(result.authorizeToken ? { authorizeToken: result.authorizeToken } : {}),
     ...(result.alreadySubmitted ? { alreadySubmitted: true } : {}),
   })
 }
