@@ -257,20 +257,8 @@ export default async function LoanOfficerLoanPage({
               allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
             />
 
-            <CoBorrowersAssign
-              loanId={id}
-              currentSlots={{
-                slot2: loan.borrower_id_2 ?? null,
-                slot3: loan.borrower_id_3 ?? null,
-                slot4: loan.borrower_id_4 ?? null,
-              }}
-              allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
-              primaryBorrowerId={loan.borrower_id ?? null}
-            />
-
-            <Card>
-              <CardHeader><CardTitle className="text-base">Borrower</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
+            <CollapsibleCard title="Borrower">
+              <div className="space-y-2 text-sm">
                 {borrower ? (
                   <>
                     {borrower.full_name && (
@@ -293,8 +281,19 @@ export default async function LoanOfficerLoanPage({
                 ) : (
                   <p className="text-gray-400 italic">No borrower assigned</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CollapsibleCard>
+
+            <CoBorrowersAssign
+              loanId={id}
+              currentSlots={{
+                slot2: loan.borrower_id_2 ?? null,
+                slot3: loan.borrower_id_3 ?? null,
+                slot4: loan.borrower_id_4 ?? null,
+              }}
+              allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+              primaryBorrowerId={loan.borrower_id ?? null}
+            />
 
             <Card>
               <CardHeader><CardTitle className="text-base">{loanProcessors.length > 1 ? 'Loan Processors' : 'Loan Processor'}</CardTitle></CardHeader>

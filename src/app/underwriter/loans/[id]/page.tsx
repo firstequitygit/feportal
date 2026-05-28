@@ -225,10 +225,10 @@ export default async function UnderwriterLoanPage({
             </CardContent>
           </Card>
 
-          {/* Team */}
-          <Card>
-            <CardHeader><CardTitle className="text-base">Borrower</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          {/* Team — collapsible, defaults to closed since UW already knows
+              the team and rarely needs to expand. */}
+          <CollapsibleCard title="Borrower">
+            <div className="space-y-2 text-sm">
               {borrower ? (
                 <>
                   {borrower.full_name && (
@@ -291,8 +291,8 @@ export default async function UnderwriterLoanPage({
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleCard>
         </div>
 
         {/* Loan Details (collapsible, with sub-sections) */}

@@ -260,20 +260,9 @@ export default async function LoanProcessorLoanPage({
             currentBorrowerName={borrower?.full_name ?? null}
             allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
           />
-          <CoBorrowersAssign
-            loanId={id}
-            currentSlots={{
-              slot2: loan.borrower_id_2 ?? null,
-              slot3: loan.borrower_id_3 ?? null,
-              slot4: loan.borrower_id_4 ?? null,
-            }}
-            allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
-            primaryBorrowerId={loan.borrower_id ?? null}
-          />
-          {/* Borrower Info */}
-          <Card>
-            <CardHeader><CardTitle className="text-base">Borrower</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          {/* Borrower Info — sits between Borrower Assignment and Co-borrowers */}
+          <CollapsibleCard title="Borrower">
+            <div className="space-y-2 text-sm">
               {borrower ? (
                 <>
                   {borrower.full_name && (
@@ -296,8 +285,18 @@ export default async function LoanProcessorLoanPage({
               ) : (
                 <p className="text-gray-400 italic">No borrower assigned</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleCard>
+          <CoBorrowersAssign
+            loanId={id}
+            currentSlots={{
+              slot2: loan.borrower_id_2 ?? null,
+              slot3: loan.borrower_id_3 ?? null,
+              slot4: loan.borrower_id_4 ?? null,
+            }}
+            allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
+            primaryBorrowerId={loan.borrower_id ?? null}
+          />
 
           {/* Loan Officer */}
           <Card>

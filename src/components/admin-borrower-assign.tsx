@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/searchable-select'
+import { CollapsibleCard } from '@/components/collapsible-card'
 
 interface Props {
   loanId: string
@@ -40,11 +40,8 @@ export function AdminBorrowerAssign({ loanId, currentBorrowerId, allBorrowers, a
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Borrower Assignment</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <CollapsibleCard title="Borrower Assignment">
+      <div className="space-y-3">
         <p className="text-sm text-gray-500">
           Assign a borrower to give them portal access to this loan.
         </p>
@@ -62,7 +59,7 @@ export function AdminBorrowerAssign({ loanId, currentBorrowerId, allBorrowers, a
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save Assignment'}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   )
 }

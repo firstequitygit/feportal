@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/searchable-select'
+import { CollapsibleCard } from '@/components/collapsible-card'
 
 interface BrokerOption {
   id: string
@@ -61,11 +61,8 @@ export function BrokerAssign({ loanId, currentBrokerId, currentBrokerId2 = null,
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Broker</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <CollapsibleCard title="Broker">
+      <div className="space-y-4">
         <p className="text-xs text-gray-500">
           When a broker is assigned, the broker is the portal contact and all notifications go to
           them instead of the borrower. A second slot is available for the broker&apos;s processor
@@ -100,7 +97,7 @@ export function BrokerAssign({ loanId, currentBrokerId, currentBrokerId2 = null,
             </div>
           )
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   )
 }

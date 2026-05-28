@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/searchable-select'
+import { CollapsibleCard } from '@/components/collapsible-card'
 
 interface BorrowerOption {
   id: string
@@ -65,11 +65,8 @@ export function CoBorrowersAssign({ loanId, currentSlots, allBorrowers, primaryB
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Co-Borrowers</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <CollapsibleCard title="Co-Borrowers">
+      <div className="space-y-4">
         <p className="text-xs text-gray-500">
           Up to 3 additional borrowers can be assigned to a loan. Each gets their own portal
           login and receives the same notifications as the primary borrower.
@@ -102,7 +99,7 @@ export function CoBorrowersAssign({ loanId, currentSlots, allBorrowers, primaryB
             </div>
           )
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   )
 }
