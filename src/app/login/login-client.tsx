@@ -311,7 +311,6 @@ export default function LoginPage() {
             >
               info@irongateportals.com
             </a>
-            .
           </p>
         </div>
       </div>
