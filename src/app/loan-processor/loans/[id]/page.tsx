@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllBorrowers, fetchAllBrokers } from '@/lib/fetch-all-borrowers'
 import { fetchStaffDirectory } from '@/lib/loan-staff'
+import { fetchConditionNotesForLoan } from '@/lib/fetch-condition-notes'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanProcessorConditions } from '@/components/loan-processor-conditions'
@@ -92,7 +93,7 @@ export default async function LoanProcessorLoanPage({
     adminClient.from('condition_templates').select('*').order('title'),
   ])
 
-  const [{ data: notes }, { data: events }, { data: allBorrowers }, { data: allBrokers }, { data: loanDetails }, { data: loanDemographics }, staffDirectory] = await Promise.all([
+  const [{ data: notes }, { data: events }, { data: allBorrowers }, { data: allBrokers }, { data: loanDetails }, { data: loanDemographics }, staffDirectory, conditionNotesByCondition] = await Promise.all([
     adminClient.from('loan_notes').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     fetchAllBorrowers(adminClient).then(rows => ({ data: rows })),
@@ -100,6 +101,7 @@ export default async function LoanProcessorLoanPage({
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
     fetchStaffDirectory(adminClient),
+    fetchConditionNotesForLoan(adminClient, id),
   ])
 
   const conditionMap: Record<string, string> = {}
@@ -445,6 +447,7 @@ export default async function LoanProcessorLoanPage({
               (loan.underwriters as unknown as { id: string; full_name: string } | null) ?? null,
           }}
           staffDirectory={staffDirectory}
+          notesByCondition={conditionNotesByCondition}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

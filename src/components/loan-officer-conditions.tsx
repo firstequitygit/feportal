@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { type Condition, type Document, type ConditionStatus, type AssignedTo, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 import { BulkActionBar, BulkActionButton } from '@/components/bulk-action-bar'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { ConditionNotes, type ConditionNote } from '@/components/condition-notes'
 import { useImpersonation } from '@/components/impersonation-provider'
 
 export interface LoanStaffSummary {
@@ -32,6 +33,7 @@ interface Props {
   signedUrlMap: Record<string, string>
   loanStaff?: LoanStaffSummary
   staffDirectory?: StaffDirectorySummary
+  notesByCondition?: Record<string, ConditionNote[]>
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -68,7 +70,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, isImpersonating, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
 }: {
   condition: Condition
   docs: Document[]
@@ -79,6 +81,7 @@ function ConditionRow({
   selectable: boolean
   loanStaff?: LoanStaffSummary
   staffDirectory?: StaffDirectorySummary
+  notes?: ConditionNote[]
   onToggleSelect: () => void
   onUpload: (files: FileList) => void
   fileRef: (el: HTMLInputElement | null) => void
@@ -307,11 +310,13 @@ function ConditionRow({
           </div>
         </div>
       )}
+
+      <ConditionNotes conditionId={condition.id} initialNotes={notes ?? []} isImpersonating={isImpersonating} />
     </div>
   )
 }
 
-export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap, loanStaff, staffDirectory }: Props) {
+export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap, loanStaff, staffDirectory, notesByCondition }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -632,6 +637,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                     selectable={condition.status !== 'Satisfied' && condition.status !== 'Waived'}
                     loanStaff={loanStaff}
                     staffDirectory={staffDirectory}
+                    notes={notesByCondition?.[condition.id]}
                     onToggleSelect={() => toggleConditionSelection(condition.id)}
                     onUpload={(files) => handleUpload(condition.id, files)}
                     fileRef={(el) => { fileInputRefs.current[condition.id] = el }}

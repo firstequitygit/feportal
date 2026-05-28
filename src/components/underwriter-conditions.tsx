@@ -10,6 +10,7 @@ import { type Condition, type Document, type ConditionStatus, type AssignedTo, t
 import { BulkActionBar, BulkActionButton } from '@/components/bulk-action-bar'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
+import { ConditionNotes, type ConditionNote } from '@/components/condition-notes'
 import { useImpersonation } from '@/components/impersonation-provider'
 
 export interface LoanStaffSummary {
@@ -35,6 +36,7 @@ interface Props {
   templates?: ConditionTemplate[]
   loanStaff?: LoanStaffSummary
   staffDirectory?: StaffDirectorySummary
+  notesByCondition?: Record<string, ConditionNote[]>
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -67,7 +69,7 @@ function assignedToColor(assigned_to: AssignedTo): string {
 }
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory,
 }: {
   condition: Condition
   docs: Document[]
@@ -78,6 +80,7 @@ function ConditionRow({
   selectable: boolean
   loanStaff?: LoanStaffSummary
   staffDirectory?: StaffDirectorySummary
+  notes?: ConditionNote[]
   onToggleSelect: () => void
   onUpload: (files: FileList) => void
   fileRef: (el: HTMLInputElement | null) => void
@@ -328,11 +331,13 @@ function ConditionRow({
           </button>
         </div>
       )}
+
+      <ConditionNotes conditionId={condition.id} initialNotes={notes ?? []} isImpersonating={isImpersonating} />
     </div>
   )
 }
 
-export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory }: Props) {
+export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -696,6 +701,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
                     selectable={condition.status !== 'Satisfied' && condition.status !== 'Waived'}
                     loanStaff={loanStaff}
                     staffDirectory={staffDirectory}
+                    notes={notesByCondition?.[condition.id]}
                     onToggleSelect={() => toggleConditionSelection(condition.id)}
                     onUpload={(files) => handleUpload(condition.id, files)}
                     fileRef={(el) => { fileInputRefs.current[condition.id] = el }}
