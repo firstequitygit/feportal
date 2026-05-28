@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { updateDealStage } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail, sendConditionallyApprovedAlert } from '@/lib/email'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { PIPEDRIVE_STAGE_MAP, PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
 
@@ -138,9 +139,17 @@ export async function PATCH(req: NextRequest) {
     console.error('Stage transition email error:', err)
   }
 
-  // Pre-Underwriting transition: blast the underwriter team so one of
-  // them can claim the loan from /underwriter/loans.
+  // Pre-Underwriting transition:
+  //   1. Auto-assign the default underwriter (Alicyn) when no UW is set yet.
+  //      Loans now arrive in her queue directly instead of needing a manual
+  //      claim from the team.
+  //   2. sendPreUnderwritingClaimEmail runs as a fallback — it's already
+  //      a no-op when underwriter_id is set, so a successful auto-assign
+  //      silently skips the team blast.
   if (stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
+    try { await autoAssignDefaultUnderwriter(adminClient, loanId) }
+    catch (err) { console.error('Auto-assign UW error:', err) }
+
     try { await sendPreUnderwritingClaimEmail(loanId) }
     catch (err) { console.error('Pre-UW claim email error:', err) }
   }

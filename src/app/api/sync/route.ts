@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
 import { assertNotImpersonating } from '@/lib/impersonate'
@@ -177,8 +178,14 @@ export async function POST() {
           } catch (err) {
             console.error(`Stage email failed for deal ${deal.pipedrive_deal_id}:`, err)
           }
-          // Pre-Underwriting: notify the whole UW team so one can claim.
+          // Pre-Underwriting: auto-assign Alicyn (if no UW yet) + fall back
+          // to the team-claim blast. sendPreUnderwritingClaimEmail no-ops
+          // when underwriter_id is set, so a successful auto-assign silently
+          // skips the blast.
           if (deal.pipeline_stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
+            try { await autoAssignDefaultUnderwriter(supabase, existing.id) }
+            catch (err) { console.error(`Auto-assign UW failed for deal ${deal.pipedrive_deal_id}:`, err) }
+
             try { await sendPreUnderwritingClaimEmail(existing.id) }
             catch (err) { console.error(`Pre-UW claim email failed for deal ${deal.pipedrive_deal_id}:`, err) }
           }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeDeal, type PipedriveDeal } from '@/lib/pipedrive'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -145,11 +146,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // Pre-Underwriting: blast the underwriter team to claim.
+    // Pre-Underwriting: auto-assign Alicyn (no-op if already assigned),
+    // then call the team-claim blast which itself no-ops when underwriter_id
+    // is set. A successful auto-assign therefore silently skips the blast.
     if (isNowPreUW && !wasPreUW && existingLoan?.id) {
       try {
+        await autoAssignDefaultUnderwriter(supabase, existingLoan.id)
+      } catch (err) {
+        console.error(`Auto-assign UW failed for deal ${dealId}:`, err)
+      }
+      try {
         await sendPreUnderwritingClaimEmail(existingLoan.id)
-        console.log(`Pre-UW claim email sent for deal ${dealId}`)
+        console.log(`Pre-UW notifications complete for deal ${dealId}`)
       } catch (err) {
         console.error(`Pre-UW claim email failed for deal ${dealId}:`, err)
       }
