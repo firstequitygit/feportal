@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizeDeal, type PipedriveDeal } from '@/lib/pipedrive'
+import { normalizeDeal, fetchEnumOptions, type PipedriveDeal } from '@/lib/pipedrive'
+import { PIPEDRIVE_FIELDS } from '@/lib/types'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 
@@ -45,8 +46,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No deal data in payload' }, { status: 400 })
     }
 
-    // Normalize the deal data from the webhook payload directly — no extra API call needed
-    const deal = normalizeDeal(dealData)
+    // Normalize the deal data from the webhook payload directly — no extra
+    // API call for the deal itself, but we pre-fetch enum option labels so
+    // fields like Interest Only resolve to "Yes"/"No" instead of raw ids.
+    const optionsMap = await fetchEnumOptions(
+      PIPEDRIVE_FIELDS.interestOnly,
+      PIPEDRIVE_FIELDS.rateLocked,
+      PIPEDRIVE_FIELDS.loanTypeII,
+    )
+    const deal = normalizeDeal(dealData, optionsMap)
     console.log('Normalized deal:', JSON.stringify(deal))
 
     // Fetch current stage before upserting to detect Submitted (Loan Approved) transition
