@@ -32,7 +32,13 @@ export default async function LoanOfficerLoansPage() {
   // they own. LPs and UWs still go through the claim flow.
   const { data: loans } = await adminClient
     .from('loans')
-    .select('*, borrowers!borrower_id(full_name, email)')
+    .select(`
+      *,
+      borrowers!borrower_id(full_name, email),
+      loan_officers!loan_officer_id(id, full_name),
+      loan_processors!loan_processor_id(id, full_name),
+      loan_details(cash_out_amount)
+    `)
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
     .order('created_at', { ascending: false })
@@ -136,6 +142,7 @@ export default async function LoanOfficerLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/loan-officer"
+        hideLoanOfficerDimensions
       />
     </PortalShell>
   )
