@@ -66,20 +66,20 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix }: Props) {
   return (
     <Link href={`${linkPrefix}/loans/${loan.id}`} className="block group">
       <Card
-        className={`border border-gray-200 border-l-4 ${accent} transition-all duration-150 group-hover:shadow-sm group-hover:border-gray-300 ${
+        className={`gap-0 py-0 border border-gray-200 border-l-4 ${accent} transition-all duration-150 group-hover:shadow-sm group-hover:border-gray-300 ${
           isClosed || isCancelled ? 'opacity-70' : ''
         } ${isOnHold ? 'bg-amber-50/40' : ''}`}
       >
-        <CardContent className="px-4 py-2.5">
+        <CardContent className="px-3.5 py-2">
           <div className="flex items-center gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <p className="font-semibold text-gray-900 truncate text-[15px] leading-tight">
+                <p className="font-semibold text-gray-900 truncate text-sm leading-tight">
                   {loan.property_address ?? 'Address not set'}
                 </p>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5 ml-5 truncate">
+              <p className="text-xs text-gray-500 mt-px ml-5 truncate">
                 {loan.borrowers?.full_name ?? 'No borrower assigned'}
                 {loan.loan_type ? <span className="text-gray-300"> · </span> : null}
                 {loan.loan_type}

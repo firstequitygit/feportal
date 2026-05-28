@@ -185,7 +185,7 @@ export function LoanListSorted({
                     onToggle={() => toggleGroup(group.key)}
                   />
                   {!isCollapsed && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {group.loans.map(loan => (
                         <LoanCard
                           key={loan.id}
