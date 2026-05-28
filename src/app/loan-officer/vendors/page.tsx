@@ -100,7 +100,7 @@ export default async function LoanOfficerVendorsPage() {
       userRole="Loan Officer"
       dashboardHref="/loan-officer/inbox"
       variant="loan-officer"
-      maxWidth="max-w-7xl"
+      maxWidth="max-w-screen-2xl"
       impersonation={isImpersonating ? {
         kind: 'loan_officer',
         name: lo.full_name,

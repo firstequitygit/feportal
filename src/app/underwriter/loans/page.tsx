@@ -85,7 +85,7 @@ export default async function UnderwriterLoansPage() {
   const isImpersonating = impersonation?.kind === 'underwriter'
 
   return (
-    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
+    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" maxWidth="max-w-screen-2xl" impersonation={isImpersonating ? {
         kind: 'underwriter',
         name: uw.full_name,
         exitHref: impersonationExitHref(),

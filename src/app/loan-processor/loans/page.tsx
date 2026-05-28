@@ -109,7 +109,7 @@ export default async function LoanProcessorLoansPage() {
   const isImpersonating = impersonation?.kind === 'loan_processor'
 
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" impersonation={isImpersonating ? {
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-screen-2xl" impersonation={isImpersonating ? {
         kind: 'loan_processor',
         name: lp.full_name,
         exitHref: impersonationExitHref(),
