@@ -304,7 +304,7 @@ export default function LoginPage() {
           {/* Iron Gate Portals marketing — prospects who land on this login
               page can reach out for their own white-labeled portal. */}
           <p className="text-xs text-gray-500 text-center mt-6">
-            Looking for your own customized client portal? Contact us:{' '}
+            Looking for your own customized client portal? Contact us at{' '}
             <a
               href="mailto:info@irongateportals.com"
               className="text-primary hover:opacity-80"
