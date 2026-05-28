@@ -1,23 +1,14 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getEffectiveStaffContext } from '@/lib/staff-context'
 
 /**
  * Reporting auth + scoping helper.
  *
- * Each report runs the same lookup: who's logged in, what staff role do they
- * have, and which subset of loans are they allowed to report on?
- *
- * Returns:
- *  - role: 'admin' | 'loan_officer' | 'loan_processor' | 'underwriter'
- *  - userName: full name for display
- *  - dashboardHref: where to send them when they click the logo
- *  - shellVariant: portal-shell `variant` prop
- *  - loanScopeFilter: when applied to a Supabase query against `loans`, filters
- *                    to only the loans this user is allowed to see. Admins get
- *                    everything (no filter applied).
- *
- * Redirects to /login if the user is not a staff member.
+ * Resolves the visitor's *active* role context (honoring the admin/base
+ * view-mode toggle from staff-context) and the loan scope they're allowed to
+ * report on. Admins get everything; other roles see only loans assigned to
+ * them. Redirects to /dashboard if the visitor isn't a staff_user.
  */
 
 export type StaffRole = 'admin' | 'loan_officer' | 'loan_processor' | 'underwriter'
@@ -36,39 +27,38 @@ export interface ReportContext {
 }
 
 export async function getReportContext(): Promise<ReportContext> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const ctx = await getEffectiveStaffContext()
+  if (!ctx) redirect('/dashboard')
 
-  const adminClient = createAdminClient()
+  const { staff_user, active_kind } = ctx
 
-  const [
-    { data: adminUser },
-    { data: lo },
-    { data: lp },
-    { data: uw },
-  ] = await Promise.all([
-    adminClient.from('admin_users').select('id, full_name, is_super').eq('auth_user_id', user.id).maybeSingle(),
-    adminClient.from('loan_officers').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
-    adminClient.from('loan_processors').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
-    adminClient.from('underwriters').select('id, full_name').eq('auth_user_id', user.id).maybeSingle(),
-  ])
-
-  if (adminUser) {
+  if (active_kind === 'admin') {
     return {
       role: 'admin',
-      userName: adminUser.full_name,
+      userName: staff_user.full_name,
       dashboardHref: '/admin',
       shellVariant: 'admin',
       loanScopeColumn: null,
       loanScopeId: null,
-      isSuperAdmin: adminUser.is_super ?? false,
+      isSuperAdmin: staff_user.is_super,
     }
   }
-  if (lo) {
+
+  // Base-role view: look up the role-table id so reports can scope loans
+  // to this person. The staff_user_id FK is backfilled by the staff identity
+  // migration, so this lookup is the canonical seam.
+  const adminClient = createAdminClient()
+
+  if (active_kind === 'loan_officer') {
+    const { data: lo } = await adminClient
+      .from('loan_officers')
+      .select('id, full_name')
+      .eq('staff_user_id', staff_user.id)
+      .maybeSingle()
+    if (!lo) redirect('/dashboard')
     return {
       role: 'loan_officer',
-      userName: lo.full_name,
+      userName: lo.full_name ?? staff_user.full_name,
       dashboardHref: '/loan-officer/inbox',
       shellVariant: 'loan-officer',
       loanScopeColumn: 'loan_officer_id',
@@ -76,10 +66,17 @@ export async function getReportContext(): Promise<ReportContext> {
       isSuperAdmin: false,
     }
   }
-  if (lp) {
+
+  if (active_kind === 'loan_processor') {
+    const { data: lp } = await adminClient
+      .from('loan_processors')
+      .select('id, full_name')
+      .eq('staff_user_id', staff_user.id)
+      .maybeSingle()
+    if (!lp) redirect('/dashboard')
     return {
       role: 'loan_processor',
-      userName: lp.full_name,
+      userName: lp.full_name ?? staff_user.full_name,
       dashboardHref: '/loan-processor/inbox',
       shellVariant: 'loan-processor',
       loanScopeColumn: 'loan_processor_id',
@@ -87,20 +84,23 @@ export async function getReportContext(): Promise<ReportContext> {
       isSuperAdmin: false,
     }
   }
-  if (uw) {
-    return {
-      role: 'underwriter',
-      userName: uw.full_name,
-      dashboardHref: '/underwriter/inbox',
-      shellVariant: 'underwriter',
-      loanScopeColumn: 'underwriter_id',
-      loanScopeId: uw.id,
-      isSuperAdmin: false,
-    }
-  }
 
-  // Borrower or unknown user — not allowed in /reports
-  redirect('/dashboard')
+  // active_kind === 'underwriter'
+  const { data: uw } = await adminClient
+    .from('underwriters')
+    .select('id, full_name')
+    .eq('staff_user_id', staff_user.id)
+    .maybeSingle()
+  if (!uw) redirect('/dashboard')
+  return {
+    role: 'underwriter',
+    userName: uw.full_name ?? staff_user.full_name,
+    dashboardHref: '/underwriter/inbox',
+    shellVariant: 'underwriter',
+    loanScopeColumn: 'underwriter_id',
+    loanScopeId: uw.id,
+    isSuperAdmin: false,
+  }
 }
 
 /**
