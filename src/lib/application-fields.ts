@@ -7,6 +7,14 @@ export type FieldType =
 
 export type ApplicationData = Record<string, unknown>
 
+/** Optional context passed to field predicates so a single predicate can adapt
+ *  to which application variant is asking. Default behavior assumes 'borrower'. */
+export interface FieldContext {
+  variant: 'borrower' | 'broker'
+}
+
+const DEFAULT_CTX: FieldContext = { variant: 'borrower' }
+
 /** Marks an Address Line 1 field as a Google Places autocomplete anchor.
  *  Values are the sibling field names to auto-fill on place selection. */
 export interface AddressConfig {
@@ -27,13 +35,13 @@ export interface FieldDef {
   required?: boolean
   options?: readonly string[]
   /** Dynamic options resolver - takes precedence over `options` when present. */
-  optionsWhen?: (d: ApplicationData, scope?: ApplicationData) => readonly string[]
+  optionsWhen?: (d: ApplicationData, scope?: ApplicationData, ctx?: FieldContext) => readonly string[]
   placeholder?: string
   help?: string
   /** Show only when this predicate is true. Absent = always visible. */
-  visibleWhen?: (d: ApplicationData, scope?: ApplicationData) => boolean
+  visibleWhen?: (d: ApplicationData, scope?: ApplicationData, ctx?: FieldContext) => boolean
   /** Required only when true (in addition to `required`). */
-  requiredWhen?: (d: ApplicationData, scope?: ApplicationData) => boolean
+  requiredWhen?: (d: ApplicationData, scope?: ApplicationData, ctx?: FieldContext) => boolean
   /** "Why we ask" tooltip text shown next to the field label. */
   helpTooltip?: string
   /** Groups consecutive fields under a labeled section heading in the renderer. */
@@ -294,12 +302,12 @@ export function dscrUnitCount(data: ApplicationData): number {
 }
 
 /** Generic visibility resolver used by the renderer AND server validation. */
-export function isVisible(f: FieldDef, data: ApplicationData, scope?: ApplicationData): boolean {
-  return f.visibleWhen ? f.visibleWhen(data, scope) : true
+export function isVisible(f: FieldDef, data: ApplicationData, scope?: ApplicationData, ctx: FieldContext = DEFAULT_CTX): boolean {
+  return f.visibleWhen ? f.visibleWhen(data, scope, ctx) : true
 }
-export function isRequired(f: FieldDef, data: ApplicationData, scope?: ApplicationData): boolean {
-  if (!isVisible(f, data, scope)) return false
-  if (f.requiredWhen && f.requiredWhen(data, scope)) return true
+export function isRequired(f: FieldDef, data: ApplicationData, scope?: ApplicationData, ctx: FieldContext = DEFAULT_CTX): boolean {
+  if (!isVisible(f, data, scope, ctx)) return false
+  if (f.requiredWhen && f.requiredWhen(data, scope, ctx)) return true
   return !!f.required
 }
 
@@ -361,6 +369,7 @@ function isEmpty(v: unknown): boolean {
 export function getMissingRequiredFields(
   stepId: StepId,
   data: ApplicationData,
+  ctx: FieldContext = DEFAULT_CTX,
 ): string[] {
   const miss: string[] = []
   const primary = (data.primary as Record<string, unknown>) ?? {}
@@ -371,7 +380,7 @@ export function getMissingRequiredFields(
   if (stepId === "borrower") {
     // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS
     for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]) {
-      if (isRequired(f, data, primary) && isEmpty(primary[f.name])) {
+      if (isRequired(f, data, primary, ctx) && isEmpty(primary[f.name])) {
         miss.push(`primary.${f.name}`)
       }
     }
@@ -380,7 +389,7 @@ export function getMissingRequiredFields(
       const scope = cobs[i]
       const prefix = `coborrower${i + 1}`
       for (const f of BORROWER_FIELDS) {
-        if (isRequired(f, data, scope) && isEmpty(scope[f.name])) {
+        if (isRequired(f, data, scope, ctx) && isEmpty(scope[f.name])) {
           miss.push(`${prefix}.${f.name}`)
         }
       }
@@ -394,7 +403,7 @@ export function getMissingRequiredFields(
     }
     // Deal fields: scope is the form root - no borrower prefix
     for (const f of DEAL_FIELDS) {
-      if (isRequired(f, data) && isEmpty(data[f.name])) {
+      if (isRequired(f, data, undefined, ctx) && isEmpty(data[f.name])) {
         miss.push(f.name)
       }
     }
@@ -405,7 +414,7 @@ export function getMissingRequiredFields(
       for (let i = 0; i < unitCount; i++) {
         const scope = (units[i] ?? {}) as ApplicationData
         for (const f of UNIT_FIELDS) {
-          if (isRequired(f, data, scope) && isEmpty(scope[f.name as keyof typeof scope])) {
+          if (isRequired(f, data, scope, ctx) && isEmpty(scope[f.name as keyof typeof scope])) {
             miss.push(`unit${i + 1}.${f.name}`)
           }
         }
@@ -417,7 +426,7 @@ export function getMissingRequiredFields(
   } else if (stepId === "declarations") {
     // DECLARATION_FIELDS + HMDA_FIELDS at root scope - one set for the whole application
     for (const f of [...DECLARATION_FIELDS, ...HMDA_FIELDS]) {
-      if (isRequired(f, data) && isEmpty(data[f.name])) {
+      if (isRequired(f, data, undefined, ctx) && isEmpty(data[f.name])) {
         miss.push(f.name)
       }
     }

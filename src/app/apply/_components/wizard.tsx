@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { STEPS, STEP_TITLES, TOTAL_STEPS, ALL_FIELDS, getMissingRequiredFields, type ApplicationData, type StepId } from '@/lib/application-fields'
+import { VARIANTS_BY_KIND, type VariantKind } from '@/lib/application/variants'
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
@@ -40,13 +41,19 @@ function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
   return v === undefined || v === null || v === ""
 }
 
-export function Wizard({ initialData, initialStep, initialToken, isAdmin = false, loanOfficerOptions }: {
+export function Wizard({ initialData, initialStep, initialToken, isAdmin = false, loanOfficerOptions, variantKind = 'borrower' }: {
   initialData: ApplicationData
   initialStep: number
   initialToken: string | null
   isAdmin?: boolean
   loanOfficerOptions: string[]
+  variantKind?: VariantKind
 }) {
+  const variant = VARIANTS_BY_KIND[variantKind]
+  const testModeKey = variant.storageKeys.testMode
+  const testDataKey = variant.storageKeys.testData
+  const testOverridesKey = variant.storageKeys.testOverrides
+  const showTestMode = variant.features.showTestMode
   const [data, setData] = useState<ApplicationData>(initialData ?? {})
   const [step, setStep] = useState(initialStep || 1)
   const [token, setToken] = useState<string | null>(initialToken)
@@ -58,26 +65,26 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   // Load + persist test mode toggle (admins only).
   useEffect(() => {
-    if (!isAdmin) return
+    if (!isAdmin || !showTestMode) return
     try {
-      const raw = window.localStorage.getItem('fe-apply-test-mode')
+      const raw = window.localStorage.getItem(testModeKey)
       if (raw === '1') setTestMode(true)
     } catch { /* ignore */ }
-  }, [isAdmin])
+  }, [isAdmin, showTestMode, testModeKey])
   useEffect(() => {
-    if (!isAdmin) return
-    try { window.localStorage.setItem('fe-apply-test-mode', testMode ? '1' : '0') } catch { /* ignore */ }
-  }, [testMode, isAdmin])
+    if (!isAdmin || !showTestMode) return
+    try { window.localStorage.setItem(testModeKey, testMode ? '1' : '0') } catch { /* ignore */ }
+  }, [testMode, isAdmin, showTestMode, testModeKey])
 
   // Persist current data to localStorage while test mode is on (autosave is suppressed).
   useEffect(() => {
     if (!testMode) return
-    try { window.localStorage.setItem('fe-apply-test-data', JSON.stringify(data)) } catch { /* ignore */ }
-  }, [data, testMode])
+    try { window.localStorage.setItem(testDataKey, JSON.stringify(data)) } catch { /* ignore */ }
+  }, [data, testMode, testDataKey])
   useEffect(() => {
     if (!isAdmin || !testMode) return
     try {
-      const raw = window.localStorage.getItem('fe-apply-test-data')
+      const raw = window.localStorage.getItem(testDataKey)
       if (raw) setData(JSON.parse(raw) as ApplicationData)
     } catch { /* ignore */ }
     // Intentionally only on toggle-on transitions.
@@ -106,7 +113,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     })
   }, [searchParams, loanOfficerOptions])
 
-  const autosaveStatus = useAutosave(token, data, step, testMode)
+  const autosaveStatus = useAutosave(token, data, step, testMode, variant.endpoints.draftPatch)
 
   useEffect(() => {
     setMaxVisited((m) => Math.max(m, step))
@@ -132,7 +139,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     if (testMode) return
     if (token || !email) return
     try {
-      const res = await fetch('/api/apply/draft', {
+      const res = await fetch(variant.endpoints.draftPost, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, firstName, data }),
       })
@@ -140,19 +147,19 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       if (j.success) { setToken(j.resumeToken); toast.success('Progress saved. A resume link was emailed to you.') }
       else toast.error(j.error ?? 'Could not start application')
     } catch { toast.error('Network error - please try again') }
-  }, [token, data, testMode])
+  }, [token, data, testMode, variant.endpoints.draftPost])
 
   async function submit() {
     setSubmitting(true)
     setSubmitErrors(null)
     try {
-      const res = await fetch('/api/apply/submit', {
+      const res = await fetch(variant.endpoints.submit, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeToken: token }),
       })
       const j = await res.json()
       if (j.success) {
-        window.location.href = '/apply/submitted'
+        window.location.href = variant.redirects.afterSubmit
         return
       }
       if (!res.ok && Array.isArray(j.missing) && j.missing.length > 0) {
@@ -176,7 +183,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     setTestSubmitting(true)
     setSubmitErrors(null)
     try {
-      const res = await fetch('/api/apply/test-submit', {
+      const res = await fetch(variant.endpoints.testSubmit, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: submissionData, overrides, scenarioLabel }),
@@ -244,7 +251,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-5">
-      {isAdmin && (
+      {isAdmin && showTestMode && (
         <div className="mb-3 flex items-center justify-end gap-2">
           <span className="text-xs font-medium text-gray-500">Test mode</span>
           <button
@@ -275,6 +282,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
           setStep={(n) => { setSubmitErrors(null); setStep(n); setMaxVisited(m => Math.max(m, n)) }}
           onAutoSubmit={(overrides, label, scenarioData) => testSubmit(overrides, label, scenarioData)}
           busy={testSubmitting}
+          overridesStorageKey={testOverridesKey}
         />
       )}
 
@@ -439,12 +447,12 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                 className="text-sm text-gray-600 underline hover:text-gray-900"
                 onClick={async () => {
                   try {
-                    await fetch('/api/apply/draft', {
+                    await fetch(variant.endpoints.draftPatch, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ resumeToken: token, data, currentStep: step }),
                     })
-                    toast.success('Saved. Use the link in your earlier email to resume.')
+                    toast.success(variant.copy.saveAndFinishLaterToast)
                   } catch {
                     toast.error("Couldn't save. Check your connection and try again.")
                   }
@@ -469,7 +477,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                   onClick={async () => {
                     if (testMode) {
                       const overridesRaw = (() => {
-                        try { return JSON.parse(window.localStorage.getItem('fe-apply-test-overrides') ?? 'null') } catch { return null }
+                        try { return JSON.parse(window.localStorage.getItem(testOverridesKey) ?? 'null') } catch { return null }
                       })() as TestOverridesState | null
                       const overrides: TestOverridesState = overridesRaw ?? {
                         borrowerEmail: 'apalmiotto@outlook.com',
@@ -484,7 +492,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                   disabled={testMode ? testSubmitting : (submitting || !token)}
                   className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
-                  {testMode ? (testSubmitting ? 'Submitting…' : 'Submit Test Application') : (submitting ? 'Submitting…' : 'Submit Application')}
+                  {testMode ? (testSubmitting ? 'Submitting…' : 'Submit Test Application') : (submitting ? 'Submitting…' : variant.copy.submitButtonLabel)}
                 </button>
               )}
           </div>
