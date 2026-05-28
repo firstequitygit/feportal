@@ -29,7 +29,13 @@ export default async function LoanProcessorLoansPage() {
   // skip the claim section entirely (they don't need to claim).
   const myLoansQuery = adminClient
     .from('loans')
-    .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
+    .select(`
+      *,
+      borrowers!borrower_id(full_name, email),
+      loan_officers!loan_officer_id(id, full_name),
+      loan_processors!loan_processor_id(id, full_name),
+      loan_details(cash_out_amount)
+    `)
     .eq('archived', false)
     .order('created_at', { ascending: false })
   const scopedMyLoans = lp.is_ops_manager
@@ -44,7 +50,13 @@ export default async function LoanProcessorLoansPage() {
       ? Promise.resolve({ data: [] as Loan[] })
       : adminClient
           .from('loans')
-          .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
+          .select(`
+            *,
+            borrowers!borrower_id(full_name, email),
+            loan_officers!loan_officer_id(id, full_name),
+            loan_processors!loan_processor_id(id, full_name),
+            loan_details(cash_out_amount)
+          `)
           .or('loan_processor_id.is.null,loan_processor_id_2.is.null')
           .neq('pipeline_stage', 'Closed')
           .neq('pipeline_stage', 'New Application')

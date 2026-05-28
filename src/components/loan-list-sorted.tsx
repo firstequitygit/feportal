@@ -14,7 +14,9 @@ const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // New Application → Submitte
 
 type LoanWithBorrower = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
-  loan_officers?: { full_name: string | null } | null
+  loan_officers?: { id: string; full_name: string | null } | null
+  loan_processors?: { id: string; full_name: string | null } | null
+  loan_details?: { cash_out_amount: number | null } | null
 }
 
 interface Props {

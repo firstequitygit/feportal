@@ -12,6 +12,9 @@ type SortDir = 'asc' | 'desc'
 
 export type LoanWithMeta = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
+  loan_officers?: { id: string; full_name: string | null } | null
+  loan_processors?: { id: string; full_name: string | null } | null
+  loan_details?: { cash_out_amount: number | null } | null
   outstandingCount: number
   pendingReviewCount: number
   totalConditionsCount: number
