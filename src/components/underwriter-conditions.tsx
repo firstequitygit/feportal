@@ -520,23 +520,21 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
     }
   }
 
-  async function uploadSingleFile(conditionId: string, file: File, conditionTitle: string): Promise<boolean> {
+  async function uploadOneToStorage(
+    conditionId: string,
+    file: File,
+    conditionTitle: string,
+  ): Promise<{ fileName: string; fileSize: number; path: string } | null> {
     const signRes = await fetch('/api/underwriter/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ loanId, conditionId, fileName: file.name, conditionTitle, propertyAddress }),
     })
-    if (!signRes.ok) { const d = await signRes.json().catch(() => ({})); setUploadError(d.error ?? 'Could not start upload.'); return false }
+    if (!signRes.ok) { const d = await signRes.json().catch(() => ({})); setUploadError(d.error ?? 'Could not start upload.'); return null }
     const { path, token } = await signRes.json()
     const { error: uploadErr } = await supabase.storage.from('documents').uploadToSignedUrl(path, token, file, { contentType: file.type || 'application/octet-stream' })
-    if (uploadErr) { setUploadError(`"${file.name}" upload failed: ` + uploadErr.message); return false }
-    const recordRes = await fetch('/api/underwriter/upload/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loanId, conditionId, fileName: file.name, fileSize: file.size, path }),
-    })
-    if (!recordRes.ok) { const d = await recordRes.json().catch(() => ({})); setUploadError(d.error ?? 'File uploaded but could not save record.'); return false }
-    return true
+    if (uploadErr) { setUploadError(`"${file.name}" upload failed: ` + uploadErr.message); return null }
+    return { fileName: file.name, fileSize: file.size, path }
   }
 
   async function handleUpload(conditionId: string, files: FileList) {
@@ -545,10 +543,26 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
     setUploadError(null)
     setUploadingSet(prev => new Set(prev).add(conditionId))
     const conditionTitle = conditions.find(c => c.id === conditionId)?.title ?? conditionId
+
+    const uploaded: Array<{ fileName: string; fileSize: number; path: string }> = []
     for (const file of fileArray) {
-      const ok = await uploadSingleFile(conditionId, file, conditionTitle)
-      if (!ok) break
+      const result = await uploadOneToStorage(conditionId, file, conditionTitle)
+      if (!result) break
+      uploaded.push(result)
     }
+
+    if (uploaded.length > 0) {
+      const recordRes = await fetch('/api/underwriter/upload/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId, conditionId, files: uploaded }),
+      })
+      if (!recordRes.ok) {
+        const d = await recordRes.json().catch(() => ({}))
+        setUploadError(d.error ?? 'Files uploaded but could not save records.')
+      }
+    }
+
     setUploadingSet(prev => { const next = new Set(prev); next.delete(conditionId); return next })
     router.refresh()
   }

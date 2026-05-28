@@ -6,6 +6,8 @@ import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { sendEmail } from '@/lib/mailer'
 import { assertNotImpersonating } from '@/lib/impersonate'
 
+// LP upload record. Same multi-file batch shape as the LO route — accepts
+// either `files: [...]` or the legacy single-file fields.
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
   if (block) return block
@@ -19,8 +21,16 @@ export async function POST(req: NextRequest) {
     .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, conditionId, fileName, fileSize, path } = await req.json()
-  if (!loanId || !conditionId || !fileName || !path) {
+  const body = await req.json()
+  const { loanId, conditionId } = body
+  const files: Array<{ fileName: string; fileSize?: number | null; path: string }> =
+    Array.isArray(body.files) && body.files.length > 0
+      ? body.files
+      : body.fileName && body.path
+        ? [{ fileName: body.fileName, fileSize: body.fileSize ?? null, path: body.path }]
+        : []
+
+  if (!loanId || !conditionId || files.length === 0) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -37,15 +47,17 @@ export async function POST(req: NextRequest) {
   const { data: condition } = await adminClient
     .from('conditions').select('title, status').eq('id', conditionId).single()
 
-  const { error } = await adminClient.from('documents').insert({
-    loan_id: loanId,
-    condition_id: conditionId,
-    file_name: fileName,
-    file_path: path,
-    file_size: fileSize ?? null,
-  })
+  const { error } = await adminClient.from('documents').insert(
+    files.map(f => ({
+      loan_id: loanId,
+      condition_id: conditionId,
+      file_name: f.fileName,
+      file_path: f.path,
+      file_size: f.fileSize ?? null,
+    })),
+  )
 
-  if (error) return NextResponse.json({ error: 'Could not save document: ' + error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Could not save documents: ' + error.message }, { status: 500 })
 
   // Flip the condition into the underwriter review queue when it was outstanding
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
@@ -53,26 +65,32 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const fileList = files.map(f => f.fileName).join(', ')
     await adminClient.from('loan_events').insert({
       loan_id: loanId,
       event_type: 'document_uploaded',
-      description: `Loan processor ${lp.full_name} uploaded document for "${condition?.title ?? 'condition'}": ${fileName}`,
+      description: `Loan processor ${lp.full_name} uploaded ${files.length === 1 ? 'a document' : `${files.length} documents`} for "${condition?.title ?? 'condition'}": ${fileList}`,
     })
   } catch (err) {
     console.error('Event log error:', err)
   }
 
-  // Download the file to attach to the email
-  let fileBuffer: Buffer | null = null
-  try {
-    const { data: fileData } = await adminClient.storage.from('documents').download(path)
-    if (fileData) fileBuffer = Buffer.from(await fileData.arrayBuffer())
-  } catch (err) {
-    console.error('File download error:', err)
+  // Download every uploaded file from Storage to attach.
+  const attachments: Array<{ filename: string; content: Buffer }> = []
+  for (const f of files) {
+    try {
+      const { data: fileData } = await adminClient.storage.from('documents').download(f.path)
+      if (fileData) {
+        attachments.push({ filename: f.fileName, content: Buffer.from(await fileData.arrayBuffer()) })
+      }
+    } catch (err) {
+      console.error(`File download error (${f.fileName}):`, err)
+    }
   }
 
   // Notify LO + primary LP. Per FE policy: any condition-received event
-  // notifies both staff roles, regardless of who triggered it.
+  // notifies both staff roles, regardless of who triggered it. One email
+  // per recipient per batch.
   try {
     const recipients = await getStaffRecipientsForLoan(loanId)
     if (recipients.recipients.length === 0) {
@@ -84,15 +102,15 @@ export async function POST(req: NextRequest) {
         uploaderName: lp.full_name,
         propertyAddress: loan.property_address ?? 'Unknown property',
         conditionTitle: condition?.title ?? 'Unknown condition',
-        fileName,
-        fileBuffer,
+        fileNames: files.map(f => f.fileName),
+        attachments,
       })))
     }
   } catch (err) {
     console.error('Email notification error:', err)
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, recorded: files.length })
 }
 
 async function sendNotification({
@@ -101,35 +119,41 @@ async function sendNotification({
   uploaderName,
   propertyAddress,
   conditionTitle,
-  fileName,
-  fileBuffer,
+  fileNames,
+  attachments,
 }: {
   toEmail: string
   toName: string
   uploaderName: string
   propertyAddress: string
   conditionTitle: string
-  fileName: string
-  fileBuffer: Buffer | null
+  fileNames: string[]
+  attachments: Array<{ filename: string; content: Buffer }>
 }) {
   const BASE_URL = PORTAL_URL
+  const fileLabel = fileNames.length === 1 ? 'File' : `Files (${fileNames.length})`
+  const fileBlock = fileNames.length === 1
+    ? `<strong>${fileNames[0]}</strong>`
+    : `<ul style="margin:0;padding-left:18px;">${fileNames.map(n => `<li><strong>${n}</strong></li>`).join('')}</ul>`
+  const subjectFiles = fileNames.length === 1 ? '' : ` (${fileNames.length} files)`
 
-  await sendEmail({    to: toEmail,
-    subject: `Document uploaded — ${propertyAddress}`,
+  await sendEmail({
+    to: toEmail,
+    subject: `Document${fileNames.length === 1 ? '' : 's'} uploaded — ${propertyAddress}${subjectFiles}`,
     html: `
       <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
         Hi ${toName},<br/><br/>
-        <strong>${uploaderName}</strong> (Loan Processor) has uploaded a document to the First Equity Funding portal.
+        <strong>${uploaderName}</strong> (Loan Processor) has uploaded ${fileNames.length === 1 ? 'a document' : `${fileNames.length} documents`} to the First Equity Funding portal.
       </p>
       <table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">
-        <tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${propertyAddress}</strong></td></tr>
-        <tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr>
-        <tr><td style="padding:4px 16px 4px 0;color:#666;">File</td><td><strong>${fileName}</strong></td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">Property</td><td><strong>${propertyAddress}</strong></td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">Condition</td><td><strong>${conditionTitle}</strong></td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">${fileLabel}</td><td>${fileBlock}</td></tr>
       </table>
       <p style="font-family:Arial,sans-serif;font-size:13px;color:#888;margin-top:24px;">
         Log in to the <a href="${BASE_URL}/loan-officer" style="color:#1F5D8F;">loan officer portal</a> to review.
       </p>
     `,
-    attachments: fileBuffer ? [{ filename: fileName, content: fileBuffer }] : [],
+    attachments,
   })
 }
