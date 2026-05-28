@@ -102,7 +102,6 @@ export default async function UnderwriterLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/underwriter"
-        groupByLoanOfficer
       />
     </PortalShell>
   )

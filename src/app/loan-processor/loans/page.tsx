@@ -173,7 +173,6 @@ export default async function LoanProcessorLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/loan-processor"
-        groupByLoanOfficer
       />
     </PortalShell>
   )

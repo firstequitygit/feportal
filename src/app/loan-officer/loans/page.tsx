@@ -142,6 +142,7 @@ export default async function LoanOfficerLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/loan-officer"
+        hideLoanOfficerDimensions
       />
     </PortalShell>
   )
