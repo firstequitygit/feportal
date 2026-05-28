@@ -27,7 +27,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       variant="admin"
       isSuperAdmin={admin.is_super ?? false}
       impersonation={impersonation}
-      maxWidth="max-w-7xl"
+      maxWidth="max-w-screen-2xl"
     >
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Settings</h2>

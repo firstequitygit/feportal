@@ -99,7 +99,7 @@ export default async function AdminPage() {
       isSuperAdmin={admin.is_super}
       impersonation={impersonation}
       staffContext={ctx}
-      maxWidth="max-w-7xl"
+      maxWidth="max-w-screen-2xl"
     >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
 

@@ -213,10 +213,10 @@ function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefi
   }))
 
   return (
-    <div className="pb-4 overflow-x-auto">
-      <div className="grid grid-cols-5 gap-3 min-w-[720px]">
+    <div className="pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-2 snap-x -mx-2 px-2">
         {columns.map(({ stage, loans: stageLoans }) => (
-          <div key={stage} className="min-w-0">
+          <div key={stage} className="w-70 shrink-0 snap-start">
             <div className="flex items-center justify-between mb-2 px-1">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
                 {formatStage(stage)}
