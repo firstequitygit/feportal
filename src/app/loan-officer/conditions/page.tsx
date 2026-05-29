@@ -29,11 +29,16 @@ export default async function LoanOfficerConditionsPage() {
   )
   if (!lo) redirect('/login')
 
-  // Get all loans assigned to this LO
+  // Scope to active loans only (matches the Inbox + avoids the PostgREST
+  // 1000-row cap that was excluding older active loans for LOs with long
+  // historical loan lists). Closed and archived loans don't need attention
+  // here.
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address')
+    .select('id, property_address, pipeline_stage')
     .eq('loan_officer_id', lo.id)
+    .eq('archived', false)
+    .neq('pipeline_stage', 'Closed')
     .order('created_at', { ascending: false })
 
   const loanIds = (loans ?? []).map(l => l.id)
