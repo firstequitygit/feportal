@@ -589,30 +589,6 @@ export function LoanDetailsCard({
                 inputWidthClass="w-24"
               />
             </DetailRow>
-            <DetailRow label="Broker Points">
-              <EditableLoanField
-                loanId={loanId}
-                field="broker_points"
-                type="number"
-                currentValue={d.broker_points ?? null}
-                display={d.broker_points !== null && d.broker_points !== undefined ? String(d.broker_points) : '—'}
-                placeholder="1"
-                step="0.01"
-                inputWidthClass="w-24"
-              />
-            </DetailRow>
-            <DetailRow label="Broker YSP">
-              <EditableLoanField
-                loanId={loanId}
-                field="broker_ysp"
-                type="number"
-                currentValue={d.broker_ysp ?? null}
-                display={d.broker_ysp !== null && d.broker_ysp !== undefined ? String(d.broker_ysp) : '—'}
-                placeholder="0"
-                step="0.01"
-                inputWidthClass="w-24"
-              />
-            </DetailRow>
             <DetailRow label="Rate Costs - Points">
               <EditableLoanField
                 loanId={loanId}
@@ -632,6 +608,30 @@ export function LoanDetailsCard({
                 type="number"
                 currentValue={d.other_exception_costs_points ?? null}
                 display={d.other_exception_costs_points !== null && d.other_exception_costs_points !== undefined ? String(d.other_exception_costs_points) : '—'}
+                placeholder="0"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Broker Points">
+              <EditableLoanField
+                loanId={loanId}
+                field="broker_points"
+                type="number"
+                currentValue={d.broker_points ?? null}
+                display={d.broker_points !== null && d.broker_points !== undefined ? String(d.broker_points) : '—'}
+                placeholder="1"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Broker YSP">
+              <EditableLoanField
+                loanId={loanId}
+                field="broker_ysp"
+                type="number"
+                currentValue={d.broker_ysp ?? null}
+                display={d.broker_ysp !== null && d.broker_ysp !== undefined ? String(d.broker_ysp) : '—'}
                 placeholder="0"
                 step="0.01"
                 inputWidthClass="w-24"
