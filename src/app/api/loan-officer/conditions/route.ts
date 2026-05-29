@@ -146,12 +146,14 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
   const { data: condition } = await adminClient
-    .from('conditions').select('id, loan_id, title').eq('id', conditionId).single()
+    .from('conditions').select('id, loan_id, title, status, assigned_to').eq('id', conditionId).single()
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: loan } = await adminClient
-    .from('loans').select('id').eq('id', condition.loan_id).eq('loan_officer_id', lo.id).single()
+    .from('loans').select('id, property_address, loan_processor_id, loan_processor_id_2').eq('id', condition.loan_id).eq('loan_officer_id', lo.id).single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const previousStatus = condition.status as string | null
 
   const updatePayload: Record<string, unknown> = { status }
   if (status === 'Rejected') updatePayload.rejection_reason = rejectionReason?.trim() || null
@@ -169,6 +171,52 @@ export async function PUT(req: NextRequest) {
       description: `Loan officer ${lo.full_name} marked "${condition.title}" as ${status}${status === 'Rejected' && rejectionReason?.trim() ? `: ${rejectionReason.trim()}` : ''}`,
     })
   } catch (err) { console.error('Event log error:', err) }
+
+  // Notify the LP(s) on the loan when an LO-assigned condition transitions
+  // INTO Satisfied. LPs coordinate the work and want to know when an LO
+  // closes out one of their items. Only fires when:
+  //   - condition was assigned to the loan_officer role
+  //   - new status === 'Satisfied' AND wasn't already Satisfied
+  //   - at least one LP is on the loan
+  if (
+    condition.assigned_to === 'loan_officer' &&
+    status === 'Satisfied' &&
+    previousStatus !== 'Satisfied'
+  ) {
+    try {
+      const lpIds = [loan.loan_processor_id, loan.loan_processor_id_2].filter(
+        (id): id is string => !!id,
+      )
+      if (lpIds.length > 0) {
+        const { data: lps } = await adminClient
+          .from('loan_processors')
+          .select('full_name, email')
+          .in('id', lpIds)
+        const recipients = (lps ?? []).filter(
+          (lp): lp is { full_name: string | null; email: string } => !!lp.email,
+        )
+        if (recipients.length > 0) {
+          const addr = loan.property_address ?? 'a loan'
+          await Promise.all(recipients.map(lp => sendEmail({
+            to: lp.email,
+            subject: `Condition satisfied — ${addr}`,
+            html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${lp.full_name ?? 'there'},</p>
+              <p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+                <strong>${lo.full_name}</strong> (Loan Officer) has marked a condition assigned to them as <strong style="color:#16a34a;">Satisfied</strong>.
+              </p>
+              <table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">
+                <tr><td style="padding:4px 16px 4px 0;color:#666;">Property</td><td><strong>${addr}</strong></td></tr>
+                <tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${condition.title}</strong></td></tr>
+              </table>
+              <p style="margin-top:16px;">
+                <a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a>
+              </p>
+              <p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+          })))
+        }
+      }
+    } catch (err) { console.error('LP notification error (LO satisfied):', err) }
+  }
 
   return NextResponse.json({ success: true })
 }
