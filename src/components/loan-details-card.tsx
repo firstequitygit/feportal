@@ -196,7 +196,13 @@ function calcMonthlyPayment(
   amortizationSchedule: string | null | undefined,
 ): number | null {
   if (!amount || !ratePct) return null
-  const r = ratePct / 100 / 12
+  // Pipedrive / JotForm store interest rate inconsistently — some loans
+  // have 7.75 (percent), others have 0.0775 (fraction). Hard-money rates
+  // realistically sit between 5% and 15%, so anything < 1 is a fraction
+  // that's already decimal-form; values >= 1 are still in percent form
+  // and need /100. Same heuristic format-interest-rate.ts uses for display.
+  const annualFraction = ratePct < 1 ? ratePct : ratePct / 100
+  const r = annualFraction / 12
   const isInterestOnly =
     interestOnly === 'Yes' || amortizationSchedule === 'Interest Only'
   if (isInterestOnly) return amount * r
