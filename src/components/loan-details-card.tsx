@@ -589,7 +589,7 @@ export function LoanDetailsCard({
                 inputWidthClass="w-24"
               />
             </DetailRow>
-            <DetailRow label="Rate Costs - Points">
+            <DetailRow label="Extension Costs - Points">
               <EditableLoanField
                 loanId={loanId}
                 field="rate_costs_points"
