@@ -294,7 +294,7 @@ function MatchPhase({
         <section className="flex flex-col overflow-hidden">
           <h3 className="text-sm font-semibold mb-2">Conditions</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-            {CONDITION_CATEGORIES.map(cat => {
+            {[...CONDITION_CATEGORIES, { value: 'uncategorized' as const, label: 'Other' }].map(cat => {
               const list = grouped[cat.value] ?? []
               if (list.length === 0) return null
               return (
