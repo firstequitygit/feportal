@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 
+// Mirror of the loan_notes.category CHECK constraint (see migration
+// 20260529-loan-notes-category.sql). Anything outside this set is
+// coerced to 'loan_officer' rather than failing the insert.
+const NOTE_CATEGORIES = ['loan_officer', 'processor', 'underwriter', 'closer'] as const
+
 interface StaffContext {
   userEmail: string | null
   isAdmin: boolean
@@ -68,10 +73,11 @@ export async function POST(req: NextRequest) {
   const ctx = await getStaffContext()
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, content } = await req.json()
+  const { loanId, content, category } = await req.json()
   if (!loanId || !content?.trim()) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
+  const safeCategory = NOTE_CATEGORIES.includes(category) ? category : 'loan_officer'
 
   if (!await verifyLoanAccess(loanId, ctx)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -84,6 +90,7 @@ export async function POST(req: NextRequest) {
       loan_id: loanId,
       content: content.trim(),
       created_by: ctx.userEmail ?? 'Staff',
+      category: safeCategory,
     })
     .select()
     .single()

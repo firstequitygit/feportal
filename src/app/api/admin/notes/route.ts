@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 
+// Mirrors the CHECK constraint in 20260529-loan-notes-category.sql.
+// Kept here too so the route rejects unknown categories with a clean
+// 400 rather than letting Postgres throw a constraint violation.
+const NOTE_CATEGORIES = ['loan_officer', 'processor', 'underwriter', 'closer'] as const
+
 async function verifyAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,10 +23,13 @@ export async function POST(request: Request) {
   const user = await verifyAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, content } = await request.json()
+  const { loanId, content, category } = await request.json()
   if (!loanId || !content?.trim()) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
+  // Default to loan_officer to match the column default — keeps backward
+  // compatibility with any caller that doesn't yet send a category.
+  const safeCategory = NOTE_CATEGORIES.includes(category) ? category : 'loan_officer'
 
   const adminClient = createAdminClient()
   const { data, error } = await adminClient
@@ -30,6 +38,7 @@ export async function POST(request: Request) {
       loan_id: loanId,
       content: content.trim(),
       created_by: user.email ?? 'Admin',
+      category: safeCategory,
     })
     .select()
     .single()
