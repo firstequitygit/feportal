@@ -53,8 +53,12 @@ function normalizeTitle(title: string): string {
 }
 
 // ----- Self-test (run via `npx tsx src/lib/match-condition.ts`) -----
-// This block runs only when the file is invoked directly, not when imported.
-if (typeof require !== 'undefined' && require.main === module) {
+// This block runs only when the file is invoked directly via Node, never in
+// the browser bundle. The typeof guard on `module` is load-bearing: in the
+// browser, `module` is not a defined binding and reading it throws
+// ReferenceError, so we have to short-circuit before the `=== module` operand
+// is evaluated.
+if (typeof module !== 'undefined' && typeof require !== 'undefined' && require.main === module) {
   const cases: { filename: string; conditions: { id: string; title: string }[]; expected: string | null }[] = [
     {
       filename: 'operating_agreement_v2.pdf',
