@@ -569,7 +569,11 @@ export async function syncAllLoansToAirtable(
       q = q.order('airtable_last_synced_at', { ascending: true, nullsFirst: true })
     }
     const { data, error } = await q.range(from, from + pageSize - 1)
-    if (error) throw error
+    // Supabase errors are plain objects, not Error instances. If we
+    // `throw error` directly the outer catch's `String(e)` becomes
+    // "[object Object]" — useless. Wrap in a real Error so the message
+    // makes it back to the toast.
+    if (error) throw new Error(`Supabase loan-list query failed: ${error.message ?? JSON.stringify(error)}`)
     if (!data?.length) break
     for (const l of data) {
       loanIds.push(l.id)
@@ -616,7 +620,14 @@ export async function syncAllLoansToAirtable(
       }
     } catch (e) {
       summary.errors++
-      const msg = e instanceof Error ? e.message : String(e)
+      // Same defense as the route catch — plain objects (Supabase errors,
+      // typed network errors) String() to "[object Object]".
+      let msg: string
+      if (e instanceof Error) msg = e.message
+      else if (e && typeof e === 'object') {
+        const o = e as Record<string, unknown>
+        msg = typeof o.message === 'string' ? o.message : JSON.stringify(e).slice(0, 300)
+      } else msg = String(e)
       if (summary.errorSample.length < 10) summary.errorSample.push({ loanId: id, error: msg })
     }
   }
