@@ -12,6 +12,9 @@ import { CollapsibleCard } from '@/components/collapsible-card'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { ConditionNotes, type ConditionNote } from '@/components/condition-notes'
 import { useImpersonation } from '@/components/impersonation-provider'
+import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
+import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
+import { suggestConditionId } from '@/lib/match-condition'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -356,6 +359,10 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [bulkInitialDocs, setBulkInitialDocs] = useState<BulkDoc[] | undefined>(undefined)
+  const [unmatchedRefreshKey, setUnmatchedRefreshKey] = useState(0)
+
   const [templateSaving, setTemplateSaving] = useState<string | null>(null)
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [addedTemplates, setAddedTemplates] = useState<Set<string>>(new Set(conditions.map(c => c.title)))
@@ -616,10 +623,20 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
-          {!adding && !isImpersonating && (
-            <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
-              + Add Condition
-            </button>
+          {!isImpersonating && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
+                className="text-xs text-primary hover:opacity-80 font-medium"
+              >
+                Bulk Upload
+              </button>
+              {!adding && (
+                <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
+                  + Add Condition
+                </button>
+              )}
+            </div>
           )}
         </CardHeader>
         {adding && (
@@ -687,6 +704,27 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
           </CardContent>
         )}
       </Card>
+
+      <UnmatchedDocumentsCard
+        loanId={loanId}
+        refreshKey={unmatchedRefreshKey}
+        onMatchClick={(unmatchedDocs: UnmatchedDoc[]) => {
+          const titles = conditions.map(c => ({ id: c.id, title: c.title }))
+          setBulkInitialDocs(unmatchedDocs.map(u => {
+            const suggested = suggestConditionId(u.file_name, titles)
+            return {
+              id: u.id,
+              file_name: u.file_name,
+              file_path: u.file_path,
+              file_size: u.file_size,
+              suggested_condition_id: suggested,
+              staged_condition_id: suggested,
+              confirmed: false,
+            }
+          }))
+          setBulkModalOpen(true)
+        }}
+      />
 
       {grouped.map(({ catValue, catLabel, group }) => {
         const outstanding = group.filter(c => c.status === 'Outstanding' || c.status === 'Received').length
@@ -835,6 +873,15 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
           </BulkActionButton>
         </BulkActionBar>
       )}
+
+      <BulkUploadModal
+        loanId={loanId}
+        conditions={conditions}
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        initialDocs={bulkInitialDocs}
+        onSaved={() => { setUnmatchedRefreshKey(k => k + 1); router.refresh() }}
+      />
     </div>
   )
 }
