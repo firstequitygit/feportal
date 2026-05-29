@@ -4,6 +4,7 @@ import { normalizeDeal, fetchEnumOptions, type PipedriveDeal } from '@/lib/piped
 import { PIPEDRIVE_FIELDS } from '@/lib/types'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
+import { findOrLinkBroker } from '@/lib/broker-sync'
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -57,10 +58,11 @@ export async function POST(request: Request) {
     const deal = normalizeDeal(dealData, optionsMap)
     console.log('Normalized deal:', JSON.stringify(deal))
 
-    // Fetch current stage before upserting to detect Submitted (Loan Approved) transition
+    // Fetch current state before upserting — drives both the CA stage
+    // preservation and the "skip broker auto-assign if already set" guard.
     const { data: existingLoan } = await supabase
       .from('loans')
-      .select('id, pipeline_stage')
+      .select('id, pipeline_stage, broker_id')
       .eq('pipedrive_deal_id', dealId)
       .single()
 
@@ -106,6 +108,14 @@ export async function POST(request: Request) {
       if (loMatch) resolvedLoId = loMatch.id
     }
 
+    // Broker auto-assign — only when Pipedrive has a broker AND the loan
+    // doesn't already carry one. Done inline so we don't add a Pipedrive
+    // call when there's nothing to resolve.
+    let resolvedBrokerId: string | null = null
+    if (deal.broker_pipedrive_person_id && !existingLoan?.broker_id) {
+      resolvedBrokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
+    }
+
     const upsertPayload: Record<string, unknown> = {
       pipedrive_deal_id:  deal.pipedrive_deal_id,
       property_address:   deal.property_address,
@@ -124,6 +134,7 @@ export async function POST(request: Request) {
       ...archivedField,
     }
     if (resolvedLoId) upsertPayload.loan_officer_id = resolvedLoId
+    if (resolvedBrokerId) upsertPayload.broker_id = resolvedBrokerId
 
     const { error } = await supabase
       .from('loans')

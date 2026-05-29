@@ -6,6 +6,7 @@ import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendP
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
+import { findOrLinkBroker } from '@/lib/broker-sync'
 import { assertNotImpersonating } from '@/lib/impersonate'
 
 export async function POST() {
@@ -46,28 +47,34 @@ export async function POST() {
       return NextResponse.json({ error: `Supabase client failed: ${msg}` }, { status: 500 })
     }
 
-    // Step 3: Pre-fetch current stages so we can detect Submitted (Loan
-    // Approved) transitions AND protect the portal-only Conditionally
-    // Approved stage from being clobbered back to Underwriting.
+    // Step 3: Pre-fetch current loan state so we can:
+    //   - detect Submitted (Loan Approved) transitions
+    //   - protect Conditionally Approved from being clobbered back to UW
+    //   - skip broker auto-assign when an admin already picked one
     //
     // MUST paginate. A single .select() is silently capped at 1000 rows
-    // by PostgREST. Without this loop the map missed any loan past row
-    // 1000, previousStage came back null on those, and the Conditionally
-    // Approved preservation guard never fired — so the upsert flipped
-    // them to whatever Pipedrive had (usually Underwriting).
-    const currentStageMap: Record<number, { id: string; stage: string | null }> = {}
+    // by PostgREST. Without this loop, loans past row 1000 came back with
+    // no previous state, the Conditionally Approved preservation guard
+    // never fired, and the upsert flipped them to Pipedrive's UW.
+    const currentLoanMap: Record<number, { id: string; stage: string | null; broker_id: string | null }> = {}
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase
         .from('loans')
-        .select('id, pipedrive_deal_id, pipeline_stage')
+        .select('id, pipedrive_deal_id, pipeline_stage, broker_id')
         .not('pipedrive_deal_id', 'is', null)
         .range(from, from + 999)
       if (error || !data?.length) break
       for (const loan of data) {
-        currentStageMap[loan.pipedrive_deal_id] = { id: loan.id, stage: loan.pipeline_stage }
+        currentLoanMap[loan.pipedrive_deal_id] = {
+          id: loan.id,
+          stage: loan.pipeline_stage,
+          broker_id: loan.broker_id ?? null,
+        }
       }
       if (data.length < 1000) break
     }
+    // Backwards-compat alias used by the rest of this route.
+    const currentStageMap = currentLoanMap
 
     // Step 4: Upsert deals
     let synced = 0
@@ -113,6 +120,14 @@ export async function POST() {
         if (borrowerId) borrowersLinked++
       }
 
+      // Resolve / create the broker row from Pipedrive's "Broker" custom
+      // Person field. Only auto-assigns when the loan has no existing
+      // broker — preserves admin manual assignments and broker_id_2.
+      let brokerId: string | null = null
+      if (deal.broker_pipedrive_person_id && !existing?.broker_id) {
+        brokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
+      }
+
       // archived rule (matches cron sync): only lost deals get archived
       // automatically. Won deals stay until the 30-day post-Closed cron
       // promotes them. Open deals stay claimable.
@@ -154,6 +169,10 @@ export async function POST() {
       }
       // Don't clobber an admin-assigned borrower when Pipedrive has no person.
       if (borrowerId) payload.borrower_id = borrowerId
+
+      // Auto-assign broker only when we just resolved one AND the loan had
+      // no existing broker (existing?.broker_id check above gated brokerId).
+      if (brokerId) payload.broker_id = brokerId
 
       // Pipedrive deal owner → portal LO (when a mapping exists).
       if (deal.pipedrive_user_id != null) {

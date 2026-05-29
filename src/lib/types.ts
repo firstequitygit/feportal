@@ -96,6 +96,7 @@ export interface Borrower {
 export interface Broker {
   id: string
   auth_user_id: string | null
+  pipedrive_person_id: number | null
   email: string
   full_name: string | null
   company_name: string | null
@@ -224,6 +225,7 @@ export const PIPEDRIVE_FIELDS = {
   loanTypeII:         '6780eb1a6f081cabfd6248c03dd13152804233f5', // "Loan Purpose" (Purchase / Refi / etc.)
   propertyAddress:    '774f8922280288f08c94df16bf643d40a5da53f6', // structured address field
   closingDate:        'e150d1a8987dfe88c808d7c2121b9fe02f8a65fe', // "Closing Date" — scheduled/expected close, drives the Closings report
+  brokerPerson:       'fe46b6b2dbd2155a3ca4a1994f33ab3da3f2b05c', // "Broker" — custom Person field on the deal; drives broker auto-assignment
 } as const
 
 // Pipedrive "Loan Program" option ID → portal LoanType

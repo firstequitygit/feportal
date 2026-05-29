@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
+import { findOrLinkBroker } from '@/lib/broker-sync'
 
 // Called automatically by Vercel cron.
 // Also protected by CRON_SECRET so only Vercel can trigger it.
@@ -15,17 +16,21 @@ export async function GET(request: Request) {
     const supabase = createAdminClient()
     const deals = await fetchAllDeals()
 
-    // Pre-fetch current portal stages keyed by pipedrive_deal_id. Lets us
-    // protect the portal-only 'Conditionally Approved' stage from being
-    // clobbered by a Pipedrive 'Underwriting' on the same loan.
+    // Pre-fetch current loan state keyed by pipedrive_deal_id. Lets us:
+    //   - protect 'Conditionally Approved' from being clobbered back to UW
+    //   - skip broker auto-assign when an admin already picked one
     const portalStageByDealId = new Map<string, string | null>()
+    const portalBrokerByDealId = new Map<string, string | null>()
     for (let from = 0; ; from += 1000) {
       const { data } = await supabase
-        .from('loans').select('pipedrive_deal_id, pipeline_stage')
+        .from('loans').select('pipedrive_deal_id, pipeline_stage, broker_id')
         .not('pipedrive_deal_id', 'is', null)
         .range(from, from + 999)
       if (!data?.length) break
-      for (const r of data) portalStageByDealId.set(String(r.pipedrive_deal_id), r.pipeline_stage)
+      for (const r of data) {
+        portalStageByDealId.set(String(r.pipedrive_deal_id), r.pipeline_stage)
+        portalBrokerByDealId.set(String(r.pipedrive_deal_id), r.broker_id ?? null)
+      }
       if (data.length < 1000) break
     }
 
@@ -57,6 +62,15 @@ export async function GET(request: Request) {
           phone:     deal.borrower_phone,
         })
         if (borrowerId) borrowersLinked++
+      }
+
+      // Broker auto-assign — only when Pipedrive has a broker AND the loan
+      // doesn't already carry one (don't clobber an admin manual pick or
+      // broker_id_2).
+      let brokerId: string | null = null
+      const existingBrokerId = portalBrokerByDealId.get(String(deal.pipedrive_deal_id))
+      if (deal.broker_pipedrive_person_id && !existingBrokerId) {
+        brokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
       }
 
       // 'Conditionally Approved' is portal-only. Pipedrive keeps such loans
@@ -99,6 +113,7 @@ export async function GET(request: Request) {
       // key (vs. writing null) avoids clobbering an admin-assigned borrower
       // on loans where Pipedrive has no person data.
       if (borrowerId) payload.borrower_id = borrowerId
+      if (brokerId) payload.broker_id = brokerId
 
       // LO assignment: if Pipedrive's deal owner maps to a known portal LO,
       // mirror that into loan_officer_id. Same write-when-resolved pattern as

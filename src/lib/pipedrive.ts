@@ -89,6 +89,7 @@ export interface NormalizedDeal {
   closed_at: string | null               // Pipedrive won_time, normalized to ISO (only when status=won)
   estimated_closing_date: string | null  // Pipedrive "Closing Date" custom field — scheduled/expected close
   lost_reason: string | null             // Free-text reason populated by Pipedrive when status=lost
+  broker_pipedrive_person_id: number | null  // Custom "Broker" person field on the deal — drives broker auto-assignment
 }
 
 function getField(deal: PipedriveDeal, key: string): unknown {
@@ -265,6 +266,10 @@ export function normalizeDeal(deal: PipedriveDeal, optionsMap?: EnumOptionsMap):
     // used by FE's monthly closings report. Comes through as "YYYY-MM-DD".
     estimated_closing_date: toString(getField(deal, f.closingDate)),
     lost_reason: toString(deal.lost_reason),
+    // Custom "Broker" person field. Pipedrive returns custom person-typed
+    // fields as either a bare number (just the person id) or as a small
+    // object — toNumber handles both.
+    broker_pipedrive_person_id: toNumber(getField(deal, f.brokerPerson)),
   }
 }
 
@@ -288,6 +293,44 @@ export async function fetchAllDeals(): Promise<NormalizedDeal[]> {
   const all = [...open, ...won, ...lost] as PipedriveDeal[]
   const pipeline2 = all.filter(d => d.pipeline_id === 2)
   return pipeline2.map(d => normalizeDeal(d, optionsMap))
+}
+
+/**
+ * Fetch a single Pipedrive Person's display info. Used by broker-sync to
+ * resolve the broker custom field on a deal into a name/email/phone
+ * triple. Returns null if the id doesn't resolve (deleted person, bad id).
+ *
+ * Picks the primary email/phone when marked, falling back to the first
+ * entry — same heuristic used for borrowers in normalizeDeal.
+ */
+export interface PipedrivePersonSummary {
+  id: number
+  name: string | null
+  email: string | null
+  phone: string | null
+}
+export async function fetchPerson(personId: number): Promise<PipedrivePersonSummary | null> {
+  try {
+    const data = await pipedriveGet(`/persons/${personId}`)
+    if (!data.success || !data.data) return null
+    const p = data.data as {
+      id: number
+      name?: string | null
+      email?: { value: string; primary?: boolean }[]
+      phone?: { value: string; primary?: boolean }[]
+    }
+    const emailPrimary = p.email?.find(e => e.primary)
+    const phonePrimary = p.phone?.find(ph => ph.primary)
+    return {
+      id: p.id,
+      name: p.name ?? null,
+      email: (emailPrimary?.value ?? p.email?.[0]?.value ?? null) || null,
+      phone: (phonePrimary?.value ?? p.phone?.[0]?.value ?? null) || null,
+    }
+  } catch (err) {
+    console.error(`fetchPerson(${personId}) failed:`, err)
+    return null
+  }
 }
 
 export async function fetchDeal(dealId: number): Promise<NormalizedDeal | null> {
