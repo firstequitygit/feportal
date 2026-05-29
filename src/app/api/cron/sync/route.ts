@@ -4,6 +4,17 @@ import { fetchAllDeals } from '@/lib/pipedrive'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
 import { findOrLinkBroker } from '@/lib/broker-sync'
 
+/**
+ * Only set `key` on `obj` when `value` is something Pipedrive actually has.
+ * Used by the cron + manual sync to avoid clobbering portal-entered data
+ * when Pipedrive returns null for a field.
+ */
+function setIfPresent(obj: Record<string, unknown>, key: string, value: unknown) {
+  if (value === null || value === undefined) return
+  if (typeof value === 'string' && value.trim() === '') return
+  obj[key] = value
+}
+
 // Called automatically by Vercel cron.
 // Also protected by CRON_SECRET so only Vercel can trigger it.
 export async function GET(request: Request) {
@@ -83,24 +94,31 @@ export async function GET(request: Request) {
 
       // Lost deals are non-claimable historical records — set archived=true.
       // Open / won are left alone (won goes through the 30-day auto-archive cron once stage flips to Closed).
+      //
+      // "Portal wins, Pipedrive backfills" policy — mirrors the Airtable sync.
+      // Only write a field when Pipedrive actually has a value for it. Null
+      // / undefined from Pipedrive used to clobber portal-entered values
+      // (e.g. user enters loan_amount in the portal, push to Pipedrive fails
+      // silently, next sync reads null and wipes the portal value). The
+      // setIfPresent helper guards each field individually.
       const payload: Record<string, unknown> = {
-        pipedrive_deal_id:  deal.pipedrive_deal_id,
-        property_address:   deal.property_address,
-        pipeline_stage:     effectivePipedriveStage,
-        loan_type:          deal.loan_type,
-        loan_amount:        deal.loan_amount,
-        interest_rate:      deal.interest_rate,
-        ltv:                deal.ltv,
-        arv:                deal.arv,
-        rehab_budget:       deal.rehab_budget,
-        term_months:        deal.term_months ? Math.round(deal.term_months) : null,
-        origination_date:   deal.origination_date,
-        maturity_date:      deal.maturity_date,
-        entity_name:        deal.entity_name,
-        closed_at:               deal.closed_at,                // Pipedrive won_time for won deals
-        estimated_closing_date:  deal.estimated_closing_date,   // Pipedrive "Closing Date" custom field
-        last_synced_at:     new Date().toISOString(),
+        pipedrive_deal_id: deal.pipedrive_deal_id,
+        last_synced_at:    new Date().toISOString(),
       }
+      setIfPresent(payload, 'property_address',        deal.property_address)
+      setIfPresent(payload, 'pipeline_stage',          effectivePipedriveStage)
+      setIfPresent(payload, 'loan_type',               deal.loan_type)
+      setIfPresent(payload, 'loan_amount',             deal.loan_amount)
+      setIfPresent(payload, 'interest_rate',           deal.interest_rate)
+      setIfPresent(payload, 'ltv',                     deal.ltv)
+      setIfPresent(payload, 'arv',                     deal.arv)
+      setIfPresent(payload, 'rehab_budget',            deal.rehab_budget)
+      setIfPresent(payload, 'term_months',             deal.term_months ? Math.round(deal.term_months) : null)
+      setIfPresent(payload, 'origination_date',        deal.origination_date)
+      setIfPresent(payload, 'maturity_date',           deal.maturity_date)
+      setIfPresent(payload, 'entity_name',             deal.entity_name)
+      setIfPresent(payload, 'closed_at',               deal.closed_at)
+      setIfPresent(payload, 'estimated_closing_date',  deal.estimated_closing_date)
       if (deal.pipedrive_status === 'lost') {
         // Mirror Pipedrive-direct cancellations into our lifecycle status so
         // the portal badge stays in sync. One-way assignment — we never
