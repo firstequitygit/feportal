@@ -46,14 +46,27 @@ export async function POST() {
       return NextResponse.json({ error: `Supabase client failed: ${msg}` }, { status: 500 })
     }
 
-    // Step 3: Fetch current stages so we can detect Submitted (Loan Approved) transitions
-    const { data: existingLoans } = await supabase
-      .from('loans')
-      .select('id, pipedrive_deal_id, pipeline_stage')
-
+    // Step 3: Pre-fetch current stages so we can detect Submitted (Loan
+    // Approved) transitions AND protect the portal-only Conditionally
+    // Approved stage from being clobbered back to Underwriting.
+    //
+    // MUST paginate. A single .select() is silently capped at 1000 rows
+    // by PostgREST. Without this loop the map missed any loan past row
+    // 1000, previousStage came back null on those, and the Conditionally
+    // Approved preservation guard never fired — so the upsert flipped
+    // them to whatever Pipedrive had (usually Underwriting).
     const currentStageMap: Record<number, { id: string; stage: string | null }> = {}
-    for (const loan of existingLoans ?? []) {
-      currentStageMap[loan.pipedrive_deal_id] = { id: loan.id, stage: loan.pipeline_stage }
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('loans')
+        .select('id, pipedrive_deal_id, pipeline_stage')
+        .not('pipedrive_deal_id', 'is', null)
+        .range(from, from + 999)
+      if (error || !data?.length) break
+      for (const loan of data) {
+        currentStageMap[loan.pipedrive_deal_id] = { id: loan.id, stage: loan.pipeline_stage }
+      }
+      if (data.length < 1000) break
     }
 
     // Step 4: Upsert deals
