@@ -342,7 +342,7 @@ export function LoanDetailsCard({
 
       {open && (
         <CardContent className="space-y-3">
-          <Section title="Loan / Deal Overview" defaultOpen>
+          <Section title="Loan / Deal Overview">
             <DetailRow label="Created">
               <span className="font-medium text-gray-700">{formatDate(loanCreatedAt)}</span>
             </DetailRow>
