@@ -71,6 +71,68 @@ interface AirtableRecord {
 }
 
 // ============================================================
+// Schema cache — singleSelect option lists from the Deals table
+// ============================================================
+//
+// Why: portal text fields can drift from the curated singleSelect choices
+// in Airtable (e.g. portal stores free-text "5/4/3/2/1" for Prepayment
+// Penalty but Airtable's only options are "1 Year", "2 Year", etc.). If
+// we push an unknown choice, Airtable rejects the whole PATCH with a 422
+// (typecast: true doesn't help — that just coerces strings, it can't
+// create new options without schema.bases:write scope which our token
+// doesn't have).
+//
+// Strategy: fetch the schema once per process, keep a per-field set of
+// allowed options, and skip the push for any portal value not in the set.
+// The rest of the PATCH still goes through. Misses are logged so we can
+// notice and either map the portal value or add the Airtable option.
+
+interface AirtableFieldSchema {
+  type: string
+  options?: Set<string>
+}
+
+let dealsSchemaCache: Map<string, AirtableFieldSchema> | null = null
+let dealsSchemaPromise: Promise<Map<string, AirtableFieldSchema>> | null = null
+
+interface MetaApiField {
+  name: string
+  type: string
+  options?: { choices?: Array<{ name: string }> }
+}
+interface MetaApiTable {
+  id: string
+  name: string
+  fields: MetaApiField[]
+}
+
+async function fetchDealsTableSchema(): Promise<Map<string, AirtableFieldSchema>> {
+  if (dealsSchemaCache) return dealsSchemaCache
+  if (dealsSchemaPromise) return dealsSchemaPromise
+  dealsSchemaPromise = (async () => {
+    const res = await airtable<{ tables: MetaApiTable[] }>(`/meta/bases/${AIRTABLE_BASE_ID}/tables`)
+    const deals = res.tables.find(t => t.id === AIRTABLE_DEALS_TABLE_ID)
+    const map = new Map<string, AirtableFieldSchema>()
+    if (deals) {
+      for (const f of deals.fields) {
+        const entry: AirtableFieldSchema = { type: f.type }
+        if (f.options?.choices) {
+          entry.options = new Set(f.options.choices.map(c => c.name))
+        }
+        map.set(f.name, entry)
+      }
+    }
+    dealsSchemaCache = map
+    return map
+  })()
+  try {
+    return await dealsSchemaPromise
+  } finally {
+    dealsSchemaPromise = null
+  }
+}
+
+// ============================================================
 // Look up the Deal record by Pipedrive Deal ID
 // ============================================================
 
@@ -214,8 +276,14 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
     .maybeSingle()
   const detailRow = (detail ?? null) as Record<string, unknown> | null
 
-  // 2. Find Airtable Deal record (full fields)
-  const dealRecord = await findDealByPipedriveId(dealId)
+  // 2. Find Airtable Deal record (full fields) + schema in parallel.
+  //    Schema is used by reconcileScalar to drop singleSelect pushes whose
+  //    portal value isn't one of the curated Airtable choices (otherwise the
+  //    whole PATCH 422s).
+  const [dealRecord, schema] = await Promise.all([
+    findDealByPipedriveId(dealId),
+    fetchDealsTableSchema(),
+  ])
   if (!dealRecord) {
     return { loanId, status: 'skipped-no-airtable-row', pushedToAirtable: 0, pulledToPortal: 0 }
   }
@@ -228,7 +296,7 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
 
   // 3. Reconcile each scalar mapping
   for (const m of FIELD_MAP) {
-    if (m.kind === 'scalar') reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas)
+    if (m.kind === 'scalar') reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas, schema)
   }
 
   // 4. Reconcile each vendor mapping (linked-table)
@@ -301,6 +369,7 @@ function reconcileScalar(
   portalDetailPatch: Record<string, unknown>,
   deltas: FieldDelta[],
   collectDeltas: boolean,
+  schema: Map<string, AirtableFieldSchema>,
 ) {
   const src = m.portalTable === 'loans' ? loan : (detail ?? {})
   const portalValue = src[m.portalCol]
@@ -319,6 +388,15 @@ function reconcileScalar(
     // Skip the patch when Airtable already holds the same value — avoids
     // unnecessary writes / API calls on a no-op sync.
     if (!airtableEmpty && airtableValue === v) return
+    // Skip-on-mismatch for singleSelect fields. If the portal value isn't
+    // one of Airtable's curated choices, we drop the push silently rather
+    // than letting Airtable reject the whole PATCH. Other fields in the
+    // same sync still go through.
+    const fieldSchema = schema.get(m.airtableField)
+    if (fieldSchema?.type === 'singleSelect' && fieldSchema.options && typeof v === 'string' && !fieldSchema.options.has(v)) {
+      console.warn(`[airtable] skipping ${m.airtableField}: portal value "${v}" not in Airtable choices`)
+      return
+    }
     airtablePatch[m.airtableField] = v
     if (collectDeltas) {
       deltas.push({ field: `airtable: ${m.airtableField}`, direction: 'push', oldValue: airtableValue, newValue: v })
