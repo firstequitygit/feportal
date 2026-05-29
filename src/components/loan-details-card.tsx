@@ -36,6 +36,8 @@ export interface LoanDetails {
   points?: number | null
   broker_points?: number | null
   broker_ysp?: number | null
+  rate_costs_points?: number | null
+  other_exception_costs_points?: number | null
   underwriting_fee?: number | null
   legal_doc_prep_fee?: number | null
   prepayment_penalty?: string | null
@@ -606,6 +608,30 @@ export function LoanDetailsCard({
                 type="number"
                 currentValue={d.broker_ysp ?? null}
                 display={d.broker_ysp !== null && d.broker_ysp !== undefined ? String(d.broker_ysp) : '—'}
+                placeholder="0"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Rate Costs - Points">
+              <EditableLoanField
+                loanId={loanId}
+                field="rate_costs_points"
+                type="number"
+                currentValue={d.rate_costs_points ?? null}
+                display={d.rate_costs_points !== null && d.rate_costs_points !== undefined ? String(d.rate_costs_points) : '—'}
+                placeholder="0"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Other/Exception Costs - Points">
+              <EditableLoanField
+                loanId={loanId}
+                field="other_exception_costs_points"
+                type="number"
+                currentValue={d.other_exception_costs_points ?? null}
+                display={d.other_exception_costs_points !== null && d.other_exception_costs_points !== undefined ? String(d.other_exception_costs_points) : '—'}
                 placeholder="0"
                 step="0.01"
                 inputWidthClass="w-24"

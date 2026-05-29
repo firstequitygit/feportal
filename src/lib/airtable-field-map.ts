@@ -251,6 +251,10 @@ export const FIELD_MAP: FieldMapping[] = [
   s('points', 'loan_details', 'Points'),
   s('broker_points', 'loan_details', 'Broker Points', pointsForward, pointsInverse),
   s('broker_ysp',    'loan_details', 'Broker YSP',    pointsForward, pointsInverse),
+  // Two more points-style fields on the Loan Terms card. Same percent ↔
+  // fraction handling as Broker Points / Broker YSP.
+  s('rate_costs_points',            'loan_details', 'Extension Cost - Points', pointsForward, pointsInverse),
+  s('other_exception_costs_points', 'loan_details', 'SLV/Exception Points',    pointsForward, pointsInverse),
   s('prepayment_penalty', 'loan_details', 'Prepayment Penalty'),
   s('first_payment_date', 'loan_details', 'First Payment Date'),
   s('loan_type_one', 'loan_details', 'Loan Purpose'),

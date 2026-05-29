@@ -111,6 +111,8 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   points:                 { type: 'number',   table: 'loan_details' },
   broker_points:          { type: 'number',   table: 'loan_details' },
   broker_ysp:             { type: 'number',   table: 'loan_details' },
+  rate_costs_points:            { type: 'number', table: 'loan_details' },
+  other_exception_costs_points: { type: 'number', table: 'loan_details' },
   underwriting_fee:       { type: 'number',   table: 'loan_details' },
   legal_doc_prep_fee:     { type: 'number',   table: 'loan_details' },
   prepayment_penalty:     { type: 'text',     table: 'loan_details' },
