@@ -8,6 +8,9 @@ import { Upload, FileText, Info } from 'lucide-react'
 import { type Condition, type Document, type ConditionStatus, CONDITION_CATEGORIES } from '@/lib/types'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 import { useImpersonation } from '@/components/impersonation-provider'
+import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
+import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
+import { suggestConditionId } from '@/lib/match-condition'
 
 interface Props {
   loanId: string
@@ -40,6 +43,10 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
   const [replySaving, setReplySaving] = useState(false)
   const [replyError, setReplyError] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [bulkInitialDocs, setBulkInitialDocs] = useState<BulkDoc[] | undefined>(undefined)
+  const [unmatchedRefreshKey, setUnmatchedRefreshKey] = useState(0)
 
   function openReply(conditionId: string, existing: string | null) {
     setReplyOpenId(conditionId)
@@ -183,6 +190,38 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
       {uploadError && (
         <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{uploadError}</p>
       )}
+
+      {!isImpersonating && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
+            className="text-xs text-primary hover:opacity-80 font-medium"
+          >
+            Bulk Upload
+          </button>
+        </div>
+      )}
+
+      <UnmatchedDocumentsCard
+        loanId={loanId}
+        refreshKey={unmatchedRefreshKey}
+        onMatchClick={(unmatchedDocs: UnmatchedDoc[]) => {
+          const titles = borrowerConditions.map(c => ({ id: c.id, title: c.title }))
+          setBulkInitialDocs(unmatchedDocs.map(u => {
+            const suggested = suggestConditionId(u.file_name, titles)
+            return {
+              id: u.id,
+              file_name: u.file_name,
+              file_path: u.file_path,
+              file_size: u.file_size,
+              suggested_condition_id: suggested,
+              staged_condition_id: suggested,
+              confirmed: false,
+            }
+          }))
+          setBulkModalOpen(true)
+        }}
+      />
 
       {internalRemainingCount > 0 && (
         <InternalTeamNote
@@ -368,6 +407,15 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
           </Card>
         )
       })}
+
+      <BulkUploadModal
+        loanId={loanId}
+        conditions={borrowerConditions}
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        initialDocs={bulkInitialDocs}
+        onSaved={() => { setUnmatchedRefreshKey(k => k + 1); router.refresh() }}
+      />
     </div>
   )
 }
