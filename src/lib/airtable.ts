@@ -110,20 +110,32 @@ async function fetchDealsTableSchema(): Promise<Map<string, AirtableFieldSchema>
   if (dealsSchemaCache) return dealsSchemaCache
   if (dealsSchemaPromise) return dealsSchemaPromise
   dealsSchemaPromise = (async () => {
-    const res = await airtable<{ tables: MetaApiTable[] }>(`/meta/bases/${AIRTABLE_BASE_ID}/tables`)
-    const deals = res.tables.find(t => t.id === AIRTABLE_DEALS_TABLE_ID)
-    const map = new Map<string, AirtableFieldSchema>()
-    if (deals) {
-      for (const f of deals.fields) {
-        const entry: AirtableFieldSchema = { type: f.type }
-        if (f.options?.choices) {
-          entry.options = new Set(f.options.choices.map(c => c.name))
+    try {
+      const res = await airtable<{ tables: MetaApiTable[] }>(`/meta/bases/${AIRTABLE_BASE_ID}/tables`)
+      const deals = res.tables.find(t => t.id === AIRTABLE_DEALS_TABLE_ID)
+      const map = new Map<string, AirtableFieldSchema>()
+      if (deals) {
+        for (const f of deals.fields) {
+          const entry: AirtableFieldSchema = { type: f.type }
+          if (f.options?.choices) {
+            entry.options = new Set(f.options.choices.map(c => c.name))
+          }
+          map.set(f.name, entry)
         }
-        map.set(f.name, entry)
       }
+      dealsSchemaCache = map
+      return map
+    } catch (e) {
+      // Schema fetch is best-effort. Most common failure mode is the
+      // AIRTABLE_TOKEN missing the schema.bases:read scope — in which case
+      // the Metadata API returns 403. We don't want to brick every sync
+      // over that; fall back to an empty schema so skip-on-mismatch becomes
+      // a no-op and pushes proceed as they did before this feature shipped.
+      console.warn('[airtable] schema fetch failed, skip-on-mismatch disabled this run:', e instanceof Error ? e.message : String(e))
+      const empty = new Map<string, AirtableFieldSchema>()
+      dealsSchemaCache = empty
+      return empty
     }
-    dealsSchemaCache = map
-    return map
   })()
   try {
     return await dealsSchemaPromise

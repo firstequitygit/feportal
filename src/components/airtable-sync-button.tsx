@@ -6,6 +6,22 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Database } from 'lucide-react'
 
+/**
+ * Pull a human-readable string out of whatever shape "error" came back in.
+ * Vercel's gateway errors look like { error: { code, message } }; our own
+ * API uses a flat string. Returns null if we can't get anything useful.
+ */
+function stringifyError(err: unknown): string | null {
+  if (typeof err === 'string' && err.trim()) return err
+  if (err && typeof err === 'object') {
+    const o = err as Record<string, unknown>
+    if (typeof o.message === 'string' && o.message.trim()) return o.message
+    if (typeof o.code === 'string' && o.code.trim()) return o.code
+    try { return JSON.stringify(err).slice(0, 220) } catch { return null }
+  }
+  return null
+}
+
 interface BatchSummary {
   total: number
   reconciled: number
@@ -43,9 +59,15 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      const data = await res.json()
-      if (data.ok && data.summary) {
-        const s = data.summary as BatchSummary
+      // The response is usually JSON, but Vercel returns an HTML page on
+      // function timeout / gateway errors — so guard the parse.
+      const raw = await res.text()
+      let data: unknown
+      try { data = JSON.parse(raw) } catch { data = null }
+      const d = (data ?? {}) as Record<string, unknown>
+
+      if (d.ok && d.summary) {
+        const s = d.summary as BatchSummary
         const headline = `Synced ${s.reconciled} of ${s.total} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`
         if (s.errors > 0 && s.errorSample && s.errorSample.length > 0) {
           console.error('Airtable sync errors (sample):', s.errorSample)
@@ -58,7 +80,11 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
         }
         router.refresh()
       } else {
-        toast.error(data.error ?? 'Airtable sync failed', { id: toastId })
+        // Coerce whatever came back (string, object with .message, HTML, etc.)
+        // into a useful one-liner instead of toasting "[object Object]".
+        const msg = stringifyError(d.error) ?? (res.status >= 500 ? `Server error (${res.status})${res.status === 504 ? ' — function timed out' : ''}` : `Airtable sync failed (${res.status})`)
+        console.error('Airtable sync failed:', { status: res.status, body: raw.slice(0, 500) })
+        toast.error(msg, { id: toastId, duration: 15000 })
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Airtable sync failed', { id: toastId })
