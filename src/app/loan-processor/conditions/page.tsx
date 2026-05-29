@@ -80,10 +80,17 @@ export default async function LoanProcessorConditionsPage() {
       if (data.length < 1000) break
     }
   } else {
+    // Scope to active, non-Closed loans. Without these filters, LPs with
+    // long histories (Rebecca has 100+ active + hundreds of closed/archived)
+    // blow past PostgREST's 1000-row cap. The cap drops her recent loans
+    // (no ORDER BY = arbitrary slice) so conditions on real work disappear.
+    // Same fix the LO Conditions page got. Mirrors the Inbox query.
     const { data: loans } = await adminClient
       .from('loans')
       .select('id')
       .or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+      .eq('archived', false)
+      .neq('pipeline_stage', 'Closed')
     const loanIds = (loans ?? []).map(l => l.id)
     if (loanIds.length > 0) {
       const { data } = await adminClient
