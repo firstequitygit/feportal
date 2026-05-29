@@ -86,13 +86,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, skipped: true, reason: 'not_deals_pipeline' })
     }
 
-    // archived rule (per FE policy):
-    //   pipedrive_status=open → archived=false (active, claimable)
-    //   anything else (won/lost) → archived=true (out of the active flow)
-    // lost also flips our lifecycle status to cancelled so the portal badge
-    // mirrors Pipedrive. One-way — we never un-cancel via sync.
-    const archivedField: Record<string, unknown> = { archived: deal.pipedrive_status !== 'open' }
+    // archived rule (matches /api/cron/sync and /api/sync):
+    //   pipedrive_status=lost → archived=true (cancelled, non-claimable)
+    //   pipedrive_status=won  → leave archived alone; the 30-day
+    //                           auto-archive cron promotes won deals out
+    //                           of the active list once they sit in
+    //                           Closed for a month.
+    //   pipedrive_status=open → leave archived alone (don't un-archive a
+    //                           deal an admin explicitly archived).
+    // Lost also flips our lifecycle status to cancelled so the portal
+    // badge mirrors Pipedrive. One-way — we never un-cancel via sync.
+    //
+    // Earlier version was `archived: status !== 'open'`, which archived
+    // won deals the instant Pipedrive flipped the flag — so freshly
+    // closed loans vanished from the LO's Closed bucket. Bug surfaced
+    // when 65 Dayton (5/28) and 2534 Hansford (5/22) disappeared while
+    // 8595 Creekwood (5/19) stuck around (webhook didn't fire for it).
+    const archivedField: Record<string, unknown> = {}
     if (deal.pipedrive_status === 'lost') {
+      archivedField.archived = true
       archivedField.loan_status = 'cancelled'
       if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason
     }
