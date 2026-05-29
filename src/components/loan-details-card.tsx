@@ -157,7 +157,7 @@ const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
-const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
+const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc', 'Trust'] as const
 
 const currencyFmt = new Intl.NumberFormat('en-US', {
   style: 'currency',
