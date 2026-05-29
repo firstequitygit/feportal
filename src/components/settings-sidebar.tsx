@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, UserCog, ShieldCheck, UserCheck, Settings } from 'lucide-react'
+import { Users, UserCog, ShieldCheck, UserCheck, Settings, Mail } from 'lucide-react'
 
 interface Props {
   isSuperAdmin: boolean
@@ -29,6 +29,10 @@ const ADMINS_SUBITEM: SubItem = {
   label: 'Admins',
   icon: ShieldCheck,
 }
+
+const NOTIFICATIONS_SUBITEMS: SubItem[] = [
+  { href: '/admin/settings/notifications', label: 'Application Inbox', icon: Mail },
+]
 
 function NavSection({ heading, items, pathname }: { heading: string; items: SubItem[]; pathname: string }) {
   return (
@@ -70,6 +74,7 @@ export function SettingsSidebar({ isSuperAdmin }: Props) {
     <nav className="w-56 shrink-0 border-r border-gray-200 pr-4">
       {isSuperAdmin && <NavSection heading="General" items={GENERAL_SUBITEMS} pathname={pathname} />}
       <NavSection heading="Users" items={userSubItems} pathname={pathname} />
+      <NavSection heading="Notifications" items={NOTIFICATIONS_SUBITEMS} pathname={pathname} />
     </nav>
   )
 }
