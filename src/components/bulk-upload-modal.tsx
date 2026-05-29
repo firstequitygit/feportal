@@ -294,6 +294,12 @@ function MatchPhase({
         <section className="flex flex-col overflow-hidden">
           <h3 className="text-sm font-semibold mb-2">Conditions</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+            {conditions.length === 0 && (
+              <div className="text-sm text-gray-500 border border-dashed border-gray-200 rounded p-4">
+                This loan has no conditions yet. Add conditions first, then come back to match these files.
+                Files you uploaded stay on the loan as Unmatched until you do.
+              </div>
+            )}
             {[...CONDITION_CATEGORIES, { value: 'uncategorized' as const, label: 'Other' }].map(cat => {
               const list = grouped[cat.value] ?? []
               if (list.length === 0) return null
