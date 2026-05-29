@@ -108,6 +108,16 @@ export function LoanListSorted({
     [allLoans, state, lastUpdatedMap],
   )
 
+  // On Hold loans live in a separate bucket at the bottom of the list,
+  // regardless of the current loan_status filter (default = ['active']).
+  // Otherwise a held loan would silently disappear from the LO/LP/UW
+  // dashboard and get forgotten. Default collapsed so it doesn't clutter.
+  const onHoldLoans = useMemo(
+    () => allLoans.filter(l => l.loan_status === 'on_hold'),
+    [allLoans],
+  )
+  const [onHoldExpanded, setOnHoldExpanded] = useState(false)
+
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const toggleGroup = (key: string) =>
     setCollapsed(prev => {
@@ -199,6 +209,41 @@ export function LoanListSorted({
                 </section>
               )
             })
+          )}
+
+          {/* On Hold bucket — always rendered at the bottom regardless of
+              the current loan_status filter. Default collapsed. Held loans
+              would otherwise disappear from the dashboard since the
+              default filter is loan_status=['active']. */}
+          {onHoldLoans.length > 0 && (
+            <section>
+              <button
+                type="button"
+                onClick={() => setOnHoldExpanded(o => !o)}
+                aria-expanded={onHoldExpanded}
+                className="w-full flex items-center gap-3 mt-2 mb-2 group"
+              >
+                <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-widest whitespace-nowrap group-hover:text-amber-900 transition-colors">
+                  {onHoldExpanded ? '▾' : '▸'} On Hold — {onHoldLoans.length}
+                </h3>
+                <div className="flex-1 h-px bg-amber-200" />
+                <span className="text-xs text-amber-700 group-hover:text-amber-900 transition-colors whitespace-nowrap">
+                  {onHoldExpanded ? 'Hide' : 'Show'}
+                </span>
+              </button>
+              {onHoldExpanded && (
+                <div className="space-y-1.5">
+                  {onHoldLoans.map(loan => (
+                    <LoanCard
+                      key={loan.id}
+                      loan={loan}
+                      outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                      linkPrefix={linkPrefix}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
           )}
         </>
       )}
