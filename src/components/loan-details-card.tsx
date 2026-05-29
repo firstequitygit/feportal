@@ -35,6 +35,7 @@ export interface LoanDetails {
   rate_type?: string | null
   points?: number | null
   broker_points?: number | null
+  broker_ysp?: number | null
   underwriting_fee?: number | null
   legal_doc_prep_fee?: number | null
   prepayment_penalty?: string | null
@@ -594,6 +595,18 @@ export function LoanDetailsCard({
                 currentValue={d.broker_points ?? null}
                 display={d.broker_points !== null && d.broker_points !== undefined ? String(d.broker_points) : '—'}
                 placeholder="1"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Broker YSP">
+              <EditableLoanField
+                loanId={loanId}
+                field="broker_ysp"
+                type="number"
+                currentValue={d.broker_ysp ?? null}
+                display={d.broker_ysp !== null && d.broker_ysp !== undefined ? String(d.broker_ysp) : '—'}
+                placeholder="0"
                 step="0.01"
                 inputWidthClass="w-24"
               />

@@ -110,6 +110,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   rate_type:              { type: 'enum',     table: 'loan_details', validValues: RATE_TYPE_OPTIONS },
   points:                 { type: 'number',   table: 'loan_details' },
   broker_points:          { type: 'number',   table: 'loan_details' },
+  broker_ysp:             { type: 'number',   table: 'loan_details' },
   underwriting_fee:       { type: 'number',   table: 'loan_details' },
   legal_doc_prep_fee:     { type: 'number',   table: 'loan_details' },
   prepayment_penalty:     { type: 'text',     table: 'loan_details' },

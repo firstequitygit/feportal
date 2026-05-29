@@ -247,6 +247,7 @@ export const FIELD_MAP: FieldMapping[] = [
   s('rate_type', 'loan_details', 'Rate Type', mapRateTypeForward, mapRateTypeInverse),
   s('points', 'loan_details', 'Points'),
   s('broker_points', 'loan_details', 'Broker Points', pointsForward, pointsInverse),
+  s('broker_ysp',    'loan_details', 'Broker YSP',    pointsForward, pointsInverse),
   s('prepayment_penalty', 'loan_details', 'Prepayment Penalty'),
   s('first_payment_date', 'loan_details', 'First Payment Date'),
   s('loan_type_one', 'loan_details', 'Loan Purpose'),
