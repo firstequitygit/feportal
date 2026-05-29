@@ -40,6 +40,7 @@ export default async function ResumePage({ params }: { params: Promise<{ token: 
         initialStep={app.current_step ?? 1}
         initialToken={token}
         loanOfficerOptions={loanOfficerOptions}
+        variantKind="borrower"
       />
     </Suspense>
   )

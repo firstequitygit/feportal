@@ -18,10 +18,10 @@ const DEFAULT_OVERRIDES: TestOverridesState = {
   loEmail: DEFAULT_EMAIL,
 }
 
-function loadOverrides(): TestOverridesState {
+function loadOverrides(key: string): TestOverridesState {
   if (typeof window === 'undefined') return DEFAULT_OVERRIDES
   try {
-    const raw = window.localStorage.getItem('fe-apply-test-overrides')
+    const raw = window.localStorage.getItem(key)
     if (!raw) return DEFAULT_OVERRIDES
     const parsed = JSON.parse(raw) as Partial<TestOverridesState>
     return {
@@ -41,16 +41,17 @@ export function TestModePanel(props: {
   setStep: (n: number) => void
   onAutoSubmit: (overrides: TestOverridesState, scenarioLabel: string, scenarioData: ApplicationData) => Promise<void>
   busy: boolean
+  overridesStorageKey?: string
 }) {
-  const { data, setData, step, setStep, onAutoSubmit, busy } = props
+  const { data, setData, step, setStep, onAutoSubmit, busy, overridesStorageKey = 'fe-apply-test-overrides' } = props
   const [scenario, setScenario] = useState<ScenarioKey>('fix-flip-purchase')
   const [overrides, setOverrides] = useState<TestOverridesState>(DEFAULT_OVERRIDES)
 
-  useEffect(() => { setOverrides(loadOverrides()) }, [])
+  useEffect(() => { setOverrides(loadOverrides(overridesStorageKey)) }, [overridesStorageKey])
 
   function persist(next: TestOverridesState) {
     setOverrides(next)
-    try { window.localStorage.setItem('fe-apply-test-overrides', JSON.stringify(next)) } catch { /* ignore */ }
+    try { window.localStorage.setItem(overridesStorageKey, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   function scenarioLabel(): string {

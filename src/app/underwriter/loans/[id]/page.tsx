@@ -2,6 +2,8 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchStaffDirectory } from '@/lib/loan-staff'
+import { fetchConditionNotesForLoan } from '@/lib/fetch-condition-notes'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { UnderwriterConditions } from '@/components/underwriter-conditions'
@@ -61,17 +63,17 @@ export default async function UnderwriterLoanPage({
 
   const loanQuery = isImpersonating
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
         .eq('id', id).single()
     : adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(full_name, email), loan_processors!loan_processor_id(full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email, phone)')
+        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
         .eq('id', id)
         .eq('underwriter_id', uw.id).single()
   const { data: loan } = await loanQuery
 
   if (!loan) notFound()
 
-  const [{ data: conditions }, { data: documents }, { data: templates }, { data: notes }, { data: events }, { data: loanDetails }, { data: loanDemographics }] = await Promise.all([
+  const [{ data: conditions }, { data: documents }, { data: templates }, { data: notes }, { data: events }, { data: loanDetails }, { data: loanDemographics }, staffDirectory, conditionNotesByCondition] = await Promise.all([
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('documents').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('condition_templates').select('*').order('title'),
@@ -79,6 +81,8 @@ export default async function UnderwriterLoanPage({
     adminClient.from('loan_events').select('*').eq('loan_id', id).order('created_at', { ascending: false }),
     adminClient.from('loan_details').select('*').eq('loan_id', id).maybeSingle(),
     adminClient.from('loan_demographics').select('*').eq('loan_id', id).maybeSingle(),
+    fetchStaffDirectory(adminClient),
+    fetchConditionNotesForLoan(adminClient, id),
   ])
 
   const conditionMap: Record<string, string> = {}
@@ -221,10 +225,10 @@ export default async function UnderwriterLoanPage({
             </CardContent>
           </Card>
 
-          {/* Team */}
-          <Card>
-            <CardHeader><CardTitle className="text-base">Borrower</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          {/* Team — collapsible, defaults to closed since UW already knows
+              the team and rarely needs to expand. */}
+          <CollapsibleCard title="Borrower">
+            <div className="space-y-2 text-sm">
               {borrower ? (
                 <>
                   {borrower.full_name && (
@@ -287,8 +291,8 @@ export default async function UnderwriterLoanPage({
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleCard>
         </div>
 
         {/* Loan Details (collapsible, with sub-sections) */}
@@ -351,6 +355,18 @@ export default async function UnderwriterLoanPage({
           documents={(documents ?? []) as Document[]}
           signedUrlMap={signedUrlMap}
           templates={templates ?? []}
+          loanStaff={{
+            loan_officer:
+              (loan.loan_officers as unknown as { id: string; full_name: string } | null) ?? null,
+            loan_processor:
+              (loan.loan_processors as unknown as { id: string; full_name: string } | null) ?? null,
+            loan_processor_2:
+              ((loan as unknown as { loan_processor_2: { id: string; full_name: string } | null }).loan_processor_2) ?? null,
+            underwriter:
+              ((loan as unknown as { underwriters: { id: string; full_name: string } | null }).underwriters) ?? null,
+          }}
+          staffDirectory={staffDirectory}
+          notesByCondition={conditionNotesByCondition}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

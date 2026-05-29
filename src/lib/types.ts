@@ -96,6 +96,7 @@ export interface Borrower {
 export interface Broker {
   id: string
   auth_user_id: string | null
+  pipedrive_person_id: number | null
   email: string
   full_name: string | null
   company_name: string | null
@@ -150,6 +151,13 @@ export interface Condition {
   description: string | null
   status: ConditionStatus
   assigned_to: AssignedTo
+  /**
+   * Optional pin to a specific staff member on the loan. When set, the
+   * condition is targeted at that one person instead of every assignee in
+   * the role. References whichever staff table matches assigned_to
+   * (loan_officers / loan_processors / underwriters).
+   */
+  assigned_to_staff_id: string | null
   category: ConditionCategory | null
   rejection_reason: string | null
   response: string | null
@@ -217,6 +225,7 @@ export const PIPEDRIVE_FIELDS = {
   loanTypeII:         '6780eb1a6f081cabfd6248c03dd13152804233f5', // "Loan Purpose" (Purchase / Refi / etc.)
   propertyAddress:    '774f8922280288f08c94df16bf643d40a5da53f6', // structured address field
   closingDate:        'e150d1a8987dfe88c808d7c2121b9fe02f8a65fe', // "Closing Date" — scheduled/expected close, drives the Closings report
+  brokerPerson:       'fe46b6b2dbd2155a3ca4a1994f33ab3da3f2b05c', // "Broker" — custom Person field on the deal; drives broker auto-assignment
 } as const
 
 // Pipedrive "Loan Program" option ID → portal LoanType
@@ -236,4 +245,34 @@ export const APPLICATION_LOAN_TYPE_MAP: Record<string, LoanType> = {
   'Fix & Flip/Renovation': 'Fix & Flip (Bridge)',
   'New Construction':       'New Construction',
   'DSCR Rental Loan':       'Rental (DSCR)',
+}
+
+// Staff identity model (see 20260527-staff-users-additive migration).
+// staff_users is 1:1 with auth.users for staff humans only — borrowers and
+// brokers stay in their own tables, unchanged. base_role is nullable so an
+// admin-only human (no LO/LP/UW assignment) is representable.
+export type BaseRole = 'loan_officer' | 'loan_processor' | 'underwriter'
+export type ViewMode = 'admin' | 'base'
+
+export interface StaffUser {
+  id: string
+  auth_user_id: string
+  email: string
+  full_name: string | null
+  phone: string | null
+  title: string | null
+  base_role: BaseRole | null
+  is_admin: boolean
+  is_super: boolean
+  last_view_mode: ViewMode
+  created_at: string
+  updated_at: string
+}
+
+export type StaffContextKind = 'admin' | BaseRole
+
+export interface StaffContext {
+  staff_user: StaffUser
+  active_kind: StaffContextKind
+  can_toggle: boolean
 }

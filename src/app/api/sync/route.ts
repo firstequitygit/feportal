@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
+
+/**
+ * Only set `key` on `obj` when `value` is something Pipedrive actually has.
+ * Mirrors the helper in /api/cron/sync — both routes need the same
+ * "don't clobber portal data with Pipedrive null" behavior.
+ */
+function setIfPresent(obj: Record<string, unknown>, key: string, value: unknown) {
+  if (value === null || value === undefined) return
+  if (typeof value === 'string' && value.trim() === '') return
+  obj[key] = value
+}
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
+import { findOrLinkBroker } from '@/lib/broker-sync'
 import { assertNotImpersonating } from '@/lib/impersonate'
 
 export async function POST() {
@@ -45,15 +58,34 @@ export async function POST() {
       return NextResponse.json({ error: `Supabase client failed: ${msg}` }, { status: 500 })
     }
 
-    // Step 3: Fetch current stages so we can detect Submitted (Loan Approved) transitions
-    const { data: existingLoans } = await supabase
-      .from('loans')
-      .select('id, pipedrive_deal_id, pipeline_stage')
-
-    const currentStageMap: Record<number, { id: string; stage: string | null }> = {}
-    for (const loan of existingLoans ?? []) {
-      currentStageMap[loan.pipedrive_deal_id] = { id: loan.id, stage: loan.pipeline_stage }
+    // Step 3: Pre-fetch current loan state so we can:
+    //   - detect Submitted (Loan Approved) transitions
+    //   - protect Conditionally Approved from being clobbered back to UW
+    //   - skip broker auto-assign when an admin already picked one
+    //
+    // MUST paginate. A single .select() is silently capped at 1000 rows
+    // by PostgREST. Without this loop, loans past row 1000 came back with
+    // no previous state, the Conditionally Approved preservation guard
+    // never fired, and the upsert flipped them to Pipedrive's UW.
+    const currentLoanMap: Record<number, { id: string; stage: string | null; broker_id: string | null }> = {}
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('loans')
+        .select('id, pipedrive_deal_id, pipeline_stage, broker_id')
+        .not('pipedrive_deal_id', 'is', null)
+        .range(from, from + 999)
+      if (error || !data?.length) break
+      for (const loan of data) {
+        currentLoanMap[loan.pipedrive_deal_id] = {
+          id: loan.id,
+          stage: loan.pipeline_stage,
+          broker_id: loan.broker_id ?? null,
+        }
+      }
+      if (data.length < 1000) break
     }
+    // Backwards-compat alias used by the rest of this route.
+    const currentStageMap = currentLoanMap
 
     // Step 4: Upsert deals
     let synced = 0
@@ -99,6 +131,14 @@ export async function POST() {
         if (borrowerId) borrowersLinked++
       }
 
+      // Resolve / create the broker row from Pipedrive's "Broker" custom
+      // Person field. Only auto-assigns when the loan has no existing
+      // broker — preserves admin manual assignments and broker_id_2.
+      let brokerId: string | null = null
+      if (deal.broker_pipedrive_person_id && !existing?.broker_id) {
+        brokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
+      }
+
       // archived rule (matches cron sync): only lost deals get archived
       // automatically. Won deals stay until the 30-day post-Closed cron
       // promotes them. Open deals stay claimable.
@@ -111,35 +151,43 @@ export async function POST() {
         if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason
       }
 
+      // "Portal wins, Pipedrive backfills" — only write a field when
+      // Pipedrive has a value. Pipedrive nulls used to clobber portal
+      // edits (e.g. loan_amount, estimated_closing_date). See cron route
+      // for the matching change.
       const payload: Record<string, unknown> = {
-        pipedrive_deal_id:         deal.pipedrive_deal_id,
-        property_address:          deal.property_address,
-        pipeline_stage:            effectivePipedriveStage,
-        loan_type:                 deal.loan_type,
-        loan_amount:               deal.loan_amount,
-        interest_rate:             deal.interest_rate,
-        ltv:                       deal.ltv,
-        arv:                       deal.arv,
-        rehab_budget:              deal.rehab_budget,
-        term_months:               deal.term_months ? Math.round(deal.term_months) : null,
-        origination_date:          deal.origination_date,
-        maturity_date:             deal.maturity_date,
-        entity_name:               deal.entity_name,
-        loan_number:               deal.loan_number,
-        // rate_locked_days is intentionally NOT pulled — the portal stores
-        // granularity (No / 15 / 30 / 45 days) that Pipedrive's yes-only
-        // "Locked?" enum can't represent. Pulling would clobber the days
-        // value back to "Yes". Pushes still happen on portal edits via
-        // /api/loans/field.
-        rate_lock_expiration_date: deal.rate_lock_expiration_date,
-        interest_only:             deal.interest_only,
-        closed_at:                 deal.closed_at,
-        estimated_closing_date:    deal.estimated_closing_date,
-        last_synced_at:            new Date().toISOString(),
+        pipedrive_deal_id: deal.pipedrive_deal_id,
+        last_synced_at:    new Date().toISOString(),
         ...archivedField,
       }
+      setIfPresent(payload, 'property_address',          deal.property_address)
+      setIfPresent(payload, 'pipeline_stage',            effectivePipedriveStage)
+      setIfPresent(payload, 'loan_type',                 deal.loan_type)
+      setIfPresent(payload, 'loan_amount',               deal.loan_amount)
+      setIfPresent(payload, 'interest_rate',             deal.interest_rate)
+      setIfPresent(payload, 'ltv',                       deal.ltv)
+      setIfPresent(payload, 'arv',                       deal.arv)
+      setIfPresent(payload, 'rehab_budget',              deal.rehab_budget)
+      setIfPresent(payload, 'term_months',               deal.term_months ? Math.round(deal.term_months) : null)
+      setIfPresent(payload, 'origination_date',          deal.origination_date)
+      setIfPresent(payload, 'maturity_date',             deal.maturity_date)
+      setIfPresent(payload, 'entity_name',               deal.entity_name)
+      setIfPresent(payload, 'loan_number',               deal.loan_number)
+      // rate_locked_days is intentionally NOT pulled — the portal stores
+      // granularity (No / 15 / 30 / 45 days) that Pipedrive's yes-only
+      // "Locked?" enum can't represent. Pulling would clobber the days
+      // value back to "Yes". Pushes still happen on portal edits via
+      // /api/loans/field.
+      setIfPresent(payload, 'rate_lock_expiration_date', deal.rate_lock_expiration_date)
+      setIfPresent(payload, 'interest_only',             deal.interest_only)
+      setIfPresent(payload, 'closed_at',                 deal.closed_at)
+      setIfPresent(payload, 'estimated_closing_date',    deal.estimated_closing_date)
       // Don't clobber an admin-assigned borrower when Pipedrive has no person.
       if (borrowerId) payload.borrower_id = borrowerId
+
+      // Auto-assign broker only when we just resolved one AND the loan had
+      // no existing broker (existing?.broker_id check above gated brokerId).
+      if (brokerId) payload.broker_id = brokerId
 
       // Pipedrive deal owner → portal LO (when a mapping exists).
       if (deal.pipedrive_user_id != null) {
@@ -177,8 +225,14 @@ export async function POST() {
           } catch (err) {
             console.error(`Stage email failed for deal ${deal.pipedrive_deal_id}:`, err)
           }
-          // Pre-Underwriting: notify the whole UW team so one can claim.
+          // Pre-Underwriting: auto-assign Alicyn (if no UW yet) + fall back
+          // to the team-claim blast. sendPreUnderwritingClaimEmail no-ops
+          // when underwriter_id is set, so a successful auto-assign silently
+          // skips the blast.
           if (deal.pipeline_stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
+            try { await autoAssignDefaultUnderwriter(supabase, existing.id) }
+            catch (err) { console.error(`Auto-assign UW failed for deal ${deal.pipedrive_deal_id}:`, err) }
+
             try { await sendPreUnderwritingClaimEmail(existing.id) }
             catch (err) { console.error(`Pre-UW claim email failed for deal ${deal.pipedrive_deal_id}:`, err) }
           }

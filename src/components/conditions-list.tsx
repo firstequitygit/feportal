@@ -91,7 +91,15 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     return documents.filter(d => d.condition_id === conditionId)
   }
 
-  async function uploadSingleFile(conditionId: string, file: File, conditionTitle: string): Promise<boolean> {
+  // Upload one file to Supabase Storage. Returns the storage metadata
+  // (path + original file info) so handleUpload can record the whole
+  // batch in a single /record call. Storage uploads themselves still
+  // happen one-by-one because each needs its own signed URL.
+  async function uploadOneToStorage(
+    conditionId: string,
+    file: File,
+    conditionTitle: string,
+  ): Promise<{ fileName: string; fileSize: number; path: string } | null> {
     const signRes = await fetch('/api/loans/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -100,24 +108,17 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     if (!signRes.ok) {
       const data = await signRes.json().catch(() => ({}))
       setUploadError(data.error ?? 'Could not start upload. Please try again.')
-      return false
+      return null
     }
     const { path, token } = await signRes.json()
     const { error: uploadErr } = await supabase.storage
       .from('documents')
       .uploadToSignedUrl(path, token, file, { contentType: file.type || 'application/octet-stream' })
-    if (uploadErr) { setUploadError(`"${file.name}" upload failed: ` + uploadErr.message); return false }
-    const recordRes = await fetch('/api/loans/upload/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loanId, conditionId, fileName: file.name, fileSize: file.size, path }),
-    })
-    if (!recordRes.ok) {
-      const data = await recordRes.json().catch(() => ({}))
-      setUploadError(data.error ?? 'File uploaded but could not save record. Please contact support.')
-      return false
+    if (uploadErr) {
+      setUploadError(`"${file.name}" upload failed: ` + uploadErr.message)
+      return null
     }
-    return true
+    return { fileName: file.name, fileSize: file.size, path }
   }
 
   async function handleUpload(conditionId: string, files: FileList) {
@@ -126,10 +127,29 @@ export function ConditionsList({ loanId, propertyAddress, conditions, documents,
     setUploadError(null)
     setUploadingSet(prev => new Set(prev).add(conditionId))
     const conditionTitle = conditions.find(c => c.id === conditionId)?.title ?? conditionId
+
+    // Stream each file to storage. Collect the successful uploads so a
+    // single /record call notifies staff once with all attachments.
+    const uploaded: Array<{ fileName: string; fileSize: number; path: string }> = []
     for (const file of fileArray) {
-      const ok = await uploadSingleFile(conditionId, file, conditionTitle)
-      if (!ok) break
+      const result = await uploadOneToStorage(conditionId, file, conditionTitle)
+      if (!result) break
+      uploaded.push(result)
     }
+
+    // Batch /record call — one email per upload session.
+    if (uploaded.length > 0) {
+      const recordRes = await fetch('/api/loans/upload/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId, conditionId, files: uploaded }),
+      })
+      if (!recordRes.ok) {
+        const data = await recordRes.json().catch(() => ({}))
+        setUploadError(data.error ?? 'Files uploaded but could not save records. Please contact support.')
+      }
+    }
+
     setUploadingSet(prev => { const next = new Set(prev); next.delete(conditionId); return next })
     router.refresh()
   }

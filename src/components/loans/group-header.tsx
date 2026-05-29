@@ -1,0 +1,41 @@
+// src/components/loans/group-header.tsx
+'use client'
+
+import { ChevronDown } from 'lucide-react'
+
+interface Props {
+  label: string
+  count: number
+  collapsed: boolean
+  onToggle: () => void
+  tone?: 'default' | 'muted' | 'warning'
+}
+
+const tones: Record<NonNullable<Props['tone']>, { text: string; rule: string }> = {
+  default: { text: 'text-gray-500 hover:text-gray-700', rule: 'bg-gray-200' },
+  muted:   { text: 'text-gray-400 hover:text-gray-600', rule: 'bg-gray-200' },
+  warning: { text: 'text-amber-700 hover:text-amber-900', rule: 'bg-amber-200' },
+}
+
+export function GroupHeader({ label, count, collapsed, onToggle, tone = 'default' }: Props) {
+  const t = tones[tone]
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      className="w-full flex items-center gap-3 mb-3 group"
+    >
+      <ChevronDown
+        className={`w-3.5 h-3.5 transition-transform ${t.text} ${collapsed ? '-rotate-90' : ''}`}
+      />
+      <h3 className={`text-xs font-semibold uppercase tracking-widest whitespace-nowrap transition-colors ${t.text}`}>
+        {label} <span className="text-gray-300">·</span> {count}
+      </h3>
+      <div className={`flex-1 h-px ${t.rule}`} />
+      <span className={`text-xs whitespace-nowrap transition-colors ${t.text}`}>
+        {collapsed ? 'Show' : 'Hide'}
+      </span>
+    </button>
+  )
+}

@@ -63,7 +63,7 @@ const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townh
 const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
-const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
+const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc', 'Trust'] as const
 
 const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // ===== loans table (synced to Pipedrive) =====
@@ -110,6 +110,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   rate_type:              { type: 'enum',     table: 'loan_details', validValues: RATE_TYPE_OPTIONS },
   points:                 { type: 'number',   table: 'loan_details' },
   broker_points:          { type: 'number',   table: 'loan_details' },
+  broker_ysp:             { type: 'number',   table: 'loan_details' },
   underwriting_fee:       { type: 'number',   table: 'loan_details' },
   legal_doc_prep_fee:     { type: 'number',   table: 'loan_details' },
   prepayment_penalty:     { type: 'text',     table: 'loan_details' },

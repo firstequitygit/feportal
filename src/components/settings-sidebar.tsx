@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, UserCog, ShieldCheck, UserCheck, Mail } from 'lucide-react'
+import { Users, UserCog, ShieldCheck, UserCheck, Settings, Mail } from 'lucide-react'
 
 interface Props {
   isSuperAdmin: boolean
@@ -14,10 +14,9 @@ interface SubItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
-interface Section {
-  title: string
-  items: SubItem[]
-}
+const GENERAL_SUBITEMS: SubItem[] = [
+  { href: '/admin/settings/general', label: 'General', icon: Settings },
+]
 
 const USERS_SUBITEMS: SubItem[] = [
   { href: '/admin/settings/users/loan-officers',    label: 'Loan Officers',    icon: Users },
@@ -35,44 +34,47 @@ const NOTIFICATIONS_SUBITEMS: SubItem[] = [
   { href: '/admin/settings/notifications', label: 'Application Inbox', icon: Mail },
 ]
 
+function NavSection({ heading, items, pathname }: { heading: string; items: SubItem[]; pathname: string }) {
+  return (
+    <div className="mb-4">
+      <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {heading}
+      </div>
+      <ul className="space-y-0.5">
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + '/')
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
+                  active
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export function SettingsSidebar({ isSuperAdmin }: Props) {
   const pathname = usePathname()
-  const usersItems = isSuperAdmin ? [...USERS_SUBITEMS, ADMINS_SUBITEM] : USERS_SUBITEMS
-
-  const sections: Section[] = [
-    { title: 'Users', items: usersItems },
-    { title: 'Notifications', items: NOTIFICATIONS_SUBITEMS },
-  ]
+  // Admins tab is visible to every admin (read-only for regular admins;
+  // super-admins additionally get create/delete in the manager).
+  const userSubItems = [...USERS_SUBITEMS, ADMINS_SUBITEM]
 
   return (
     <nav className="w-56 shrink-0 border-r border-gray-200 pr-4">
-      {sections.map((section, idx) => (
-        <div key={section.title} className={idx > 0 ? 'mt-6' : ''}>
-          <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {section.title}
-          </div>
-          <ul className="space-y-0.5">
-            {section.items.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + '/')
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                      active
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+      {isSuperAdmin && <NavSection heading="General" items={GENERAL_SUBITEMS} pathname={pathname} />}
+      <NavSection heading="Users" items={userSubItems} pathname={pathname} />
+      <NavSection heading="Notifications" items={NOTIFICATIONS_SUBITEMS} pathname={pathname} />
     </nav>
   )
 }

@@ -8,7 +8,6 @@ import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { PortalShell } from '@/components/portal-shell'
 import { ConditionsList } from '@/components/conditions-list'
-import { LoanActivity } from '@/components/loan-activity'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
@@ -258,12 +257,9 @@ export default async function LoanPage({
           signedUrlMap={signedUrlMap}
         />
 
-        {/* Recent Activity */}
-        {events && events.length > 0 && (
-          <div className="mt-6">
-            <LoanActivity events={events} title="Recent Activity" hideStaffNames />
-          </div>
-        )}
+        {/* Recent Activity is staff-only — surfaces things like underwriter
+            assignments and other internal events that don't belong on the
+            borrower view. Staff still see it on their loan detail pages. */}
     </PortalShell>
   )
 }

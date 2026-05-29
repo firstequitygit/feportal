@@ -20,9 +20,12 @@ interface Props {
   initialAdmins: AdminRow[]
   /** The viewer's own admin_users.id — block self-delete. */
   currentUserId: string
+  /** Only super-admins see the Add/Delete affordances. Regular admins get
+   *  a read-only roster. Server enforces the same gate via verifySuperAdmin. */
+  isSuper: boolean
 }
 
-export function AdminUsersManager({ initialAdmins, currentUserId }: Props) {
+export function AdminUsersManager({ initialAdmins, currentUserId, isSuper }: Props) {
   const [admins, setAdmins] = useState<AdminRow[]>(initialAdmins)
   const [adding, setAdding] = useState(false)
   const [newForm, setNewForm] = useState({ email: '', full_name: '' })
@@ -100,7 +103,7 @@ export function AdminUsersManager({ initialAdmins, currentUserId }: Props) {
         <CardTitle className="text-base">
           Admin Users <span className="text-sm font-normal text-gray-400">{admins.length}</span>
         </CardTitle>
-        {!adding && (
+        {isSuper && !adding && (
           <Button size="sm" variant="outline" onClick={() => { setAdding(true); setCreatedInfo(null) }}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Admin
           </Button>
@@ -178,16 +181,18 @@ export function AdminUsersManager({ initialAdmins, currentUserId }: Props) {
                 </div>
                 <p className="text-xs text-gray-500 truncate">{a.email}</p>
               </div>
-              <button
-                onClick={() => handleDelete(a)}
-                disabled={deletingId === a.id || a.id === currentUserId}
-                title={a.id === currentUserId ? "You can't delete yourself" : 'Delete admin'}
-                className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {deletingId === a.id
-                  ? <span className="text-xs">Deleting…</span>
-                  : <Trash2 className="w-3.5 h-3.5" />}
-              </button>
+              {isSuper && (
+                <button
+                  onClick={() => handleDelete(a)}
+                  disabled={deletingId === a.id || a.id === currentUserId}
+                  title={a.id === currentUserId ? "You can't delete yourself" : 'Delete admin'}
+                  className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {deletingId === a.id
+                    ? <span className="text-xs">Deleting…</span>
+                    : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
           ))}
         </div>

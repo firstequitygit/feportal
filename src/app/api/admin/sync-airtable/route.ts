@@ -51,8 +51,16 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ ok: true, summary, batchSize: BATCH_SIZE })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    console.error('Airtable sync failed:', msg)
+    // Defensive: anything could land here. String(plainObject) gives
+    // "[object Object]" which is the bug we just chased — go through
+    // the same coercion we expect on the client.
+    let msg: string
+    if (e instanceof Error) msg = e.message
+    else if (e && typeof e === 'object') {
+      const o = e as Record<string, unknown>
+      msg = typeof o.message === 'string' ? o.message : JSON.stringify(e).slice(0, 300)
+    } else msg = String(e)
+    console.error('Airtable sync failed:', msg, e)
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }

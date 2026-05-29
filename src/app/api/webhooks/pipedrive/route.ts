@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizeDeal, type PipedriveDeal } from '@/lib/pipedrive'
+import { normalizeDeal, fetchEnumOptions, type PipedriveDeal } from '@/lib/pipedrive'
+import { PIPEDRIVE_FIELDS } from '@/lib/types'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
+import { findOrLinkBroker } from '@/lib/broker-sync'
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -44,14 +47,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No deal data in payload' }, { status: 400 })
     }
 
-    // Normalize the deal data from the webhook payload directly — no extra API call needed
-    const deal = normalizeDeal(dealData)
+    // Normalize the deal data from the webhook payload directly — no extra
+    // API call for the deal itself, but we pre-fetch enum option labels so
+    // fields like Interest Only resolve to "Yes"/"No" instead of raw ids.
+    const optionsMap = await fetchEnumOptions(
+      PIPEDRIVE_FIELDS.interestOnly,
+      PIPEDRIVE_FIELDS.rateLocked,
+      PIPEDRIVE_FIELDS.loanTypeII,
+    )
+    const deal = normalizeDeal(dealData, optionsMap)
     console.log('Normalized deal:', JSON.stringify(deal))
 
-    // Fetch current stage before upserting to detect Submitted (Loan Approved) transition
+    // Fetch current state before upserting — drives both the CA stage
+    // preservation and the "skip broker auto-assign if already set" guard.
     const { data: existingLoan } = await supabase
       .from('loans')
-      .select('id, pipeline_stage')
+      .select('id, pipeline_stage, broker_id')
       .eq('pipedrive_deal_id', dealId)
       .single()
 
@@ -97,6 +108,14 @@ export async function POST(request: Request) {
       if (loMatch) resolvedLoId = loMatch.id
     }
 
+    // Broker auto-assign — only when Pipedrive has a broker AND the loan
+    // doesn't already carry one. Done inline so we don't add a Pipedrive
+    // call when there's nothing to resolve.
+    let resolvedBrokerId: string | null = null
+    if (deal.broker_pipedrive_person_id && !existingLoan?.broker_id) {
+      resolvedBrokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
+    }
+
     const upsertPayload: Record<string, unknown> = {
       pipedrive_deal_id:  deal.pipedrive_deal_id,
       property_address:   deal.property_address,
@@ -115,6 +134,7 @@ export async function POST(request: Request) {
       ...archivedField,
     }
     if (resolvedLoId) upsertPayload.loan_officer_id = resolvedLoId
+    if (resolvedBrokerId) upsertPayload.broker_id = resolvedBrokerId
 
     const { error } = await supabase
       .from('loans')
@@ -145,11 +165,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // Pre-Underwriting: blast the underwriter team to claim.
+    // Pre-Underwriting: auto-assign Alicyn (no-op if already assigned),
+    // then call the team-claim blast which itself no-ops when underwriter_id
+    // is set. A successful auto-assign therefore silently skips the blast.
     if (isNowPreUW && !wasPreUW && existingLoan?.id) {
       try {
+        await autoAssignDefaultUnderwriter(supabase, existingLoan.id)
+      } catch (err) {
+        console.error(`Auto-assign UW failed for deal ${dealId}:`, err)
+      }
+      try {
         await sendPreUnderwritingClaimEmail(existingLoan.id)
-        console.log(`Pre-UW claim email sent for deal ${dealId}`)
+        console.log(`Pre-UW notifications complete for deal ${dealId}`)
       } catch (err) {
         console.error(`Pre-UW claim email failed for deal ${dealId}:`, err)
       }

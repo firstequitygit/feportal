@@ -116,15 +116,18 @@ function passYesNoOnly(v: unknown): string | undefined {
 }
 
 // ---- rate_type ----
+// Airtable's Rate Type singleSelect has 'Fixed', '5 Year ARM', '7 Year ARM'.
+// The portal only stores 'Fixed' or 'ARM' (no 5 vs 7 distinction), so we
+// default ARM → '5 Year ARM' on push and accept either ARM variant on pull.
 function mapRateTypeForward(v: unknown): string | undefined {
-  if (v === 'Fixed') return 'fixed'
-  if (v === 'ARM') return '5 yr ARM'  // portal doesn't distinguish 5 vs 7
+  if (v === 'Fixed') return 'Fixed'
+  if (v === 'ARM') return '5 Year ARM'
   return undefined
 }
 function mapRateTypeInverse(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined
   if (v.toLowerCase() === 'fixed') return 'Fixed'   // accept "Fixed" or "fixed"
-  if (/arm$/i.test(v)) return 'ARM'                 // accept "5 yr ARM" / "7 yr ARM" / "ARM"
+  if (/arm$/i.test(v)) return 'ARM'                 // accept "5 Year ARM" / "7 Year ARM" / "ARM"
   return undefined
 }
 
@@ -247,6 +250,7 @@ export const FIELD_MAP: FieldMapping[] = [
   s('rate_type', 'loan_details', 'Rate Type', mapRateTypeForward, mapRateTypeInverse),
   s('points', 'loan_details', 'Points'),
   s('broker_points', 'loan_details', 'Broker Points', pointsForward, pointsInverse),
+  s('broker_ysp',    'loan_details', 'Broker YSP',    pointsForward, pointsInverse),
   s('prepayment_penalty', 'loan_details', 'Prepayment Penalty'),
   s('first_payment_date', 'loan_details', 'First Payment Date'),
   s('loan_type_one', 'loan_details', 'Loan Purpose'),

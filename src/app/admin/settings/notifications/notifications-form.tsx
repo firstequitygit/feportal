@@ -27,7 +27,7 @@ export function NotificationsForm({ initialValue, initialUpdatedAt, initialUpdat
     setErrorMsg(null)
 
     startTransition(async () => {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin/settings/notifications', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ key: KEY, value }),
@@ -40,7 +40,7 @@ export function NotificationsForm({ initialValue, initialUpdatedAt, initialUpdat
         return
       }
 
-      const refreshed = await fetch(`/api/admin/settings?key=${KEY}`, { cache: 'no-store' })
+      const refreshed = await fetch(`/api/admin/settings/notifications?key=${KEY}`, { cache: 'no-store' })
       if (refreshed.ok) {
         const data = await refreshed.json()
         setValue(data.value)

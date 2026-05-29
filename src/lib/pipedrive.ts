@@ -89,6 +89,7 @@ export interface NormalizedDeal {
   closed_at: string | null               // Pipedrive won_time, normalized to ISO (only when status=won)
   estimated_closing_date: string | null  // Pipedrive "Closing Date" custom field — scheduled/expected close
   lost_reason: string | null             // Free-text reason populated by Pipedrive when status=lost
+  broker_pipedrive_person_id: number | null  // Custom "Broker" person field on the deal — drives broker auto-assignment
 }
 
 function getField(deal: PipedriveDeal, key: string): unknown {
@@ -130,7 +131,63 @@ function toString(val: unknown): string | null {
   return s === '' ? null : s
 }
 
-export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
+/**
+ * Map of fieldKey → (optionId → label). Lets normalizeDeal turn Pipedrive's
+ * raw enum IDs (e.g. 270) into human labels ("Yes") at sync time.
+ *
+ * Pre-fetch via `fetchEnumOptions(...keys)` once per sync run, pass to
+ * normalizeDeal. Callers that don't pass one get raw IDs as today — the
+ * historical behavior — but new sync paths should always pass it.
+ */
+export type EnumOptionsMap = Record<string, Record<number, string>>
+
+/**
+ * Pull a single Pipedrive field's option list, keyed by id.
+ */
+async function loadFieldOptions(fieldKey: string): Promise<Record<number, string>> {
+  const fields = await getDealFieldsRaw()
+  const field = fields.find(f => (f as { key?: string }).key === fieldKey)
+  if (!field) return {}
+  const options = (field as { options?: { id: number; label: string }[] }).options
+  if (!options) return {}
+  const map: Record<number, string> = {}
+  for (const o of options) map[o.id] = o.label
+  return map
+}
+
+/**
+ * Bulk pre-fetch option labels for the given field keys. Used by sync paths
+ * to populate the EnumOptionsMap before normalizing every deal.
+ */
+export async function fetchEnumOptions(...fieldKeys: string[]): Promise<EnumOptionsMap> {
+  const entries = await Promise.all(fieldKeys.map(async k => [k, await loadFieldOptions(k)] as const))
+  return Object.fromEntries(entries)
+}
+
+/**
+ * Resolve a Pipedrive enum field's raw value to its human label. Pipedrive
+ * returns option ids (numbers) for most enum fields, but webhooks
+ * occasionally return labels already — handle both.
+ */
+function resolveEnumLabel(
+  raw: unknown,
+  fieldKey: string,
+  optionsMap?: EnumOptionsMap,
+): string | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  // Already a label (webhook payload or pre-resolved).
+  if (typeof raw === 'string' && !/^\d+$/.test(raw)) return raw
+  const id = toNumber(raw)
+  if (id === null) return typeof raw === 'string' ? raw : null
+  const label = optionsMap?.[fieldKey]?.[id]
+  if (label) return label
+  // No map provided (or option id not in the map) — fall back to the raw
+  // string. Better than dropping the field entirely; the user can still see
+  // something is set.
+  return String(id)
+}
+
+export function normalizeDeal(deal: PipedriveDeal, optionsMap?: EnumOptionsMap): NormalizedDeal {
   const f = PIPEDRIVE_FIELDS
 
   // Loan Type: Pipedrive returns option ID as a number
@@ -185,10 +242,17 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     maturity_date:      toString(getField(deal, f.maturityDate)),
     entity_name:        toString(getField(deal, f.entityName)),
     loan_number:               toString(getField(deal, f.loanNumber)),
-    rate_locked_days:          toString(getField(deal, f.rateLocked)),
+    // Enum fields — Pipedrive returns option ids for these (numbers like
+    // 270), so we resolve them to labels ("Yes" / "No" / etc) via the
+    // pre-fetched options map. Falling back to toString matches the
+    // historical behavior when no options map is provided.
+    rate_locked_days:          resolveEnumLabel(getField(deal, f.rateLocked), f.rateLocked, optionsMap)
+                               ?? toString(getField(deal, f.rateLocked)),
     rate_lock_expiration_date: toString(getField(deal, f.rateLockExpiration)),
-    interest_only:             toString(getField(deal, f.interestOnly)),
-    loan_type_ii:              toString(getField(deal, f.loanTypeII)),
+    interest_only:             resolveEnumLabel(getField(deal, f.interestOnly), f.interestOnly, optionsMap)
+                               ?? toString(getField(deal, f.interestOnly)),
+    loan_type_ii:              resolveEnumLabel(getField(deal, f.loanTypeII), f.loanTypeII, optionsMap)
+                               ?? toString(getField(deal, f.loanTypeII)),
     // Pipedrive won_time is "YYYY-MM-DD HH:MM:SS" UTC; normalize to ISO.
     // Only populate closed_at when the deal's current status is 'won'.
     // Pipedrive keeps won_time on deals later reopened/marked lost, so
@@ -202,6 +266,10 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
     // used by FE's monthly closings report. Comes through as "YYYY-MM-DD".
     estimated_closing_date: toString(getField(deal, f.closingDate)),
     lost_reason: toString(deal.lost_reason),
+    // Custom "Broker" person field. Pipedrive returns custom person-typed
+    // fields as either a bare number (just the person id) or as a small
+    // object — toNumber handles both.
+    broker_pipedrive_person_id: toNumber(getField(deal, f.brokerPerson)),
   }
 }
 
@@ -216,20 +284,62 @@ export function normalizeDeal(deal: PipedriveDeal): NormalizedDeal {
 //   won  → archived left untouched (auto-archive cron handles after 30d)
 //   lost → archived=true (in portal as historical record, not claimable)
 export async function fetchAllDeals(): Promise<NormalizedDeal[]> {
-  const [open, won, lost] = await Promise.all([
+  const [open, won, lost, optionsMap] = await Promise.all([
     pipedriveGetAllPages('/deals?status=open'),
     pipedriveGetAllPages('/deals?status=won'),
     pipedriveGetAllPages('/deals?status=lost'),
+    fetchEnumOptions(PIPEDRIVE_FIELDS.interestOnly, PIPEDRIVE_FIELDS.rateLocked, PIPEDRIVE_FIELDS.loanTypeII),
   ])
   const all = [...open, ...won, ...lost] as PipedriveDeal[]
   const pipeline2 = all.filter(d => d.pipeline_id === 2)
-  return pipeline2.map(normalizeDeal)
+  return pipeline2.map(d => normalizeDeal(d, optionsMap))
+}
+
+/**
+ * Fetch a single Pipedrive Person's display info. Used by broker-sync to
+ * resolve the broker custom field on a deal into a name/email/phone
+ * triple. Returns null if the id doesn't resolve (deleted person, bad id).
+ *
+ * Picks the primary email/phone when marked, falling back to the first
+ * entry — same heuristic used for borrowers in normalizeDeal.
+ */
+export interface PipedrivePersonSummary {
+  id: number
+  name: string | null
+  email: string | null
+  phone: string | null
+}
+export async function fetchPerson(personId: number): Promise<PipedrivePersonSummary | null> {
+  try {
+    const data = await pipedriveGet(`/persons/${personId}`)
+    if (!data.success || !data.data) return null
+    const p = data.data as {
+      id: number
+      name?: string | null
+      email?: { value: string; primary?: boolean }[]
+      phone?: { value: string; primary?: boolean }[]
+    }
+    const emailPrimary = p.email?.find(e => e.primary)
+    const phonePrimary = p.phone?.find(ph => ph.primary)
+    return {
+      id: p.id,
+      name: p.name ?? null,
+      email: (emailPrimary?.value ?? p.email?.[0]?.value ?? null) || null,
+      phone: (phonePrimary?.value ?? p.phone?.[0]?.value ?? null) || null,
+    }
+  } catch (err) {
+    console.error(`fetchPerson(${personId}) failed:`, err)
+    return null
+  }
 }
 
 export async function fetchDeal(dealId: number): Promise<NormalizedDeal | null> {
-  const data = await pipedriveGet(`/deals/${dealId}`)
+  const [data, optionsMap] = await Promise.all([
+    pipedriveGet(`/deals/${dealId}`),
+    fetchEnumOptions(PIPEDRIVE_FIELDS.interestOnly, PIPEDRIVE_FIELDS.rateLocked, PIPEDRIVE_FIELDS.loanTypeII),
+  ])
   if (!data.success || !data.data) return null
-  return normalizeDeal(data.data as PipedriveDeal)
+  return normalizeDeal(data.data as PipedriveDeal, optionsMap)
 }
 
 /**

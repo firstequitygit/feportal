@@ -7,14 +7,15 @@ export type AutosaveStatus =
   | { state: 'saved'; at: number }
   | { state: 'error'; message: string }
 
-/** Debounced PATCH to /api/apply/draft. No-op until a resumeToken exists,
+/** Debounced PATCH to the draft endpoint. No-op until a resumeToken exists,
  *  or when `disabled` is true (used by test mode to keep nothing written
- *  to loan_applications). */
+ *  to loan_applications). Endpoint is variant-supplied. */
 export function useAutosave(
   resumeToken: string | null,
   data: unknown,
   currentStep: number,
   disabled = false,
+  endpoint: string = '/api/apply/draft',
 ): AutosaveStatus {
   const [status, setStatus] = useState<AutosaveStatus>({ state: 'idle' })
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -22,7 +23,7 @@ export function useAutosave(
   const save = useCallback(async (token: string) => {
     setStatus({ state: 'saving' })
     try {
-      const res = await fetch('/api/apply/draft', {
+      const res = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeToken: token, data, currentStep }),
@@ -36,7 +37,7 @@ export function useAutosave(
       const message = err instanceof Error ? err.message : 'Save failed'
       setStatus({ state: 'error', message })
     }
-  }, [data, currentStep])
+  }, [data, currentStep, endpoint])
 
   useEffect(() => {
     if (disabled) return

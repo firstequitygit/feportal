@@ -1,329 +1,132 @@
+// src/components/loan-list-sorted.tsx
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { FileX } from 'lucide-react'
 import Link from 'next/link'
-import { ChevronRight, ChevronDown, MapPin, FileX, LayoutList, LayoutGrid } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { type Loan, type PipelineStage, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
-import { formatDate } from '@/lib/format-date'
-import { formatInterestRate } from '@/lib/format-interest-rate'
+import { type Loan, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
+import { LoanCard } from '@/components/loans/loan-card'
+import { GroupHeader } from '@/components/loans/group-header'
+import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
+import { useLoanListView } from '@/lib/loans/view-state'
+import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
+const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
 
-const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // New Application → Submitted (excludes Closed)
-
-type LoanWithBorrower = Loan & {
+export type LoanWithBorrower = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
-  loan_officers?: { full_name: string | null } | null
+  loan_officers?: { id: string; full_name: string | null } | null
+  loan_processors?: { id: string; full_name: string | null } | null
+  loan_details?: { cash_out_amount: number | null } | null
 }
 
 interface Props {
+  /** All non-closed loans (active, on_hold, cancelled). */
   activeLoans: LoanWithBorrower[]
   closedLoans: LoanWithBorrower[]
   outstandingMap: Record<string, OutstandingCounts>
-  lastUpdatedMap: Record<string, string>   // loan_id → ISO timestamp of most recent event
-  linkPrefix: string                        // e.g. '/loan-officer' or '/loan-processor'
+  lastUpdatedMap: Record<string, string>
+  linkPrefix: string
   /**
-   * When true and a stage filter is selected, the Active section is broken
-   * into alphabetical sub-sections by Loan Officer. Used by LP and UW pages
-   * where multiple LOs' loans share the list — the LO doesn't need this.
+   * When true, hides Loan-officer filter / group dimensions in the toolbar.
+   * Used by the LO role page where the dimension is degenerate.
    */
-  groupByLoanOfficer?: boolean
+  hideLoanOfficerDimensions?: boolean
 }
-
-type SortBy = 'last_updated' | 'stage'
 
 function formatCurrency(val: number | null): string {
   if (val === null) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(val)
 }
 
-function formatRelative(iso: string | undefined): string {
-  if (!iso) return 'No activity'
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const mins  = Math.floor(diffMs / 60_000)
-  const hours = Math.floor(diffMs / 3_600_000)
-  const days  = Math.floor(diffMs / 86_400_000)
-  const weeks = Math.floor(days / 7)
-  if (mins  <  1) return 'Just now'
-  if (mins  < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days  <  7) return `${days}d ago`
-  if (weeks <  5) return `${weeks}w ago`
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function stageBadgeColor(stage: PipelineStage | null): string {
-  switch (stage) {
-    case 'New Application':  return 'bg-gray-100 text-gray-700'
-    case 'Processing':       return 'bg-blue-100 text-blue-700'
-    case 'Pre-Underwriting': return 'bg-yellow-100 text-yellow-700'
-    case 'Underwriting':     return 'bg-orange-100 text-orange-700'
-    case 'Conditionally Approved': return 'bg-teal-100 text-teal-700'
-    case 'Approved':         return 'bg-green-100 text-green-700'
-    case 'Closed':           return 'bg-purple-100 text-purple-700'
-    default:                        return 'bg-gray-100 text-gray-600'
-  }
-}
-
-function formatStage(stage: PipelineStage | string | null): string {
+function formatStage(stage: string | null): string {
   if (!stage) return 'Unknown'
   return stage.split(' /')[0].trim()
 }
 
-function sortLoans(loans: LoanWithBorrower[], sortBy: SortBy, lastUpdatedMap: Record<string, string>): LoanWithBorrower[] {
-  return [...loans].sort((a, b) => {
-    if (sortBy === 'stage') {
-      const ai = PIPELINE_STAGES.indexOf(a.pipeline_stage as PipelineStage)
-      const bi = PIPELINE_STAGES.indexOf(b.pipeline_stage as PipelineStage)
-      if (ai !== bi) return ai - bi
-    }
-    const aTime = new Date(lastUpdatedMap[a.id] ?? a.created_at).getTime()
-    const bTime = new Date(lastUpdatedMap[b.id] ?? b.created_at).getTime()
-    return bTime - aTime
-  })
-}
-
-function LoanCard({ loan, outstanding, lastUpdated, linkPrefix }: {
-  loan: LoanWithBorrower
-  outstanding: OutstandingCounts
-  lastUpdated: string | undefined
-  linkPrefix: string
-}) {
-  const isClosed = loan.pipeline_stage === 'Closed'
-  const isOnHold = loan.loan_status === 'on_hold'
-  const isCancelled = loan.loan_status === 'cancelled'
-  const accentClass = isCancelled
-    ? 'border-l-red-300'
-    : isOnHold
-      ? 'border-l-amber-400'
-      : isClosed
-        ? 'border-l-gray-300'
-        : outstanding.you > 0
-          ? 'border-l-red-400'
-          : outstanding.total > 0
-            ? 'border-l-amber-300'
-            : 'border-l-green-400'
-
-  return (
-    <Link href={`${linkPrefix}/loans/${loan.id}`} className="block group">
-      <Card className={`border border-gray-200 border-l-4 ${accentClass} transition-all duration-150 group-hover:shadow-md group-hover:border-gray-300 ${isClosed || isCancelled ? 'opacity-70' : ''} ${isOnHold ? 'bg-yellow-50' : ''}`}>
-        <CardContent className="p-5">
-          {/* Top row: address + badges + chevron */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-px" />
-                <p className="font-semibold text-gray-900 truncate">
-                  {loan.property_address ?? 'Address not set'}
-                </p>
-              </div>
-              <p className="text-sm text-gray-500 mt-1 ml-5 truncate">
-                {loan.borrowers?.full_name ?? 'No borrower assigned'}
-                {loan.loan_type ? <span className="text-gray-300"> · </span> : null}
-                {loan.loan_type}
-                <span className="text-gray-300"> · </span>
-                {formatCurrency(loan.loan_amount)}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-              {outstanding.you > 0 && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
-                  You {outstanding.you}
-                </span>
-              )}
-              {outstanding.borrower > 0 && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
-                  Borrower {outstanding.borrower}
-                </span>
-              )}
-              {outstanding.team > 0 && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">
-                  Team {outstanding.team}
-                </span>
-              )}
-              {isOnHold && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
-                  On Hold
-                </span>
-              )}
-              {isCancelled && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
-                  Cancelled
-                </span>
-              )}
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${stageBadgeColor(loan.pipeline_stage)}`}>
-                {isClosed ? 'Closed' : formatStage(loan.pipeline_stage)}
-              </span>
-              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-2">
-            <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Interest Rate</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{formatInterestRate(loan.interest_rate)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Rate Locked / Days</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.rate_locked_days ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Last Updated</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{formatDate(lastUpdated ?? loan.created_at)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Term</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{loan.term_months ? `${loan.term_months} mo` : '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">Est. Closing Date</p>
-              <p className="font-semibold text-gray-800 text-sm mt-0.5">{formatDate(loan.estimated_closing_date)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
-}
-
-function BoardView({ activeLoans, outstandingMap, lastUpdatedMap, linkPrefix }: {
-  activeLoans: LoanWithBorrower[]
-  outstandingMap: Record<string, OutstandingCounts>
-  lastUpdatedMap: Record<string, string>
-  linkPrefix: string
-}) {
-  const columns = BOARD_STAGES.map(stage => ({
-    stage,
-    loans: activeLoans
-      .filter(l => l.pipeline_stage === stage)
-      .sort((a, b) => {
-        const aTime = new Date(lastUpdatedMap[a.id] ?? a.created_at).getTime()
-        const bTime = new Date(lastUpdatedMap[b.id] ?? b.created_at).getTime()
-        return bTime - aTime // most recent first
-      }),
-  }))
-
-  return (
-    <div className="pb-4 overflow-x-auto">
-      <div className="grid grid-cols-5 gap-3 min-w-[720px]">
-        {columns.map(({ stage, loans: stageLoans }) => (
-          <div key={stage} className="min-w-0">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
-                {formatStage(stage)}
-              </h3>
-              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
-                {stageLoans.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {stageLoans.map(loan => {
-                const outstanding = outstandingMap[loan.id] ?? ZERO_COUNTS
-                return (
-                  <Link key={loan.id} href={`${linkPrefix}/loans/${loan.id}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-3">
-                        <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
-                          {loan.property_address ?? '—'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 truncate">
-                          {loan.borrowers?.full_name ?? <span className="italic">Unassigned</span>}
-                        </p>
-                        <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
-                          <span className="text-xs text-gray-500">{loan.loan_type ?? '—'}</span>
-                          <span className="text-xs font-medium text-gray-900 whitespace-nowrap">
-                            {formatCurrency(loan.loan_amount)}
-                          </span>
-                        </div>
-                        {outstanding.you > 0 && (
-                          <div className="mt-2">
-                            <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-semibold">
-                              You {outstanding.you}
-                            </span>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-100">
-                          {formatRelative(lastUpdatedMap[loan.id])}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                )
-              })}
-              {stageLoans.length === 0 && (
-                <div className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center">
-                  <p className="text-xs text-gray-400">Empty</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function groupLoansByLoanOfficer(loans: LoanWithBorrower[]): Array<{ name: string; loans: LoanWithBorrower[] }> {
-  const buckets = new Map<string, { name: string; loans: LoanWithBorrower[] }>()
-  for (const loan of loans) {
-    const name = loan.loan_officers?.full_name?.trim() || 'Unassigned'
-    const key = name.toLowerCase()
-    let bucket = buckets.get(key)
-    if (!bucket) {
-      bucket = { name, loans: [] }
-      buckets.set(key, bucket)
-    }
-    bucket.loans.push(loan)
+function uniquePeople(
+  loans: LoanWithBorrower[],
+  picker: (l: LoanWithBorrower) => { id: string; name: string } | null,
+) {
+  const map = new Map<string, { id: string; name: string }>()
+  for (const l of loans) {
+    const p = picker(l)
+    if (p && !map.has(p.id)) map.set(p.id, p)
   }
-  // Alphabetical by LO name, with "Unassigned" pinned to the bottom.
-  return [...buckets.values()].sort((a, b) => {
-    if (a.name === 'Unassigned') return 1
-    if (b.name === 'Unassigned') return -1
-    return a.name.localeCompare(b.name)
-  })
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastUpdatedMap, linkPrefix, groupByLoanOfficer = false }: Props) {
-  const [sortBy, setSortBy] = useState<SortBy>('stage')
-  const [view, setView] = useState<'list' | 'board'>('list')
-  const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all')
-  const [closedExpanded, setClosedExpanded] = useState(false)
-  // On Hold loans get their own collapsible bucket, defaulted to closed so
-  // they don't clutter the active list. Matches the Closed bucket pattern.
+export function LoanListSorted({
+  activeLoans,
+  closedLoans,
+  outstandingMap,
+  lastUpdatedMap,
+  linkPrefix,
+  hideLoanOfficerDimensions = false,
+}: Props) {
+  const { state, patch, patchFilters, clearFilters } = useLoanListView()
+
+  const allLoans = useMemo<LoanWithBorrower[]>(
+    () => [...activeLoans, ...closedLoans],
+    [activeLoans, closedLoans],
+  )
+
+  const loanOfficers = useMemo(
+    () =>
+      uniquePeople(allLoans, l =>
+        l.loan_officers && l.loan_officer_id
+          ? { id: l.loan_officer_id, name: l.loan_officers.full_name ?? 'Unnamed' }
+          : null,
+      ),
+    [allLoans],
+  )
+  const loanProcessors = useMemo(
+    () =>
+      uniquePeople(allLoans, l =>
+        l.loan_processors && l.loan_processor_id
+          ? { id: l.loan_processor_id, name: l.loan_processors.full_name ?? 'Unnamed' }
+          : null,
+      ),
+    [allLoans],
+  )
+  const loanTypes = useMemo(
+    () =>
+      [...new Set(
+        allLoans.map(l => l.loan_type).filter((t): t is NonNullable<typeof t> => !!t),
+      )].sort(),
+    [allLoans],
+  )
+
+  const groups = useMemo(
+    () => applyView(allLoans as ViewLoan[], state, { lastUpdatedMap }) as ReturnType<typeof applyView<LoanWithBorrower>>,
+    [allLoans, state, lastUpdatedMap],
+  )
+
+  // On Hold loans live in a separate bucket at the bottom of the list,
+  // regardless of the current loan_status filter (default = ['active']).
+  // Otherwise a held loan would silently disappear from the LO/LP/UW
+  // dashboard and get forgotten. Default collapsed so it doesn't clutter.
+  const onHoldLoans = useMemo(
+    () => allLoans.filter(l => l.loan_status === 'on_hold'),
+    [allLoans],
+  )
   const [onHoldExpanded, setOnHoldExpanded] = useState(false)
-  // Per-LO collapse state for the stage-filtered grouped view. Default
-  // expanded — the user just clicked into a stage to see those loans.
-  const [collapsedLOs, setCollapsedLOs] = useState<Set<string>>(new Set())
-  function toggleLO(name: string) {
-    setCollapsedLOs(prev => {
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleGroup = (key: string) =>
+    setCollapsed(prev => {
       const next = new Set(prev)
-      if (next.has(name)) next.delete(name); else next.add(name)
+      if (next.has(key)) next.delete(key); else next.add(key)
       return next
     })
-  }
 
-  // Always offer the full set of non-Closed stages as filter pills so the
-  // user can see every stage that exists in the system (even if no loan is
-  // currently in it). BOARD_STAGES already excludes 'Closed'.
-  const activeStages = BOARD_STAGES
-
-  // Pull On Hold loans out of the active flow so they live in their own
-  // collapsible bucket. Both Active and On Hold respect the stage filter —
-  // e.g. selecting "Processing" should show only loans in Processing under
-  // Active, and only Processing loans that are on hold under On Hold.
-  const stageMatches = (l: LoanWithBorrower) =>
-    stageFilter === 'all' || l.pipeline_stage === stageFilter
-
-  const filteredActive = activeLoans.filter(l => l.loan_status !== 'on_hold' && stageMatches(l))
-  const filteredOnHold = activeLoans.filter(l => l.loan_status === 'on_hold' && stageMatches(l))
-
-  const sortedActive = sortLoans(filteredActive, sortBy, lastUpdatedMap)
-  const sortedOnHold = sortLoans(filteredOnHold, sortBy, lastUpdatedMap)
-  const sortedClosed = sortLoans(closedLoans, sortBy, lastUpdatedMap)
-  const total = activeLoans.length + closedLoans.length
-
+  const total = allLoans.length
   if (total === 0) {
     return (
       <Card className="border border-gray-200">
@@ -338,165 +141,90 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
     )
   }
 
+  const filteredTotal = groups.reduce((acc, g) => acc + g.loans.length, 0)
+
   return (
-    <div className="space-y-6">
-      {/* Top controls row: sort (list only) + view toggle */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {view === 'list' && (
-          <>
-            <span className="text-sm text-gray-500">Sort by:</span>
-            {(['last_updated', 'stage'] as SortBy[]).map(opt => (
-              <button
-                key={opt}
-                onClick={() => setSortBy(opt)}
-                className={`text-sm px-3 py-1 rounded-full border transition-colors ${
-                  sortBy === opt
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                }`}
-              >
-                {opt === 'last_updated' ? 'Last Updated' : 'Stage'}
-              </button>
-            ))}
-          </>
-        )}
-        <div className="ml-auto flex border border-gray-300 rounded-md overflow-hidden">
-          <button
-            onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm transition-colors ${
-              view === 'list' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <LayoutList className="w-3.5 h-3.5" /> List
-          </button>
-          <button
-            onClick={() => setView('board')}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm border-l border-gray-300 transition-colors ${
-              view === 'board' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" /> Board
-          </button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <LoanListToolbar
+        state={state}
+        onSortChange={(sort, dir) => patch({ sort, dir })}
+        onGroupChange={group => patch({ group })}
+        onFiltersChange={partial => patchFilters(partial)}
+        onClearFilters={clearFilters}
+        onViewChange={view => patch({ view })}
+        loanOfficers={loanOfficers}
+        loanProcessors={loanProcessors}
+        loanTypes={loanTypes}
+        hideLoanOfficerDimensions={hideLoanOfficerDimensions}
+      />
 
-      {/* Stage filter pills — only shown when there are multiple stages */}
-      {activeStages.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setStageFilter('all')}
-            className={`text-sm px-3 py-1 rounded-full border transition-colors ${
-              stageFilter === 'all'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-            }`}
-          >
-            All stages
-          </button>
-          {activeStages.map(stage => (
-            <button
-              key={stage}
-              onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
-              className={`text-sm px-3 py-1 rounded-full border transition-colors ${
-                stageFilter === stage
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-              }`}
-            >
-              {formatStage(stage)}
-            </button>
-          ))}
-        </div>
+      {state.view === 'board' && (
+        <BoardView loans={groups.flatMap(g => g.loans)} linkPrefix={linkPrefix} />
       )}
 
-      {view === 'board' && (
-        <BoardView activeLoans={filteredActive} outstandingMap={outstandingMap} lastUpdatedMap={lastUpdatedMap} linkPrefix={linkPrefix} />
-      )}
-
-      {view === 'list' && (
+      {state.view === 'list' && (
         <>
-          {sortedActive.length > 0 && (
-            <section>
-              <div className="flex items-center gap-3 mb-4">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                  Active — {sortedActive.length}
-                </h3>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-              {groupByLoanOfficer && stageFilter !== 'all' ? (
-                // Stage-filtered + multi-LO list (LP / UW) — break into
-                // alphabetical LO sub-sections so the user can scan by
-                // who's running each loan. Each LO group is independently
-                // collapsible; default expanded since the user just chose
-                // this stage.
-                <div className="space-y-4">
-                  {groupLoansByLoanOfficer(sortedActive).map(({ name, loans }) => {
-                    const isCollapsed = collapsedLOs.has(name)
-                    return (
-                      <div key={name}>
-                        <button
-                          type="button"
-                          onClick={() => toggleLO(name)}
-                          aria-expanded={!isCollapsed}
-                          className="w-full flex items-center gap-2 mb-2 ml-1 text-left group"
-                        >
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
-                          />
-                          <h4 className="text-xs font-medium text-gray-500 group-hover:text-gray-700 transition-colors">
-                            {name} <span className="text-gray-300">·</span> {loans.length}
-                          </h4>
-                          <div className="flex-1 h-px bg-gray-100 ml-2" />
-                          <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors whitespace-nowrap">
-                            {isCollapsed ? 'Show' : 'Hide'}
-                          </span>
-                        </button>
-                        {!isCollapsed && (
-                          <div className="space-y-3">
-                            {loans.map(loan => (
-                              <LoanCard
-                                key={loan.id}
-                                loan={loan}
-                                outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                                lastUpdated={lastUpdatedMap[loan.id]}
-                                linkPrefix={linkPrefix}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sortedActive.map(loan => (
-                    <LoanCard
-                      key={loan.id}
-                      loan={loan}
-                      outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                      lastUpdated={lastUpdatedMap[loan.id]}
-                      linkPrefix={linkPrefix}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+          {filteredTotal === 0 && (
+            <Card>
+              <CardContent className="py-10 text-center text-gray-500 text-sm">
+                No loans match the current filters.
+              </CardContent>
+            </Card>
           )}
 
-          {sortedOnHold.length > 0 && (
+          {state.group === 'none' ? (
+            <div className="space-y-2">
+              {groups[0]?.loans.map(loan => (
+                <LoanCard
+                  key={loan.id}
+                  loan={loan}
+                  outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                  linkPrefix={linkPrefix}
+                />
+              ))}
+            </div>
+          ) : (
+            groups.map(group => {
+              const isCollapsed = collapsed.has(group.key)
+              return (
+                <section key={group.key}>
+                  <GroupHeader
+                    label={group.label}
+                    count={group.loans.length}
+                    collapsed={isCollapsed}
+                    onToggle={() => toggleGroup(group.key)}
+                  />
+                  {!isCollapsed && (
+                    <div className="space-y-1.5">
+                      {group.loans.map(loan => (
+                        <LoanCard
+                          key={loan.id}
+                          loan={loan}
+                          outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                          linkPrefix={linkPrefix}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )
+            })
+          )}
+
+          {/* On Hold bucket — always rendered at the bottom regardless of
+              the current loan_status filter. Default collapsed. Held loans
+              would otherwise disappear from the dashboard since the
+              default filter is loan_status=['active']. */}
+          {onHoldLoans.length > 0 && (
             <section>
               <button
                 type="button"
                 onClick={() => setOnHoldExpanded(o => !o)}
                 aria-expanded={onHoldExpanded}
-                className="w-full flex items-center gap-3 mb-4 group"
+                className="w-full flex items-center gap-3 mt-2 mb-2 group"
               >
-                <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-widest whitespace-nowrap group-hover:text-amber-900 transition-colors flex items-center gap-1.5">
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform ${onHoldExpanded ? '' : '-rotate-90'}`}
-                  />
-                  On Hold — {sortedOnHold.length}
+                <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-widest whitespace-nowrap group-hover:text-amber-900 transition-colors">
+                  {onHoldExpanded ? '▾' : '▸'} On Hold — {onHoldLoans.length}
                 </h3>
                 <div className="flex-1 h-px bg-amber-200" />
                 <span className="text-xs text-amber-700 group-hover:text-amber-900 transition-colors whitespace-nowrap">
@@ -504,48 +232,12 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
                 </span>
               </button>
               {onHoldExpanded && (
-                <div className="space-y-3">
-                  {sortedOnHold.map(loan => (
+                <div className="space-y-1.5">
+                  {onHoldLoans.map(loan => (
                     <LoanCard
                       key={loan.id}
                       loan={loan}
                       outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                      lastUpdated={lastUpdatedMap[loan.id]}
-                      linkPrefix={linkPrefix}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {sortedClosed.length > 0 && stageFilter === 'all' && (
-            <section>
-              <button
-                type="button"
-                onClick={() => setClosedExpanded(o => !o)}
-                aria-expanded={closedExpanded}
-                className="w-full flex items-center gap-3 mb-4 group"
-              >
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap group-hover:text-gray-600 transition-colors flex items-center gap-1.5">
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform ${closedExpanded ? '' : '-rotate-90'}`}
-                  />
-                  Closed — {sortedClosed.length}
-                </h3>
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors whitespace-nowrap">
-                  {closedExpanded ? 'Hide' : 'Show'}
-                </span>
-              </button>
-              {closedExpanded && (
-                <div className="space-y-3">
-                  {sortedClosed.map(loan => (
-                    <LoanCard
-                      key={loan.id}
-                      loan={loan}
-                      outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                      lastUpdated={lastUpdatedMap[loan.id]}
                       linkPrefix={linkPrefix}
                     />
                   ))}
@@ -555,6 +247,59 @@ export function LoanListSorted({ activeLoans, closedLoans, outstandingMap, lastU
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefix: string }) {
+  const columns = BOARD_STAGES.map(stage => ({
+    stage,
+    loans: loans.filter(l => l.pipeline_stage === stage),
+  }))
+
+  return (
+    <div className="pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-2 snap-x -mx-2 px-2">
+        {columns.map(({ stage, loans: stageLoans }) => (
+          <div key={stage} className="w-70 shrink-0 snap-start">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
+                {formatStage(stage)}
+              </h3>
+              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
+                {stageLoans.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {stageLoans.map(loan => (
+                <Link key={loan.id} href={`${linkPrefix}/loans/${loan.id}`}>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-3">
+                      <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
+                        {loan.property_address ?? '—'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {loan.borrowers?.full_name ?? <span className="italic">Unassigned</span>}
+                      </p>
+                      <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
+                        <span className="text-xs text-gray-500">{loan.loan_type ?? '—'}</span>
+                        <span className="text-xs font-medium text-gray-900 whitespace-nowrap">
+                          {formatCurrency(loan.loan_amount)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+              {stageLoans.length === 0 && (
+                <div className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center">
+                  <p className="text-xs text-gray-400">Empty</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

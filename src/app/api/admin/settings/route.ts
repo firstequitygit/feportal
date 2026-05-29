@@ -1,114 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPortalSetting, setPortalSetting } from '@/lib/portal-settings'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { invalidateAppSettingsCache } from '@/lib/app-settings'
 
-const ALLOWED_KEYS = ['applications_processing_inbox'] as const
-type AllowedKey = (typeof ALLOWED_KEYS)[number]
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function isAllowedKey(k: string): k is AllowedKey {
-  return (ALLOWED_KEYS as readonly string[]).includes(k)
-}
-
-type AdminGateResult =
-  | { error: NextResponse }
-  | { user: { id: string }; admin: { id: string; full_name: string | null } }
-
-async function requireAdmin(): Promise<AdminGateResult> {
+async function verifySuperAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) }
-  }
-
-  const { data: admin } = await supabase
-    .from('admin_users')
-    .select('id, full_name')
-    .eq('auth_user_id', user.id)
-    .single()
-  if (!admin) {
-    return { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) }
-  }
-
-  return { user: { id: user.id }, admin }
+  if (!user) return null
+  const { data: me } = await supabase
+    .from('admin_users').select('id, is_super').eq('auth_user_id', user.id).single()
+  if (!me || !me.is_super) return null
+  return { user, me }
 }
 
-export async function GET(req: NextRequest) {
-  const gate = await requireAdmin()
-  if ('error' in gate) return gate.error
+const PatchSchema = z.object({
+  idle_timeout_hours: z.number().min(0.5).max(24).multipleOf(0.5).optional(),
+  absolute_session_hours: z.number().int().min(1).max(168).optional(),
+  maintenance_banner_enabled: z.boolean().optional(),
+  maintenance_banner_message: z.string().max(500).optional(),
+}).strict()
 
-  const key = req.nextUrl.searchParams.get('key')
-  if (!key || !isAllowedKey(key)) {
-    return NextResponse.json({ error: 'invalid key' }, { status: 400 })
-  }
-
-  const value = await getPortalSetting(key)
-
-  const supabase = createAdminClient()
-  const { data: row } = await supabase
-    .from('portal_settings')
-    .select('updated_at, updated_by')
-    .eq('key', key)
-    .maybeSingle()
-
-  let updatedByName: string | null = null
-  if (row?.updated_by) {
-    const { data: editor } = await supabase
-      .from('admin_users')
-      .select('full_name')
-      .eq('auth_user_id', row.updated_by)
-      .maybeSingle()
-    updatedByName = editor?.full_name ?? null
-  }
-
-  return NextResponse.json({
-    value: value ?? '',
-    updated_at: row?.updated_at ?? null,
-    updated_by_name: updatedByName,
-  })
-}
-
-export async function PUT(req: NextRequest) {
+export async function PATCH(request: Request) {
   const block = await assertNotImpersonating()
   if (block) return block
+  const auth = await verifySuperAdmin()
+  if (!auth) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const gate = await requireAdmin()
-  if ('error' in gate) return gate.error
-
-  let body: { key?: unknown; value?: unknown }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid body' }, { status: 400 })
+  const body = await request.json().catch(() => null)
+  const parsed = PatchSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
 
-  const { key, value } = body
-  if (typeof key !== 'string' || !isAllowedKey(key)) {
-    return NextResponse.json({ error: 'invalid key' }, { status: 400 })
-  }
-  if (typeof value !== 'string') {
-    return NextResponse.json({ error: 'value must be a string' }, { status: 400 })
+  // Cross-field rule: if the banner is enabled, the message must be non-empty.
+  if (parsed.data.maintenance_banner_enabled === true && parsed.data.maintenance_banner_message === '') {
+    return NextResponse.json({ error: 'Maintenance message is required when the banner is enabled' }, { status: 400 })
   }
 
-  const trimmed = value.trim()
-  if (trimmed.length > 0) {
-    if (!EMAIL_RE.test(trimmed) || trimmed.includes(',')) {
-      return NextResponse.json(
-        { error: 'value must be empty or a single well-formed email address' },
-        { status: 400 },
-      )
-    }
-  }
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('app_settings')
+    .update({ ...parsed.data, updated_at: new Date().toISOString(), updated_by: auth.user.id })
+    .eq('id', 1)
+    .select('*')
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  try {
-    await setPortalSetting(key, trimmed, gate.user.id)
-  } catch (err) {
-    console.error('PUT /api/admin/settings setPortalSetting failed:', err)
-    return NextResponse.json({ error: 'failed to save setting' }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true })
+  invalidateAppSettingsCache()
+  return NextResponse.json({ success: true, settings: data })
 }

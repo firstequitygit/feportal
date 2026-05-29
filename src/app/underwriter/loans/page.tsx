@@ -25,7 +25,13 @@ export default async function UnderwriterLoansPage() {
   const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
     adminClient
       .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name)')
+      .select(`
+        *,
+        borrowers!borrower_id(full_name, email),
+        loan_officers!loan_officer_id(id, full_name),
+        loan_processors!loan_processor_id(id, full_name),
+        loan_details(cash_out_amount)
+      `)
       .eq('underwriter_id', uw.id)
       .eq('archived', false)
       .order('created_at', { ascending: false }),
@@ -33,7 +39,13 @@ export default async function UnderwriterLoansPage() {
     // New Application + Processing aren't ready for underwriting yet.
     adminClient
       .from('loans')
-      .select('*, borrowers!borrower_id(full_name, email), loan_officers(full_name), loan_processors!loan_processor_id(full_name)')
+      .select(`
+        *,
+        borrowers!borrower_id(full_name, email),
+        loan_officers!loan_officer_id(id, full_name),
+        loan_processors!loan_processor_id(id, full_name),
+        loan_details(cash_out_amount)
+      `)
       .is('underwriter_id', null)
       .in('pipeline_stage', ['Pre-Underwriting', 'Underwriting', 'Conditionally Approved', 'Approved'])
       .eq('archived', false)
@@ -73,7 +85,7 @@ export default async function UnderwriterLoansPage() {
   const isImpersonating = impersonation?.kind === 'underwriter'
 
   return (
-    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
+    <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" maxWidth="max-w-screen-2xl" impersonation={isImpersonating ? {
         kind: 'underwriter',
         name: uw.full_name,
         exitHref: impersonationExitHref(),
@@ -90,7 +102,6 @@ export default async function UnderwriterLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         linkPrefix="/underwriter"
-        groupByLoanOfficer
       />
     </PortalShell>
   )

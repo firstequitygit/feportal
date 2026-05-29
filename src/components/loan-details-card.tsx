@@ -35,6 +35,7 @@ export interface LoanDetails {
   rate_type?: string | null
   points?: number | null
   broker_points?: number | null
+  broker_ysp?: number | null
   underwriting_fee?: number | null
   legal_doc_prep_fee?: number | null
   prepayment_penalty?: string | null
@@ -157,7 +158,7 @@ const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
 const AMORTIZATION_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
 const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
-const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc'] as const
+const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc', 'Trust'] as const
 
 const currencyFmt = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -196,7 +197,13 @@ function calcMonthlyPayment(
   amortizationSchedule: string | null | undefined,
 ): number | null {
   if (!amount || !ratePct) return null
-  const r = ratePct / 100 / 12
+  // Pipedrive / JotForm store interest rate inconsistently — some loans
+  // have 7.75 (percent), others have 0.0775 (fraction). Hard-money rates
+  // realistically sit between 5% and 15%, so anything < 1 is a fraction
+  // that's already decimal-form; values >= 1 are still in percent form
+  // and need /100. Same heuristic format-interest-rate.ts uses for display.
+  const annualFraction = ratePct < 1 ? ratePct : ratePct / 100
+  const r = annualFraction / 12
   const isInterestOnly =
     interestOnly === 'Yes' || amortizationSchedule === 'Interest Only'
   if (isInterestOnly) return amount * r
@@ -335,7 +342,7 @@ export function LoanDetailsCard({
 
       {open && (
         <CardContent className="space-y-3">
-          <Section title="Loan / Deal Overview" defaultOpen>
+          <Section title="Loan / Deal Overview">
             <DetailRow label="Created">
               <span className="font-medium text-gray-700">{formatDate(loanCreatedAt)}</span>
             </DetailRow>
@@ -588,6 +595,18 @@ export function LoanDetailsCard({
                 currentValue={d.broker_points ?? null}
                 display={d.broker_points !== null && d.broker_points !== undefined ? String(d.broker_points) : '—'}
                 placeholder="1"
+                step="0.01"
+                inputWidthClass="w-24"
+              />
+            </DetailRow>
+            <DetailRow label="Broker YSP">
+              <EditableLoanField
+                loanId={loanId}
+                field="broker_ysp"
+                type="number"
+                currentValue={d.broker_ysp ?? null}
+                display={d.broker_ysp !== null && d.broker_ysp !== undefined ? String(d.broker_ysp) : '—'}
+                placeholder="0"
                 step="0.01"
                 inputWidthClass="w-24"
               />

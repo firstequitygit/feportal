@@ -50,29 +50,35 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTargetRef = useRef<{ conditionId: string; conditionTitle: string } | null>(null)
 
-  async function uploadSingleFile(file: File, conditionId: string, conditionTitle: string): Promise<void> {
+  // Upload one file to Storage and return its metadata. Returns null on
+  // failure so the batch /record call below skips it.
+  async function uploadOneToStorage(
+    file: File,
+    conditionId: string,
+    conditionTitle: string,
+  ): Promise<{ fileName: string; fileSize: number; path: string } | null> {
     const urlRes = await fetch('/api/admin/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ loanId, conditionId, fileName: file.name, conditionTitle, propertyAddress }),
     })
     const urlData = await urlRes.json()
-    if (!urlData.signedUrl) throw new Error(urlData.error ?? 'Failed to get upload URL')
+    if (!urlData.signedUrl) {
+      toast.error(urlData.error ?? `Failed to get upload URL for "${file.name}"`)
+      return null
+    }
 
     const uploadRes = await fetch(urlData.signedUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type || 'application/octet-stream' },
       body: file,
     })
-    if (!uploadRes.ok) throw new Error(`Storage upload failed for "${file.name}"`)
+    if (!uploadRes.ok) {
+      toast.error(`Storage upload failed for "${file.name}"`)
+      return null
+    }
 
-    const recordRes = await fetch('/api/admin/upload/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loanId, conditionId, fileName: file.name, fileSize: file.size, path: urlData.path }),
-    })
-    const recordData = await recordRes.json()
-    if (!recordData.success) throw new Error(recordData.error ?? 'Failed to record document')
+    return { fileName: file.name, fileSize: file.size, path: urlData.path }
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -82,13 +88,31 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
 
     setUploadingSet(prev => new Set(prev).add(conditionId))
 
-    let successCount = 0
+    // Storage uploads still happen one-by-one (each needs its own signed
+    // URL) but we batch the /record call so staff receive one email per
+    // upload session instead of one per file.
+    const uploaded: Array<{ fileName: string; fileSize: number; path: string }> = []
     for (const file of files) {
+      const result = await uploadOneToStorage(file, conditionId, conditionTitle)
+      if (result) uploaded.push(result)
+    }
+
+    let successCount = uploaded.length
+    if (uploaded.length > 0) {
       try {
-        await uploadSingleFile(file, conditionId, conditionTitle)
-        successCount++
+        const recordRes = await fetch('/api/admin/upload/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loanId, conditionId, files: uploaded }),
+        })
+        const recordData = await recordRes.json()
+        if (!recordData.success) {
+          toast.error(recordData.error ?? 'Failed to record documents')
+          successCount = 0
+        }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : `Upload failed for "${file.name}"`)
+        toast.error(err instanceof Error ? err.message : 'Failed to record documents')
+        successCount = 0
       }
     }
 
