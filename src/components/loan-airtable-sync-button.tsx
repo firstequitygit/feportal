@@ -8,13 +8,14 @@ import { Database } from 'lucide-react'
 import { useImpersonation } from '@/components/impersonation-provider'
 
 /**
- * Per-loan Airtable sync. POSTs to the same admin endpoint as the global
- * sync button but passes a loanId so the backend reconciles just that
- * one loan — fast enough to complete inside Vercel's per-request timeout,
- * unlike the full-base sync.
+ * Per-loan Airtable sync. POSTs to /api/admin/sync-airtable with a
+ * loanId so the backend reconciles just that one loan — fast enough
+ * to complete inside Vercel's per-request timeout, unlike the
+ * full-base sync.
  *
- * Admin-only behavior on the server. Mount this in the admin loan detail
- * page; non-admins won't see it.
+ * Available to admin + any LO/LP/UW assigned to the loan. The route
+ * enforces the assignment check on the server; this component can be
+ * mounted in any of the four loan detail pages.
  */
 interface SyncResult {
   loanId: string

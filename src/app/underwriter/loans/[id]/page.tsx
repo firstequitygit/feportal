@@ -18,6 +18,7 @@ import { EditableLoanStage } from '@/components/editable-loan-stage'
 import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
+import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
 import { UnclaimButton } from '@/components/unclaim-button'
@@ -128,6 +129,7 @@ export default async function UnderwriterLoanPage({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LoanAirtableSyncButton loanId={id} />
             <Link
               href={`/approval-letter/${id}`}
               className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"
