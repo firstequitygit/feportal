@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { Database } from 'lucide-react'
 import { useImpersonation } from '@/components/impersonation-provider'
 
@@ -67,16 +66,17 @@ export function LoanAirtableSyncButton({ loanId }: { loanId: string }) {
   }
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
+    <button
+      type="button"
       onClick={isImpersonating ? undefined : handleSync}
       disabled={syncing || isImpersonating}
       title={isImpersonating ? 'Read-only preview — exit View As to act' : undefined}
-      className={`gap-1.5 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+      // Must match ViewAsDropdown and the Generate Approval Letter link
+      // — same pill, h-7, text-xs across the loan detail header.
+      className={`inline-flex items-center gap-1.5 h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <Database className={`w-3.5 h-3.5 ${syncing ? 'animate-pulse' : ''}`} />
       {syncing ? 'Syncing…' : 'Sync to Airtable'}
-    </Button>
+    </button>
   )
 }

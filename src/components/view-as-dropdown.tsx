@@ -68,7 +68,10 @@ export function ViewAsDropdown({ loanId, options }: Props) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        // Shared header-action button style (pill, h-7, text-xs) — must match
+        // LoanAirtableSyncButton and the Generate Approval Letter link on the
+        // loan detail pages.
+        className="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap"
       >
         <Eye className="w-3.5 h-3.5" />
         View as

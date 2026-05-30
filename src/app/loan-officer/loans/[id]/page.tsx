@@ -154,7 +154,8 @@ export default async function LoanOfficerLoanPage({
             <LoanAirtableSyncButton loanId={id} />
             <Link
               href={`/approval-letter/${id}`}
-              className="text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-md whitespace-nowrap"
+              // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
+              className="inline-flex items-center h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap"
             >
               Generate Approval Letter
             </Link>
