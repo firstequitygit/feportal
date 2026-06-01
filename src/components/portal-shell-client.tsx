@@ -70,8 +70,8 @@ const ADMIN_NAV: NavItem[] = [
 ]
 
 const LO_NAV: NavItem[] = [
-  { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
   { href: '/loan-officer/loans',      label: 'Loans',          icon: Building2 },
+  { href: '/loan-officer/inbox',      label: 'Inbox',          icon: Inbox },
   { href: '/loan-officer/conditions', label: 'Conditions',     icon: FileCheck },
   { href: '/loan-officer/borrowers',  label: 'Borrowers',      icon: UserCircle },
   { href: '/loan-officer/brokers',    label: 'Brokers',        icon: Briefcase },
@@ -81,8 +81,8 @@ const LO_NAV: NavItem[] = [
 ]
 
 const LP_NAV: NavItem[] = [
-  { href: '/loan-processor/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/loan-processor/loans',      label: 'Loans',               icon: Building2 },
+  { href: '/loan-processor/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/loan-processor/conditions', label: 'Conditions',          icon: FileCheck },
   { href: '/loan-processor/borrowers',  label: 'Borrowers',           icon: UserCircle },
   { href: '/loan-processor/brokers',    label: 'Brokers',             icon: Briefcase },
@@ -93,8 +93,8 @@ const LP_NAV: NavItem[] = [
 ]
 
 const UW_NAV: NavItem[] = [
-  { href: '/underwriter/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/underwriter/loans',      label: 'Loans',               icon: Building2 },
+  { href: '/underwriter/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/underwriter/templates',  label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
 ]
