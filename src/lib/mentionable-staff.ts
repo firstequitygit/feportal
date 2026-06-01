@@ -39,6 +39,18 @@ function tokenize(name: string): string {
   return name.replace(/[^A-Za-z0-9]/g, '')
 }
 
+/**
+ * FE convention: when a human has both an admin_users row AND a working-
+ * role row, the admin row's full_name typically carries an "(Admin)"
+ * suffix (e.g. "Adam Scovill (Admin)") to distinguish it inside the
+ * admin tables. That's useful internally but should never surface in
+ * the @mention dropdown — staff identify those people by their working
+ * role name. Strip the suffix here for both display and dedup.
+ */
+function stripAdminSuffix(name: string): string {
+  return name.replace(/\s*\(\s*admin\s*\)\s*$/i, '').trim()
+}
+
 export async function fetchMentionableStaff(): Promise<MentionableUser[]> {
   const adminClient = createAdminClient()
 
@@ -57,7 +69,9 @@ export async function fetchMentionableStaff(): Promise<MentionableUser[]> {
   const out: MentionableUser[] = []
   function push(rows: { id: string; full_name: string | null; email: string | null }[] | null, kind: MentionableUserKind) {
     for (const r of rows ?? []) {
-      const name = (r.full_name ?? '').trim()
+      // Strip the "(Admin)" suffix that admin_users carries so it never
+      // shows in the dropdown and so dedup-by-name catches duplicates.
+      const name = stripAdminSuffix((r.full_name ?? '').trim())
       if (!name) continue
       out.push({
         kind,
