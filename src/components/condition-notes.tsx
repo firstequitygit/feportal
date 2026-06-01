@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { MentionTextarea, type MentionRef } from '@/components/mention-textarea'
+import type { MentionableUser } from '@/lib/mentionable-staff'
 
 export interface ConditionNote {
   id: string
@@ -16,6 +18,9 @@ interface Props {
   initialNotes: ConditionNote[]
   /** Disables the composer + delete buttons while admin is View-As-ing. */
   isImpersonating?: boolean
+  /** Staff directory for @mention autocomplete. Optional — falls back
+      to a plain textarea when omitted (legacy callers). */
+  mentionableStaff?: MentionableUser[]
 }
 
 function formatDateTime(val: string): string {
@@ -35,10 +40,11 @@ function formatDateTime(val: string): string {
  * opens an inline composer so it doesn't dominate the condition card when
  * empty.
  */
-export function ConditionNotes({ conditionId, initialNotes, isImpersonating = false }: Props) {
+export function ConditionNotes({ conditionId, initialNotes, isImpersonating = false, mentionableStaff = [] }: Props) {
   const [notes, setNotes] = useState<ConditionNote[]>(initialNotes)
   const [adding, setAdding] = useState(false)
   const [content, setContent] = useState('')
+  const [mentions, setMentions] = useState<MentionRef[]>([])
   const [saving, setSaving] = useState(false)
 
   async function addNote() {
@@ -48,12 +54,17 @@ export function ConditionNotes({ conditionId, initialNotes, isImpersonating = fa
       const res = await fetch('/api/conditions/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conditionId, content }),
+        body: JSON.stringify({
+          conditionId,
+          content,
+          mentions: mentions.map(m => ({ kind: m.kind, id: m.id, full_name: m.full_name })),
+        }),
       })
       const data = await res.json()
       if (data.success) {
         setNotes(prev => [data.note as ConditionNote, ...prev])
         setContent('')
+        setMentions([])
         setAdding(false)
       } else {
         toast.error(data.error ?? 'Failed to save note')
@@ -106,13 +117,15 @@ export function ConditionNotes({ conditionId, initialNotes, isImpersonating = fa
       {/* Composer */}
       {adding && (
         <div className="space-y-2 mb-3">
-          <textarea
+          <MentionTextarea
             value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Leave a note for the rest of the team…"
+            onChange={setContent}
+            mentions={mentions}
+            onMentionsChange={setMentions}
+            directory={mentionableStaff}
+            placeholder="Leave a note for the rest of the team… (use @ to mention)"
             rows={2}
             className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-            autoFocus
           />
           <div className="flex gap-2">
             <button

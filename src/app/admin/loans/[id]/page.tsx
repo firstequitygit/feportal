@@ -26,6 +26,7 @@ import { BrokerAssign } from '@/components/broker-assign'
 import { AdminLoanOfficerAssign } from '@/components/admin-loan-officer-assign'
 import { AdminLoanProcessorAssign } from '@/components/admin-loan-processor-assign'
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
+import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
@@ -102,6 +103,10 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   ])
 
   if (!loan) notFound()
+
+  // Staff directory for @mention autocomplete in Staff Notes / condition
+  // notes. Includes admins, which fetchStaffDirectory doesn't.
+  const mentionableStaff = await fetchMentionableStaff()
 
   const isArchived = (archivedIds ?? []).some((r: { loan_id: string }) => r.loan_id === id)
 
@@ -355,6 +360,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
           <AdminLoanNotes
             loanId={id}
             initialNotes={notes ?? []}
+            mentionableStaff={mentionableStaff}
           />
 
           {/* Activity Log */}

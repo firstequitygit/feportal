@@ -49,6 +49,8 @@ interface Props {
   staffDirectory?: StaffDirectorySummary
   /** Pre-grouped staff notes per condition (condition_id → notes). */
   notesByCondition?: Record<string, ConditionNote[]>
+  /** Staff directory for @mention autocomplete (includes admins). */
+  mentionableStaff?: import('@/lib/mentionable-staff').MentionableUser[]
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -89,7 +91,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, onToggleUrgent, isImpersonating,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, mentionableStaff, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, onToggleUrgent, isImpersonating,
 }: {
   condition: Condition
   docs: Document[]
@@ -111,6 +113,7 @@ function ConditionRow({
   onReassign: (conditionId: string, assignedTo: AssignedTo) => Promise<void>
   onToggleUrgent: (conditionId: string, isUrgent: boolean) => Promise<void>
   isImpersonating: boolean
+  mentionableStaff?: import('@/lib/mentionable-staff').MentionableUser[]
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showReply, setShowReply] = useState(false)
@@ -363,12 +366,12 @@ function ConditionRow({
         </div>
       )}
 
-      <ConditionNotes conditionId={condition.id} initialNotes={notes ?? []} />
+      <ConditionNotes conditionId={condition.id} initialNotes={notes ?? []} mentionableStaff={mentionableStaff} />
     </div>
   )
 }
 
-export function LoanProcessorConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition }: Props) {
+export function LoanProcessorConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition, mentionableStaff }: Props) {
   const { isImpersonating } = useImpersonation()
   const router = useRouter()
   const supabase = createClient()
@@ -852,7 +855,8 @@ export function LoanProcessorConditions({ loanId, loanType, propertyAddress, con
                     onChangeCategory={handleChangeCategory}
                     onReassign={handleReassign}
                     onToggleUrgent={handleToggleUrgent}
-                    isImpersonating={isImpersonating} />
+                    isImpersonating={isImpersonating}
+                    mentionableStaff={mentionableStaff} />
                 )
               })}
             </CardContent>

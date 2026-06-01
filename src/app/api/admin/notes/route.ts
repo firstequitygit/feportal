@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { processMentions } from '@/lib/process-mentions'
 
 // Mirrors the CHECK constraint in 20260529-loan-notes-category.sql.
 // Kept here too so the route rejects unknown categories with a clean
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   const user = await verifyAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, content, category } = await request.json()
+  const { loanId, content, category, mentions } = await request.json()
   if (!loanId || !content?.trim()) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
@@ -44,6 +45,23 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Fire-and-forget mention pipeline. Failures here are logged but
+  // never fail the note write — the message is already saved.
+  if (Array.isArray(mentions) && mentions.length > 0 && data?.id) {
+    try {
+      await processMentions({
+        adminClient,
+        authorName: user.email ?? 'Admin',
+        loanId,
+        sourceKind: 'staff_note',
+        sourceId: data.id,
+        text: content,
+        mentions,
+      })
+    } catch (err) { console.error('processMentions failed:', err) }
+  }
+
   return NextResponse.json({ success: true, note: data })
 }
 

@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useImpersonation } from '@/components/impersonation-provider'
+import { MentionTextarea, type MentionRef } from '@/components/mention-textarea'
+import type { MentionableUser } from '@/lib/mentionable-staff'
 
 // One of four labeled buckets. Anyone with loan access can post in any
 // bucket — the category is purely organizational. Mirrors the CHECK
@@ -28,6 +30,9 @@ interface Props {
   loanId: string
   initialNotes: LoanNote[]
   apiPath?: string
+  /** Staff directory for the @mention autocomplete. Optional so legacy
+      callers don't blow up — mention support degrades to a plain textarea. */
+  mentionableStaff?: MentionableUser[]
 }
 
 interface SectionMeta {
@@ -52,12 +57,17 @@ function formatDateTime(val: string): string {
   })
 }
 
-export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/notes' }: Props) {
+export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/notes', mentionableStaff = [] }: Props) {
   const { isImpersonating } = useImpersonation()
   const [notes, setNotes] = useState<LoanNote[]>(initialNotes)
   // One draft per section so typing in one bucket doesn't affect another.
   const [drafts, setDrafts] = useState<Record<NoteCategory, string>>({
     loan_officer: '', processor: '', underwriter: '', closer: '',
+  })
+  // Mentions array per section — kept in lockstep with drafts. Cleared
+  // on save so a successful submit doesn't leak into the next note.
+  const [mentions, setMentions] = useState<Record<NoteCategory, MentionRef[]>>({
+    loan_officer: [], processor: [], underwriter: [], closer: [],
   })
   // Track which section is currently saving so we only disable that one
   // button (not all four).
@@ -84,12 +94,18 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
       const res = await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loanId, content, category }),
+        body: JSON.stringify({
+          loanId,
+          content,
+          category,
+          mentions: mentions[category].map(m => ({ kind: m.kind, id: m.id, full_name: m.full_name })),
+        }),
       })
       const data = await res.json()
       if (data.success) {
         setNotes(prev => [data.note as LoanNote, ...prev])
         setDrafts(prev => ({ ...prev, [category]: '' }))
+        setMentions(prev => ({ ...prev, [category]: [] }))
         toast.success('Note saved')
       } else {
         toast.error(data.error ?? 'Failed to save note')
@@ -151,12 +167,14 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
               </h4>
 
               <div className="space-y-2">
-                <textarea
+                <MentionTextarea
                   value={draft}
-                  onChange={e => setDrafts(prev => ({ ...prev, [section.key]: e.target.value }))}
-                  placeholder={section.placeholder}
+                  onChange={v => setDrafts(prev => ({ ...prev, [section.key]: v }))}
+                  mentions={mentions[section.key]}
+                  onMentionsChange={m => setMentions(prev => ({ ...prev, [section.key]: m }))}
+                  directory={mentionableStaff}
+                  placeholder={`${section.placeholder} (use @ to mention a teammate)`}
                   rows={3}
-                  className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
                 <Button
                   size="sm"

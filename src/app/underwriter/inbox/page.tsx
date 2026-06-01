@@ -6,6 +6,8 @@ import { InboxView, type InboxItem } from '@/components/inbox-view'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { fetchMentionsForRole, resolveRoleIdent } from '@/lib/fetch-mentions'
+import { MentionsCard } from '@/components/mentions-card'
 
 export default async function UnderwriterInbox() {
   const supabase = await createClient()
@@ -78,6 +80,9 @@ export default async function UnderwriterInbox() {
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'underwriter'
 
+  const ident = await resolveRoleIdent(adminClient, user.id, 'underwriter')
+  const mentions = ident ? await fetchMentionsForRole(adminClient, ident, { limit: 20 }) : []
+
   return (
     <PortalShell
       userName={uw.full_name}
@@ -92,6 +97,11 @@ export default async function UnderwriterInbox() {
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
       <DashboardStats {...metrics} />
+      {mentions.length > 0 && (
+        <div className="mt-6">
+          <MentionsCard initial={mentions} linkPrefix="/underwriter" />
+        </div>
+      )}
       <InboxView items={items} role="underwriter" linkPrefix="/underwriter" />
     </PortalShell>
   )

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanOfficerConditions } from '@/components/loan-officer-conditions'
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
+import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
@@ -121,6 +122,8 @@ export default async function LoanOfficerLoanPage({
   for (const doc of docsWithUrls) {
     if (doc.signedUrl) signedUrlMap[doc.id] = doc.signedUrl
   }
+
+  const mentionableStaff = await fetchMentionableStaff()
 
   const borrower = loan.borrowers as { full_name: string | null; email: string; phone: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
@@ -441,6 +444,7 @@ export default async function LoanOfficerLoanPage({
           }}
           staffDirectory={staffDirectory}
           notesByCondition={conditionNotesByCondition}
+          mentionableStaff={mentionableStaff}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -448,6 +452,7 @@ export default async function LoanOfficerLoanPage({
             loanId={id}
             initialNotes={notes ?? []}
             apiPath="/api/loans/notes"
+            mentionableStaff={mentionableStaff}
           />
           <LoanActivity
             events={events ?? []}

@@ -6,6 +6,8 @@ import { InboxView, type InboxItem } from '@/components/inbox-view'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+import { fetchMentionsForRole, resolveRoleIdent } from '@/lib/fetch-mentions'
+import { MentionsCard } from '@/components/mentions-card'
 
 export default async function LoanProcessorInbox() {
   const supabase = await createClient()
@@ -81,6 +83,9 @@ export default async function LoanProcessorInbox() {
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_processor'
 
+  const ident = await resolveRoleIdent(adminClient, user.id, 'loan_processor')
+  const mentions = ident ? await fetchMentionsForRole(adminClient, ident, { limit: 20 }) : []
+
   return (
     <PortalShell
       userName={lp.full_name}
@@ -95,6 +100,11 @@ export default async function LoanProcessorInbox() {
     >
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
       <DashboardStats {...metrics} />
+      {mentions.length > 0 && (
+        <div className="mt-6">
+          <MentionsCard initial={mentions} linkPrefix="/loan-processor" />
+        </div>
+      )}
       <InboxView items={items} role="loan_processor" linkPrefix="/loan-processor" />
     </PortalShell>
   )

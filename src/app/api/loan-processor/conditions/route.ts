@@ -7,6 +7,7 @@ import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { setConditionReceived } from '@/lib/condition-set-received'
+import { processMentions } from '@/lib/process-mentions'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -198,7 +199,7 @@ export async function PATCH(req: NextRequest) {
     .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { conditionId, response } = await req.json()
+  const { conditionId, response, mentions } = await req.json()
   if (!conditionId || !response?.trim()) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
   const { data: condition } = await adminClient
@@ -218,6 +219,21 @@ export async function PATCH(req: NextRequest) {
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (Array.isArray(mentions) && mentions.length > 0) {
+    try {
+      await processMentions({
+        adminClient,
+        authorName: lp.full_name ?? 'Loan Processor',
+        loanId: condition.loan_id,
+        conditionId,
+        sourceKind: 'condition_response',
+        sourceId: conditionId,
+        text: response,
+        mentions,
+      })
+    } catch (err) { console.error('processMentions failed:', err) }
+  }
 
   try {
     await adminClient.from('loan_events').insert({

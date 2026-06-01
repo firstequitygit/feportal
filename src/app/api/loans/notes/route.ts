@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { processMentions } from '@/lib/process-mentions'
 
 // Mirror of the loan_notes.category CHECK constraint (see migration
 // 20260529-loan-notes-category.sql). Anything outside this set is
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getStaffContext()
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { loanId, content, category } = await req.json()
+  const { loanId, content, category, mentions } = await req.json()
   if (!loanId || !content?.trim()) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
@@ -96,6 +97,21 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (Array.isArray(mentions) && mentions.length > 0 && data?.id) {
+    try {
+      await processMentions({
+        adminClient,
+        authorName: ctx.userEmail ?? 'Staff',
+        loanId,
+        sourceKind: 'staff_note',
+        sourceId: data.id,
+        text: content,
+        mentions,
+      })
+    } catch (err) { console.error('processMentions failed:', err) }
+  }
+
   return NextResponse.json({ success: true, note: data })
 }
 

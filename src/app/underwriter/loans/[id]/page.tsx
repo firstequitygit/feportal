@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { UnderwriterConditions } from '@/components/underwriter-conditions'
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
+import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
 import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
@@ -108,6 +109,7 @@ export default async function UnderwriterLoanPage({
   const loanProcessor2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null; phone: string | null } | null }).loan_processor_2
   const loanProcessors = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string; email: string | null; phone: string | null } => !!p)
 
+  const mentionableStaff = await fetchMentionableStaff()
 
   return (
     <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
@@ -370,6 +372,7 @@ export default async function UnderwriterLoanPage({
           }}
           staffDirectory={staffDirectory}
           notesByCondition={conditionNotesByCondition}
+          mentionableStaff={mentionableStaff}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -377,6 +380,7 @@ export default async function UnderwriterLoanPage({
             loanId={id}
             initialNotes={notes ?? []}
             apiPath="/api/loans/notes"
+            mentionableStaff={mentionableStaff}
           />
           <LoanActivity
             events={events ?? []}

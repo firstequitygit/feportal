@@ -48,6 +48,9 @@ interface Props {
    *  page knows the visitor's StaffContext; the toggle self-hides unless
    *  the user has both admin + a base role. */
   staffContext?: StaffContext | null
+  /** Unread @mention count — shown as a numeric badge on the Inbox nav
+      item. 0 = no badge. Computed server-side in PortalShell. */
+  unreadMentions?: number
   children: React.ReactNode
 }
 
@@ -114,6 +117,7 @@ export function PortalShellClient({
   isSuperAdmin = false,
   impersonation,
   staffContext,
+  unreadMentions = 0,
   children,
 }: Props) {
   const showViewAsTrigger = variant === 'admin' && !impersonation
@@ -273,6 +277,10 @@ export function PortalShellClient({
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map(({ href, label, icon: Icon, exact }) => {
             const active = navIsActive({ href, label, icon: Icon, exact }, pathname)
+            // Inbox item shows a red pill with the unread @mention count.
+            // Variant-specific Inbox hrefs all end in /inbox; checking the
+            // label is more robust than matching every role-specific path.
+            const showMentionBadge = label === 'Inbox' && unreadMentions > 0
             return (
               <Link
                 key={href}
@@ -283,10 +291,19 @@ export function PortalShellClient({
                     ? 'bg-primary/10 text-primary'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 } ${expanded ? 'px-3' : 'px-3 md:justify-center md:px-0'}`}
-                title={!expanded ? label : undefined}
+                title={!expanded ? `${label}${showMentionBadge ? ` (${unreadMentions} new)` : ''}` : undefined}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className={!expanded ? 'md:hidden' : ''}>{label}</span>
+                <span className={`flex-1 ${!expanded ? 'md:hidden' : ''}`}>{label}</span>
+                {showMentionBadge && expanded && (
+                  <span className="text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center">
+                    {unreadMentions > 99 ? '99+' : unreadMentions}
+                  </span>
+                )}
+                {showMentionBadge && !expanded && (
+                  // Tiny red dot when collapsed — no room for the number.
+                  <span className="absolute right-1 top-1 w-2 h-2 bg-red-500 rounded-full md:block hidden" />
+                )}
               </Link>
             )
           })}

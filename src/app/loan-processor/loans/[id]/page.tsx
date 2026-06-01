@@ -14,6 +14,7 @@ import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
 import { CoBorrowersAssign } from '@/components/co-borrowers-assign'
 import { BrokerAssign } from '@/components/broker-assign'
 import { AdminLoanNotes } from '@/components/admin-loan-notes'
+import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { type Condition, type Document, type ConditionTemplate } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
@@ -126,6 +127,7 @@ export default async function LoanProcessorLoanPage({
   const loanOfficer = loan.loan_officers as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
   const underwriter = loan.underwriters as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
 
+  const mentionableStaff = await fetchMentionableStaff()
 
   return (
     <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" impersonation={isImpersonating ? {
@@ -450,6 +452,7 @@ export default async function LoanProcessorLoanPage({
           }}
           staffDirectory={staffDirectory}
           notesByCondition={conditionNotesByCondition}
+          mentionableStaff={mentionableStaff}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -457,6 +460,7 @@ export default async function LoanProcessorLoanPage({
             loanId={id}
             initialNotes={notes ?? []}
             apiPath="/api/loans/notes"
+            mentionableStaff={mentionableStaff}
           />
           <LoanActivity
             events={events ?? []}
