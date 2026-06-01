@@ -72,7 +72,7 @@ function assignedToColor(assigned_to: AssignedTo): string {
 }
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onUpdateStatus, onDeleteDoc, onDeleteCondition, onChangeCategory, onReassign,
 }: {
   condition: Condition
   docs: Document[]
@@ -91,6 +91,7 @@ function ConditionRow({
   onDeleteDoc: (docId: string, fileName: string) => Promise<void>
   onDeleteCondition: (conditionId: string, title: string) => Promise<void>
   onChangeCategory: (conditionId: string, category: ConditionCategory | null) => Promise<void>
+  onReassign: (conditionId: string, assignedTo: AssignedTo) => Promise<void>
   isImpersonating: boolean
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -167,7 +168,7 @@ function ConditionRow({
           {condition.description && (
             <p className="text-xs text-gray-500 mt-1">{condition.description}</p>
           )}
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             <span className="text-xs text-gray-400">Category:</span>
             <select
               value={condition.category ?? ''}
@@ -180,6 +181,22 @@ function ConditionRow({
               {CONDITION_CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
+            </select>
+            {/* Reassign — keeps the condition open but moves the next
+                action to a different role. Resets the staff-name pin so
+                a pinned UW name doesn't bleed into an LP assignment. */}
+            <span className="text-xs text-gray-400 ml-2">Reassign:</span>
+            <select
+              value={condition.assigned_to}
+              onChange={e => onReassign(condition.id, e.target.value as AssignedTo)}
+              disabled={isImpersonating}
+              className={`text-xs text-gray-600 bg-transparent border border-transparent hover:border-gray-200 rounded cursor-pointer focus:outline-none focus:border-gray-300 px-1.5 py-0.5 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Reassign condition'}
+            >
+              <option value="borrower">Borrower</option>
+              <option value="loan_officer">Loan Officer</option>
+              <option value="loan_processor">Loan Processor</option>
+              <option value="underwriter">Underwriter</option>
             </select>
           </div>
           {condition.status === 'Rejected' && condition.rejection_reason && (
@@ -512,6 +529,21 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
     }
   }
 
+  async function handleReassign(conditionId: string, assignedTo: AssignedTo) {
+    setUpdateError(null)
+    const res = await fetch('/api/conditions/assign', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conditionId, assignedTo }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (data.success) {
+      router.refresh()
+    } else {
+      setUpdateError(data.error ?? 'Failed to reassign condition')
+    }
+  }
+
   async function handleUpdateStatus(conditionId: string, status: 'Outstanding' | 'Satisfied' | 'Rejected' | 'Waived', rejectionReason?: string) {
     setUpdateError(null)
     const res = await fetch('/api/underwriter/conditions', {
@@ -761,6 +793,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
                     onDeleteDoc={handleDeleteDoc}
                     onDeleteCondition={handleDeleteCondition}
                     onChangeCategory={handleChangeCategory}
+                    onReassign={handleReassign}
                     isImpersonating={isImpersonating}
                   />
                 )

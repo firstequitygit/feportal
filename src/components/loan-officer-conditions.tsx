@@ -73,7 +73,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign,
 }: {
   condition: Condition
   docs: Document[]
@@ -92,6 +92,7 @@ function ConditionRow({
   onSaveResponse: (conditionId: string, response: string) => Promise<void>
   onChangeStatus: (conditionId: string, status: ConditionStatus, rejectionReason?: string) => Promise<void>
   onChangeCategory: (conditionId: string, category: ConditionCategory | null) => Promise<void>
+  onReassign: (conditionId: string, assignedTo: AssignedTo) => Promise<void>
   isImpersonating: boolean
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -207,9 +208,9 @@ function ConditionRow({
         </div>
       </div>
 
-      {/* Status changer — not available for Satisfied */}
+      {/* Status changer + reassign dropdown — not available for Satisfied */}
       {condition.status !== 'Satisfied' && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
           <select
             value={condition.status}
             onChange={e => handleStatusSelect(e.target.value as ConditionStatus)}
@@ -219,6 +220,22 @@ function ConditionRow({
             {CHANGEABLE_STATUSES.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
+          </select>
+          {/* Reassign — anyone with loan access can move the condition
+              between roles. Backend resets assigned_to_staff_id so the
+              staff-name pin doesn't carry across roles. */}
+          <span className="text-xs text-gray-400">Reassign:</span>
+          <select
+            value={condition.assigned_to}
+            onChange={e => onReassign(condition.id, e.target.value as AssignedTo)}
+            disabled={isImpersonating}
+            className={`text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-600 disabled:opacity-50 ${isImpersonating ? 'cursor-not-allowed' : ''}`}
+            title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Reassign condition'}
+          >
+            <option value="borrower">Borrower</option>
+            <option value="loan_officer">Loan Officer</option>
+            <option value="loan_processor">Loan Processor</option>
+            <option value="underwriter">Underwriter</option>
           </select>
           {statusChanging && <span className="text-xs text-gray-400">Saving…</span>}
         </div>
@@ -421,6 +438,20 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       router.refresh()
     } else {
       setAddError(data.error ?? 'Failed to change category')
+    }
+  }
+
+  async function handleReassign(conditionId: string, assignedTo: AssignedTo) {
+    const res = await fetch('/api/conditions/assign', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conditionId, assignedTo }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (data.success) {
+      router.refresh()
+    } else {
+      setAddError(data.error ?? 'Failed to reassign condition')
     }
   }
 
@@ -700,6 +731,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                     onSaveResponse={handleSaveResponse}
                     onChangeStatus={handleChangeStatus}
                     onChangeCategory={handleChangeCategory}
+                    onReassign={handleReassign}
                     isImpersonating={isImpersonating} />
                 )
               })}
