@@ -37,10 +37,11 @@ export async function POST(req: NextRequest) {
   // Accepts all 4 assigned_to values so the "Other" UI path can pin a
   // condition to any staff member across roles, including a UW the LP
   // wouldn't normally assign to. The role/staff_id pair is validated below.
-  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' =
+  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' | 'closer' =
     assignedTo === 'loan_officer'   ? 'loan_officer'   :
     assignedTo === 'loan_processor' ? 'loan_processor' :
     assignedTo === 'underwriter'    ? 'underwriter'    :
+    assignedTo === 'closer'         ? 'closer'         :
                                        'borrower'
 
   // Validate the optional staff pin against the system-wide directory —

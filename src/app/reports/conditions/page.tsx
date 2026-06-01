@@ -13,6 +13,7 @@ function assignedToLabel(a: AssignedTo): string {
     case 'loan_officer':   return 'Loan Officer'
     case 'loan_processor': return 'Loan Processor'
     case 'underwriter':    return 'Underwriter'
+    case 'closer':         return 'Closer'
   }
 }
 

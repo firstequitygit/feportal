@@ -33,10 +33,11 @@ export async function POST(req: NextRequest) {
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Accept all 4 roles so the "Other" UI path can pin to any staff member.
-  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' =
+  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' | 'closer' =
     assignedTo === 'loan_officer'   ? 'loan_officer'   :
     assignedTo === 'loan_processor' ? 'loan_processor' :
     assignedTo === 'underwriter'    ? 'underwriter'    :
+    assignedTo === 'closer'         ? 'closer'         :
                                        'borrower'
 
   const assigned_to_staff_id = await validateStaffIdExists(adminClient, assigned_to, assignedToStaffId)

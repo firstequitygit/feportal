@@ -58,6 +58,7 @@ function assignedToLabel(assigned_to: AssignedTo): string {
     case 'loan_officer':   return 'Loan Officer'
     case 'loan_processor': return 'Loan Processor'
     case 'underwriter':    return 'Underwriter'
+    case 'closer':         return 'Closer'
     default:               return 'Borrower'
   }
 }
@@ -67,6 +68,7 @@ function assignedToColor(assigned_to: AssignedTo): string {
     case 'loan_officer':   return 'bg-blue-100 text-blue-700'
     case 'loan_processor': return 'bg-purple-100 text-purple-700'
     case 'underwriter':    return 'bg-orange-100 text-orange-700'
+    case 'closer':         return 'bg-amber-100 text-amber-700'
     default:               return 'bg-gray-100 text-gray-500'
   }
 }
@@ -203,6 +205,7 @@ function ConditionRow({
               <option value="loan_officer">Loan Officer</option>
               <option value="loan_processor">Loan Processor</option>
               <option value="underwriter">Underwriter</option>
+              <option value="closer">Closer</option>
             </select>
             <button
               type="button"

@@ -37,10 +37,11 @@ export async function POST(request: Request) {
   const { loanId, title, description, assignedTo, assignedToStaffId, category } = await request.json()
   if (!loanId || !title) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' =
+  const assigned_to: 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' | 'closer' =
     assignedTo === 'loan_officer'   ? 'loan_officer'   :
     assignedTo === 'loan_processor' ? 'loan_processor' :
     assignedTo === 'underwriter'    ? 'underwriter'    :
+    assignedTo === 'closer'         ? 'closer'         :
                                        'borrower'
 
   const adminClient = createAdminClient()
@@ -187,7 +188,13 @@ export async function PATCH(request: Request) {
       updatePayload.rejection_reason = rejectionReason ?? null
     }
   }
-  if (assignedTo === 'borrower' || assignedTo === 'loan_officer' || assignedTo === 'loan_processor') {
+  if (
+    assignedTo === 'borrower' ||
+    assignedTo === 'loan_officer' ||
+    assignedTo === 'loan_processor' ||
+    assignedTo === 'underwriter' ||
+    assignedTo === 'closer'
+  ) {
     updatePayload.assigned_to = assignedTo
   }
   const validCategories = ['initial', 'underwriting', 'pre_close', 'pre_funding']

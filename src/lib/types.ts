@@ -23,7 +23,11 @@ export type PipelineStage =
   | 'Closed'
 
 export type ConditionStatus = 'Outstanding' | 'Received' | 'Satisfied' | 'Waived' | 'Rejected'
-export type AssignedTo = 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter'
+// 'closer' is a workflow bucket, not a separate role table — emails for
+// closer-assigned conditions route directly to Omayra Cartagena
+// (loan_processors.ocartagena@fefunding.com) since she handles closing
+// for every loan today.
+export type AssignedTo = 'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' | 'closer'
 export type ConditionCategory = 'initial' | 'underwriting' | 'pre_close' | 'pre_funding'
 
 // Lifecycle status — separate from pipeline_stage. Most loans are 'active'.

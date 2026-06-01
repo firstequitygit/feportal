@@ -17,8 +17,14 @@ import { sendEmail } from '@/lib/mailer'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 
-const VALID_ASSIGNEES = ['borrower', 'loan_officer', 'loan_processor', 'underwriter'] as const
+const VALID_ASSIGNEES = ['borrower', 'loan_officer', 'loan_processor', 'underwriter', 'closer'] as const
 type AssignedTo = typeof VALID_ASSIGNEES[number]
+
+// Email address for the FE closer. Hardcoded because there's no closers
+// role table — Omayra Cartagena (also LP) handles closing for every loan.
+// If/when closing gets split across multiple people, swap this for a
+// closers table lookup.
+const CLOSER_EMAIL = 'ocartagena@fefunding.com'
 
 function roleLabel(a: AssignedTo): string {
   switch (a) {
@@ -26,6 +32,7 @@ function roleLabel(a: AssignedTo): string {
     case 'loan_officer':   return 'Loan Officer'
     case 'loan_processor': return 'Loan Processor'
     case 'underwriter':    return 'Underwriter'
+    case 'closer':         return 'Closer'
   }
 }
 
@@ -173,6 +180,21 @@ export async function PATCH(req: NextRequest) {
           to: uw.email,
           subject: `Condition reassigned to you — ${propertyAddress}`,
           html: staffHtml(uw.full_name, 'Underwriter', `${PORTAL_URL}/underwriter`),
+        })
+      }
+    } else if (assignedTo === 'closer') {
+      // Closer = Omayra. She's an LP, so her loan-processor portal link
+      // is the right CTA target.
+      const { data: closer } = await adminClient
+        .from('loan_processors')
+        .select('full_name, email')
+        .eq('email', CLOSER_EMAIL)
+        .maybeSingle()
+      if (closer?.email) {
+        await sendEmail({
+          to: closer.email,
+          subject: `Condition reassigned to you — ${propertyAddress}`,
+          html: staffHtml(closer.full_name, 'Closer', `${PORTAL_URL}/loan-processor`),
         })
       }
     } else if (assignedTo === 'borrower') {
