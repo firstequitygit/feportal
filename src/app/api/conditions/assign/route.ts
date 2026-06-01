@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { sendEmail } from '@/lib/mailer'
+import { getLoanContacts } from '@/lib/loan-contact'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 const VALID_ASSIGNEES = ['borrower', 'loan_officer', 'loan_processor', 'underwriter'] as const
 type AssignedTo = typeof VALID_ASSIGNEES[number]
@@ -57,7 +60,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: condition } = await adminClient
     .from('conditions')
-    .select('id, loan_id, title, assigned_to')
+    .select('id, loan_id, title, description, assigned_to')
     .eq('id', conditionId)
     .single()
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -105,6 +108,104 @@ export async function PATCH(req: NextRequest) {
       description: `${actor} reassigned "${condition.title}" from ${roleLabel(condition.assigned_to as AssignedTo)} to ${roleLabel(assignedTo)}`,
     })
   } catch (err) { console.error('Event log error:', err) }
+
+  // Notify the new assignee. Failures here are logged but don't fail the
+  // request — the reassign already landed and the audit log captures it.
+  // Wording differs from condition-creation emails ("reassigned to you"
+  // instead of "newly added") so the recipient knows it's a hand-off, not
+  // a brand-new condition. For borrower we route through getLoanContacts
+  // so brokers + co-borrowers also get the email when applicable.
+  try {
+    const { data: loanRow } = await adminClient
+      .from('loans')
+      .select('property_address, loan_officers!loan_officer_id(full_name, email), loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
+      .eq('id', condition.loan_id)
+      .single()
+
+    const propertyAddress = loanRow?.property_address ?? 'a loan'
+    const fromLabel = roleLabel(condition.assigned_to as AssignedTo)
+    const title = condition.title as string
+    const description = (condition.description as string | null) ?? null
+
+    const staffHtml = (name: string | null, role: string, portalUrl: string) => `
+      <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${name ?? 'there'},</p>
+      <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+        A condition for <strong>${propertyAddress}</strong> has been reassigned to you (${role}) from ${fromLabel}.
+      </p>
+      <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+        <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
+        ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
+      </table>
+      <p style="margin-top: 16px;">
+        <a href="${portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">View in Portal</a>
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
+    `
+
+    if (assignedTo === 'loan_officer') {
+      const lo = loanRow?.loan_officers as unknown as { full_name: string | null; email: string | null } | null
+      if (lo?.email) {
+        await sendEmail({
+          to: lo.email,
+          subject: `Condition reassigned to you — ${propertyAddress}`,
+          html: staffHtml(lo.full_name, 'Loan Officer', `${PORTAL_URL}/loan-officer`),
+        })
+      }
+    } else if (assignedTo === 'loan_processor') {
+      const lp = (loanRow as unknown as { loan_processors?: { full_name: string | null; email: string | null } | null })?.loan_processors ?? null
+      const lp2 = (loanRow as unknown as { loan_processor_2?: { full_name: string | null; email: string | null } | null })?.loan_processor_2 ?? null
+      const lps = [lp, lp2].filter((p): p is { full_name: string | null; email: string | null } => !!p?.email)
+      await Promise.all(lps.map(processor => sendEmail({
+        to: processor.email!,
+        subject: `Condition reassigned to you — ${propertyAddress}`,
+        html: staffHtml(processor.full_name, 'Loan Processor', `${PORTAL_URL}/loan-processor`),
+      })))
+    } else if (assignedTo === 'underwriter') {
+      // Underwriters aren't joined on the loanRow select above — fetch separately.
+      const { data: uwRow } = await adminClient
+        .from('loans')
+        .select('underwriters!underwriter_id(full_name, email)')
+        .eq('id', condition.loan_id)
+        .single()
+      const uw = (uwRow as unknown as { underwriters?: { full_name: string | null; email: string | null } | null })?.underwriters ?? null
+      if (uw?.email) {
+        await sendEmail({
+          to: uw.email,
+          subject: `Condition reassigned to you — ${propertyAddress}`,
+          html: staffHtml(uw.full_name, 'Underwriter', `${PORTAL_URL}/underwriter`),
+        })
+      }
+    } else if (assignedTo === 'borrower') {
+      // Same routing as condition-creation: broker if assigned, else every
+      // borrower slot on the loan (primary + co-borrowers).
+      const contacts = await getLoanContacts(condition.loan_id as string)
+      if (contacts.length > 0) {
+        const greeting = contacts.length === 1 ? (contacts[0].name ?? 'there') : 'there'
+        const kind = contacts[0].kind
+        const portalUrl = contacts[0].portalUrl
+        await sendEmail({
+          to: contacts.map(c => c.email).join(', '),
+          subject: `Condition reassigned — ${propertyAddress}`,
+          html: `
+            <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${greeting},</p>
+            <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+              A condition on ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${propertyAddress}</strong> has been reassigned to ${kind === 'broker' ? 'the broker' : 'you'} from ${fromLabel}.
+            </p>
+            <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+              <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
+              ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
+            </table>
+            <p style="margin-top: 16px;">
+              <a href="${portalUrl}" style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a>
+            </p>
+            <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999; margin-top: 24px;">First Equity Funding Online Portal</p>
+          `,
+        })
+      }
+    }
+  } catch (err) {
+    console.error('Notification error (condition reassigned):', err)
+  }
 
   return NextResponse.json({ success: true })
 }
