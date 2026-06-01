@@ -68,15 +68,18 @@ export async function fetchMentionableStaff(): Promise<MentionableUser[]> {
       })
     }
   }
-  push(admins, 'admin')
+  // Push order matters for dedup below: the FIRST entry per name wins.
+  // Non-admin roles come first so people who hold BOTH an admin row AND
+  // a working-role row (Adam Scovill, Anthony Palmiotto, Omayra Cartagena
+  // today) show up under their working role — that's how they're
+  // identified in day-to-day work, and it also avoids "Name (Admin)"
+  // dupes appearing in the autocomplete. Admin-only humans still show.
   push(los,    'loan_officer')
   push(lps,    'loan_processor')
   push(uws,    'underwriter')
+  push(admins, 'admin')
 
-  // Deduplicate humans who hold rows in multiple tables (e.g. Anthony
-  // Palmiotto is both admin AND loan_officer). Prefer the admin row
-  // because admin notifications are still the safer fallback. Match on
-  // case-insensitive full name.
+  // Deduplicate by case-insensitive full name; first occurrence wins.
   const seen = new Set<string>()
   const dedup: MentionableUser[] = []
   for (const u of out) {
