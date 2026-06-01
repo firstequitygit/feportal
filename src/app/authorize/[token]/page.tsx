@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { feeCentsForBorrowerCount } from '@/lib/square'
+import { AuthorizeForm } from './_components/authorize-form'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -7,11 +9,11 @@ export const fetchCache = 'force-no-store'
 
 export const metadata = { title: 'Loan Application - Authorization' }
 
-/** Public token-auth route. Borrower lands here after the application is
- *  submitted (PR 2b will redirect from the wizard; today the route is
- *  reachable only via a direct token URL). Resolves the token to a loans
- *  row, displays the loan summary, and — in PR 2b — will render the credit
- *  authorization, HMDA disclosures, and Square card form. */
+/** Public token-auth route. Borrower lands here after a broker submits an
+ *  application on their behalf (the broker forwards the token URL). Today's
+ *  borrower flow still signs + pays inline at Step 5 — they do not hit this
+ *  page. The redirect cutover for the borrower variant lives in a separate
+ *  follow-up so existing in-flight drafts aren't disrupted. */
 export default async function AuthorizePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   if (!token) notFound()
@@ -33,6 +35,19 @@ export default async function AuthorizePage({ params }: { params: Promise<{ toke
     ? await admin.from('borrowers').select('full_name, email').eq('id', loan.borrower_id).maybeSingle()
     : { data: null }
 
+  // Determine borrower count via loan_applications.data.co_borrowers so the
+  // fee summary matches what /api/apply/payment would compute.
+  const { data: app } = await admin
+    .from('loan_applications')
+    .select('data')
+    .eq('submitted_loan_id', loan.id)
+    .maybeSingle()
+  const cobs = Array.isArray((app?.data as { co_borrowers?: unknown[] })?.co_borrowers)
+    ? (app!.data as { co_borrowers: unknown[] }).co_borrowers
+    : []
+  const borrowerCount = 1 + cobs.length
+  const feeUsd = feeCentsForBorrowerCount(borrowerCount) / 100
+
   const alreadySigned = loan.authorization_status === 'signed'
 
   return (
@@ -44,7 +59,7 @@ export default async function AuthorizePage({ params }: { params: Promise<{ toke
         <p className="mt-2 text-sm text-gray-600">
           {alreadySigned
             ? 'Your authorization has been received. Our team will reach out with next steps.'
-            : 'Review your application details below and complete the authorization step to move your loan forward.'}
+            : 'Review the certifications below, sign electronically, and save the card we will use for your application fee.'}
         </p>
 
         <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -69,29 +84,26 @@ export default async function AuthorizePage({ params }: { params: Promise<{ toke
           {loan.loan_amount != null && (
             <div>
               <dt className="text-gray-500">Loan Amount</dt>
-              <dd className="font-medium text-gray-900">
-                ${Number(loan.loan_amount).toLocaleString()}
-              </dd>
+              <dd className="font-medium text-gray-900">${Number(loan.loan_amount).toLocaleString()}</dd>
             </div>
           )}
-          <div>
-            <dt className="text-gray-500">Status</dt>
-            <dd className="font-medium text-gray-900 capitalize">
-              {loan.authorization_status ?? 'unknown'}
-            </dd>
-          </div>
         </dl>
 
-        {!alreadySigned && (
-          <div className="mt-8 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-medium">Authorization form coming soon.</p>
-            <p className="mt-1 text-amber-800">
-              We're finalizing the credit authorization, demographic disclosure, and payment
-              screen on this page. For now, please continue with the steps your loan officer
-              has provided. If you reached this page in error, you can safely close the tab.
-            </p>
-          </div>
-        )}
+        <div className="mt-8">
+          {alreadySigned ? (
+            <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+              Authorized on {loan.authorization_signed_at ? new Date(loan.authorization_signed_at).toLocaleDateString() : 'file'}.
+              You can safely close this tab.
+            </div>
+          ) : (
+            <AuthorizeForm
+              token={token}
+              borrowerName={borrower?.full_name ?? ''}
+              feeUsd={feeUsd}
+              borrowerCount={borrowerCount}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
