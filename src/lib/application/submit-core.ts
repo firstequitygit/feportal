@@ -72,7 +72,24 @@ export async function submitApplication(
   //    stable URL. application_kind defaults to 'borrower' for historical
   //    rows in the DB; we set it explicitly here to match the variant
   //    that just submitted.
+  //
+  //    For borrower-variant submissions, the borrower already signed +
+  //    saved their card inline at Step 5, so the loan is fully authorized
+  //    at insert time: status='signed', signed_at=now, and the payment_ref
+  //    is the Square card id we captured during /api/apply/payment. The
+  //    /authorize route is irrelevant for them. Brokers go in as 'pending'
+  //    and flip to 'signed' when the borrower completes /authorize.
   const authorizeToken = crypto.randomUUID()
+  let borrowerSignedCardId: string | null = null
+  if (variant === 'borrower') {
+    const { data: cardRow } = await admin
+      .from('loan_applications')
+      .select('square_card_id')
+      .eq('id', appRow.id)
+      .maybeSingle()
+    borrowerSignedCardId = (cardRow?.square_card_id as string | null) ?? null
+  }
+  const nowIso = new Date().toISOString()
   const { data: loanRow, error: lerr } = await admin
     .from('loans')
     .insert({
@@ -89,7 +106,9 @@ export async function submitApplication(
       application_kind: variant,
       submitted_by_broker_id: opts.submittedByBrokerId ?? null,
       authorize_token: authorizeToken,
-      authorization_status: 'pending',
+      authorization_status: variant === 'borrower' ? 'signed' : 'pending',
+      authorization_signed_at: variant === 'borrower' ? nowIso : null,
+      authorization_payment_ref: variant === 'borrower' ? borrowerSignedCardId : null,
     })
     .select('id').single()
   if (lerr || !loanRow) return { ok: false, status: 500, error: 'Failed to create loan' }
