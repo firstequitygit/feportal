@@ -134,10 +134,38 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     return submitErrors.filter((n) => isStillMissing(n, data))
   }, [submitErrors, data])
 
+  // Duplicate-account gate: when the borrower variant has
+  // duplicateAccountBehavior='block', we check the email on first blur
+  // and, if a borrowers row already exists, block draft creation and
+  // show a modal directing them to /login.
+  const [existingAccountEmail, setExistingAccountEmail] = useState<string | null>(null)
+  const checkAccountIfNeeded = useCallback(async (email: string): Promise<boolean> => {
+    if (variant.features.duplicateAccountBehavior !== 'block') return true
+    if (!email || !email.includes('@')) return true
+    try {
+      const res = await fetch('/api/apply/check-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) return true
+      const j = await res.json()
+      if (j.hasAccount) {
+        setExistingAccountEmail(email)
+        return false
+      }
+      return true
+    } catch {
+      // Fail open: network blip shouldn't block a legitimate applicant.
+      return true
+    }
+  }, [variant.features.duplicateAccountBehavior])
+
   // Create the draft once we have the primary email (called by Step 1 on email blur).
   const ensureDraft = useCallback(async (email: string, firstName: string) => {
     if (testMode) return
     if (token || !email) return
+    const ok = await checkAccountIfNeeded(email)
+    if (!ok) return
     try {
       const res = await fetch(variant.endpoints.draftPost, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -147,7 +175,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       if (j.success) { setToken(j.resumeToken); toast.success('Progress saved. A resume link was emailed to you.') }
       else toast.error(j.error ?? 'Could not start application')
     } catch { toast.error('Network error - please try again') }
-  }, [token, data, testMode, variant.endpoints.draftPost])
+  }, [token, data, testMode, variant.endpoints.draftPost, checkAccountIfNeeded])
 
   async function submit() {
     setSubmitting(true)
@@ -251,6 +279,42 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-5">
+      {existingAccountEmail && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900">Looks like you have applied with us before</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              We already have an account for <strong className="font-medium text-gray-900">{existingAccountEmail}</strong>.
+              To submit a new application, please log in to your portal first so your new loan stays connected to your profile.
+            </p>
+            <p className="mt-2 text-xs text-gray-500">
+              Forgot your password? Use the &ldquo;Reset password&rdquo; link on the login page. If you have not set up your portal access yet,
+              email <a href="mailto:processing@fefunding.com" className="underline">processing@fefunding.com</a> and we will resend your activation link.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+              <a
+                href={`/login?email=${encodeURIComponent(existingAccountEmail)}`}
+                className="inline-flex h-10 items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E]"
+              >
+                Log In to Continue
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setExistingAccountEmail(null)
+                  setData((d) => {
+                    const cur = (d.primary as Record<string, unknown>) ?? {}
+                    return { ...d, primary: { ...cur, email: '' } }
+                  })
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-gray-300 px-5 text-sm text-gray-700 transition-colors hover:border-gray-400"
+              >
+                Use a different email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isAdmin && showTestMode && (
         <div className="mb-3 flex items-center justify-end gap-2">
           <span className="text-xs font-medium text-gray-500">Test mode</span>
