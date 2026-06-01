@@ -7,6 +7,7 @@ import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendP
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { PIPEDRIVE_STAGE_MAP, PIPELINE_STAGES, type PipelineStage } from '@/lib/types'
+import { syncLoanToAirtable } from '@/lib/airtable'
 
 // Inverse of PIPEDRIVE_STAGE_MAP — name → id
 const STAGE_NAME_TO_ID: Record<string, number> = Object.entries(PIPEDRIVE_STAGE_MAP)
@@ -108,6 +109,20 @@ export async function PATCH(req: NextRequest) {
   try {
     await recordStageChange(loanId, stage)
   } catch (err) { console.error('Stage history error:', err) }
+
+  // Push the stage change to Airtable immediately — same model as the
+  // Pipedrive push at the top of this route, so all three systems
+  // (portal, Pipedrive, Airtable) stay in lockstep on stage transitions
+  // instead of Airtable waiting up to an hour for the next cron rotation.
+  // Failures are logged but don't fail the request; the field map will
+  // pick up the change on the next sync. New Application maps to
+  // "undefined" in the field mapper so loans not yet in Airtable safely
+  // no-op (syncLoanToAirtable returns 'skipped-no-airtable-row').
+  try {
+    await syncLoanToAirtable(loanId)
+  } catch (err) {
+    console.error('Airtable stage push failed:', err instanceof Error ? err.message : err)
+  }
 
   // Audit log
   const editorName =

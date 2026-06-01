@@ -307,8 +307,21 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
   const deltas: FieldDelta[] = []
 
   // 3. Reconcile each scalar mapping
+  //
+  // The Airtable "Loan Status" cell is shared between two systems —
+  // pipeline stages (this sync) and lifecycle states (pushLoanStatusToAirtable
+  // writes Canceled / On Hold there). When the loan is currently on hold
+  // or cancelled, we skip the pipeline_stage push so the hourly cron
+  // doesn't overwrite "On Hold" with the underlying stage. The lifecycle
+  // push reclaims the cell on the next status transition.
+  const loanStatus = loan.loan_status as string | null
+  const lifecycleOwnsLoanStatusField = loanStatus === 'on_hold' || loanStatus === 'cancelled'
   for (const m of FIELD_MAP) {
-    if (m.kind === 'scalar') reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas, schema)
+    if (m.kind !== 'scalar') continue
+    if (lifecycleOwnsLoanStatusField && m.portalCol === 'pipeline_stage' && m.airtableField === 'Loan Status') {
+      continue
+    }
+    reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas, schema)
   }
 
   // 4. Reconcile each vendor mapping (linked-table)

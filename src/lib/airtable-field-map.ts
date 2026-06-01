@@ -115,6 +115,37 @@ function passYesNoOnly(v: unknown): string | undefined {
   return undefined
 }
 
+// ---- pipeline_stage ↔ Airtable "Loan Status" ----
+// Portal → Airtable. Conditionally Approved collapses to Underwriting
+// (portal-only refinement). New Application returns undefined because
+// those loans don't exist in Airtable yet — Airtable rows get created
+// downstream when the deal moves into Processing in Pipedrive.
+function mapStageForward(v: unknown): string | undefined {
+  if (v === 'New Application')        return undefined
+  if (v === 'Processing')              return 'Processing'
+  if (v === 'Pre-Underwriting')        return 'Pre-Underwriting'
+  if (v === 'Underwriting')            return 'Underwriting'
+  if (v === 'Conditionally Approved')  return 'Underwriting'  // CA collapses
+  if (v === 'Approved')                return 'Submitted'      // Airtable calls it Submitted
+  if (v === 'Closed')                  return 'Closed'
+  return undefined
+}
+// Airtable → Portal. Only fires when portal pipeline_stage is empty
+// (sync model is "portal wins, Airtable backfills"). Canceled / On Hold
+// are lifecycle states owned by loan_status, not pipeline_stage — return
+// undefined for those so they don't get written into the wrong column.
+function mapStageInverse(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  switch (v) {
+    case 'Processing':       return 'Processing'
+    case 'Pre-Underwriting': return 'Pre-Underwriting'
+    case 'Underwriting':     return 'Underwriting'
+    case 'Submitted':        return 'Approved'
+    case 'Closed':           return 'Closed'
+    default:                 return undefined  // Canceled / On Hold / etc.
+  }
+}
+
 // ---- rate_type ----
 // Airtable's Rate Type singleSelect has 'Fixed', '5 Year ARM', '7 Year ARM'.
 // The portal only stores 'Fixed' or 'ARM' (no 5 vs 7 distinction), so we
@@ -214,6 +245,22 @@ const VENDOR_TABLES = {
 
 export const FIELD_MAP: FieldMapping[] = [
   // ---- Loan Overview (loans table) ----
+  // ---- pipeline_stage ↔ "Loan Status" ----
+  // Airtable's "Loan Status" singleSelect doubles as the pipeline stage
+  // AND the on-hold / canceled lifecycle state. The lifecycle states are
+  // owned by pushLoanStatusToAirtable; this mapping handles the stages.
+  // syncLoanToAirtable skips this field when the portal's loan_status is
+  // on_hold/cancelled so the two systems don't fight over the column.
+  //
+  // Mapping (per FE workflow):
+  //   New Application       → (skip — these loans haven't been pushed to Airtable yet)
+  //   Processing            → Processing
+  //   Pre-Underwriting      → Pre-Underwriting
+  //   Underwriting          → Underwriting
+  //   Conditionally Approved → Underwriting  (portal-only refinement)
+  //   Approved              → Submitted
+  //   Closed                → Closed
+  s('pipeline_stage', 'loans', 'Loan Status', mapStageForward, mapStageInverse),
   s('loan_number', 'loans', 'Loan Number'),
   s('loan_type', 'loans', 'Loan Type', mapLoanTypeForward, mapLoanTypeInverse),
   s('loan_amount', 'loans', 'Loan Amount'),
@@ -348,7 +395,11 @@ export function isEmptyValue(v: unknown): boolean {
 
 /** Columns we need to SELECT from `loans`. */
 export function portalLoansColumns(): string[] {
-  const cols = ['id', 'pipedrive_deal_id']
+  // loan_status isn't in FIELD_MAP (it's not a synced column — it's the
+  // lifecycle state owned by /api/loans/status), but syncLoanToAirtable
+  // needs to read it to know whether to skip the pipeline_stage push so
+  // it doesn't fight pushLoanStatusToAirtable over the "Loan Status" cell.
+  const cols = ['id', 'pipedrive_deal_id', 'loan_status']
   for (const m of FIELD_MAP) {
     if (m.kind === 'scalar' && m.portalTable === 'loans' && !cols.includes(m.portalCol)) {
       cols.push(m.portalCol)
