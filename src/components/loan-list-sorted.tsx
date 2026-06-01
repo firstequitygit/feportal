@@ -1,16 +1,18 @@
 // src/components/loan-list-sorted.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileX } from 'lucide-react'
-import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
+import { BoardLoanCard } from '@/components/loans/board-loan-card'
+import { BoardScrollbar } from '@/components/loans/board-scrollbar'
 import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
 import { useLoanListView } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
+import { formatCompactCurrency } from '@/lib/format'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
@@ -34,15 +36,6 @@ interface Props {
    * Used by the LO role page where the dimension is degenerate.
    */
   hideLoanOfficerDimensions?: boolean
-}
-
-function formatCurrency(val: number | null): string {
-  if (val === null) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 
 function formatStage(stage: string | null): string {
@@ -71,6 +64,21 @@ export function LoanListSorted({
   hideLoanOfficerDimensions = false,
 }: Props) {
   const { state, patch, patchFilters, clearFilters } = useLoanListView()
+
+  // Force list view on screens narrower than sm. Board view is suppressed there
+  // since the toggle button is also hidden at that breakpoint.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 639.98px)')
+    const sync = () => {
+      if (mq.matches && state.view === 'board') {
+        patch({ view: 'list' })
+      }
+    }
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [state.view, patch])
 
   const allLoans = useMemo<LoanWithBorrower[]>(
     () => [...activeLoans, ...closedLoans],
@@ -159,7 +167,11 @@ export function LoanListSorted({
       />
 
       {state.view === 'board' && (
-        <BoardView loans={groups.flatMap(g => g.loans)} linkPrefix={linkPrefix} />
+        <BoardView
+          loans={groups.flatMap(g => g.loans)}
+          linkPrefix={linkPrefix}
+          outstandingMap={outstandingMap}
+        />
       )}
 
       {state.view === 'list' && (
@@ -251,55 +263,60 @@ export function LoanListSorted({
   )
 }
 
-function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefix: string }) {
-  const columns = BOARD_STAGES.map(stage => ({
-    stage,
-    loans: loans.filter(l => l.pipeline_stage === stage),
-  }))
+function BoardView({
+  loans,
+  linkPrefix,
+  outstandingMap,
+}: {
+  loans: LoanWithBorrower[]
+  linkPrefix: string
+  outstandingMap: Record<string, OutstandingCounts>
+}) {
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+
+  const columns = BOARD_STAGES.map(stage => {
+    const stageLoans = loans.filter(l => l.pipeline_stage === stage)
+    const total = stageLoans.reduce((sum, l) => sum + (l.loan_amount ?? 0), 0)
+    return { stage, loans: stageLoans, total }
+  })
 
   return (
-    <div className="pb-4">
-      <div className="flex gap-4 overflow-x-auto pb-2 snap-x -mx-2 px-2">
-        {columns.map(({ stage, loans: stageLoans }) => (
-          <div key={stage} className="w-70 shrink-0 snap-start">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
-                {formatStage(stage)}
-              </h3>
-              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
-                {stageLoans.length}
-              </span>
+    <>
+      <div className="pb-4">
+        <div
+          ref={scrollContainerRef}
+          className="flex gap-3 overflow-x-auto pb-2 snap-x -mx-2 px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {columns.map(({ stage, loans: stageLoans, total }) => (
+            <div key={stage} className="w-48 shrink-0 snap-start">
+              <div className="flex items-center justify-between mb-2 px-1 gap-2">
+                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">
+                  {formatStage(stage)}
+                </h3>
+                <span className="text-[10px] text-gray-500 shrink-0 whitespace-nowrap">
+                  {stageLoans.length} · {formatCompactCurrency(total)}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {stageLoans.map(loan => (
+                  <BoardLoanCard
+                    key={loan.id}
+                    loan={loan}
+                    outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                    linkPrefix={linkPrefix}
+                  />
+                ))}
+                {stageLoans.length === 0 && (
+                  <div className="border-2 border-dashed border-gray-200 rounded-md h-12 flex items-center justify-center">
+                    <p className="text-[11px] text-gray-400">Empty</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="space-y-2">
-              {stageLoans.map(loan => (
-                <Link key={loan.id} href={`${linkPrefix}/loans/${loan.id}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-3">
-                      <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
-                        {loan.property_address ?? '—'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 truncate">
-                        {loan.borrowers?.full_name ?? <span className="italic">Unassigned</span>}
-                      </p>
-                      <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
-                        <span className="text-xs text-gray-500">{loan.loan_type ?? '—'}</span>
-                        <span className="text-xs font-medium text-gray-900 whitespace-nowrap">
-                          {formatCurrency(loan.loan_amount)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-              {stageLoans.length === 0 && (
-                <div className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center">
-                  <p className="text-xs text-gray-400">Empty</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+      <BoardScrollbar boardRef={scrollContainerRef} />
+    </>
   )
 }

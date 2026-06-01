@@ -217,7 +217,7 @@ export function LoanListToolbar({
           <button
             type="button"
             onClick={() => onViewChange('board')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border-l border-gray-300 transition-colors ${
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm border-l border-gray-300 transition-colors ${
               state.view === 'board' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
