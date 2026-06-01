@@ -5,6 +5,19 @@ import { PIPEDRIVE_FIELDS } from '@/lib/types'
 import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { findOrLinkBroker } from '@/lib/broker-sync'
+import { chooseEffectiveStage } from '@/lib/effective-stage'
+
+/**
+ * Only set `key` on `obj` when `value` is something Pipedrive actually
+ * has. Same helper used by /api/cron/sync and /api/sync. Without this,
+ * Pipedrive nulls clobber portal-entered data on every webhook fire
+ * (e.g. loan_amount, estimated_closing_date).
+ */
+function setIfPresent(obj: Record<string, unknown>, key: string, value: unknown) {
+  if (value === null || value === undefined) return
+  if (typeof value === 'string' && value.trim() === '') return
+  obj[key] = value
+}
 
 export async function GET() {
   return NextResponse.json({ received: true, method: 'GET', note: 'Pipedrive should POST, not GET' })
@@ -66,19 +79,33 @@ export async function POST(request: Request) {
       .eq('pipedrive_deal_id', dealId)
       .single()
 
-    const wasApproved = existingLoan?.pipeline_stage === 'Approved'
-    const isNowApproved = deal.pipeline_stage === 'Approved'
-    const wasClosed = existingLoan?.pipeline_stage === 'Closed'
-    const isNowClosed = deal.pipeline_stage === 'Closed'
-    const wasPreUW = existingLoan?.pipeline_stage === 'Pre-Underwriting'
-    const isNowPreUW = deal.pipeline_stage === 'Pre-Underwriting'
+    // chooseEffectiveStage handles two protections:
+    //   - CA preservation (portal CA + Pipedrive Underwriting → keep CA)
+    //   - Forward-stage protection (portal at later stage like Approved/
+    //     Closed → ignore Pipedrive downgrade).
+    // The forward-stage rule was added after 1023 Monroe Ave was silently
+    // walked back from Approved to Underwriting by a webhook firing on an
+    // unrelated field update. Forward Pipedrive moves still propagate.
+    const effectivePipedriveStage = chooseEffectiveStage(
+      existingLoan?.pipeline_stage,
+      deal.pipeline_stage,
+    )
+    const stageWasOverridden =
+      deal.pipeline_stage !== null &&
+      effectivePipedriveStage !== null &&
+      effectivePipedriveStage !== deal.pipeline_stage
 
-    // 'Conditionally Approved' is portal-only — Pipedrive keeps the loan in
-    // 'Underwriting'. Preserve the portal value when that's what's happening.
-    const effectivePipedriveStage =
-      existingLoan?.pipeline_stage === 'Conditionally Approved' && deal.pipeline_stage === 'Underwriting'
-        ? 'Conditionally Approved'
-        : deal.pipeline_stage
+    // Transition flags compare against the EFFECTIVE stage (what we'll
+    // actually write), not the raw Pipedrive value. Otherwise a webhook
+    // that gets overridden by forward-stage protection would still fire
+    // the "Loan Approved" / Pre-UW auto-assign emails based on a stage
+    // we just rejected.
+    const wasApproved   = existingLoan?.pipeline_stage === 'Approved'
+    const isNowApproved = effectivePipedriveStage === 'Approved'
+    const wasClosed     = existingLoan?.pipeline_stage === 'Closed'
+    const isNowClosed   = effectivePipedriveStage === 'Closed'
+    const wasPreUW      = existingLoan?.pipeline_stage === 'Pre-Underwriting'
+    const isNowPreUW    = effectivePipedriveStage === 'Pre-Underwriting'
 
     // Skip non-Pipeline-2 deals — only the Deals Pipeline syncs to the portal.
     if (deal.pipedrive_pipeline_id !== 2) {
@@ -128,23 +155,27 @@ export async function POST(request: Request) {
       resolvedBrokerId = await findOrLinkBroker(supabase, deal.broker_pipedrive_person_id)
     }
 
+    // "Portal wins, Pipedrive backfills" — same policy as /api/cron/sync
+    // and /api/sync. Only write fields where Pipedrive has a value, so
+    // a webhook firing on an unrelated field can't null-clobber portal
+    // data the user entered.
     const upsertPayload: Record<string, unknown> = {
-      pipedrive_deal_id:  deal.pipedrive_deal_id,
-      property_address:   deal.property_address,
-      pipeline_stage:     effectivePipedriveStage,
-      loan_type:          deal.loan_type,
-      loan_amount:        deal.loan_amount,
-      interest_rate:      deal.interest_rate,
-      ltv:                deal.ltv,
-      arv:                deal.arv,
-      rehab_budget:       deal.rehab_budget,
-      term_months:        deal.term_months ? Math.round(deal.term_months) : null,
-      origination_date:   deal.origination_date,
-      maturity_date:      deal.maturity_date,
-      entity_name:        deal.entity_name,
-      last_synced_at:     new Date().toISOString(),
+      pipedrive_deal_id: deal.pipedrive_deal_id,
+      last_synced_at:    new Date().toISOString(),
       ...archivedField,
     }
+    setIfPresent(upsertPayload, 'property_address',  deal.property_address)
+    setIfPresent(upsertPayload, 'pipeline_stage',    effectivePipedriveStage)
+    setIfPresent(upsertPayload, 'loan_type',         deal.loan_type)
+    setIfPresent(upsertPayload, 'loan_amount',       deal.loan_amount)
+    setIfPresent(upsertPayload, 'interest_rate',     deal.interest_rate)
+    setIfPresent(upsertPayload, 'ltv',               deal.ltv)
+    setIfPresent(upsertPayload, 'arv',               deal.arv)
+    setIfPresent(upsertPayload, 'rehab_budget',      deal.rehab_budget)
+    setIfPresent(upsertPayload, 'term_months',       deal.term_months ? Math.round(deal.term_months) : null)
+    setIfPresent(upsertPayload, 'origination_date',  deal.origination_date)
+    setIfPresent(upsertPayload, 'maturity_date',     deal.maturity_date)
+    setIfPresent(upsertPayload, 'entity_name',       deal.entity_name)
     if (resolvedLoId) upsertPayload.loan_officer_id = resolvedLoId
     if (resolvedBrokerId) upsertPayload.broker_id = resolvedBrokerId
 
@@ -155,6 +186,41 @@ export async function POST(request: Request) {
     if (error) {
       console.error(`Failed to sync deal ${dealId}:`, error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Audit-log stage transitions from the webhook. Without this, the
+    // pipeline_stage column could change silently and staff had no way
+    // to see why (real-world example: 1023 Monroe Ave got walked back
+    // from Approved to Underwriting after Pipedrive moved on its own).
+    if (
+      effectivePipedriveStage &&
+      existingLoan?.pipeline_stage &&
+      effectivePipedriveStage !== existingLoan.pipeline_stage &&
+      existingLoan.id
+    ) {
+      try {
+        await supabase.from('loan_events').insert({
+          loan_id: existingLoan.id,
+          event_type: 'stage_changed',
+          description: `Stage moved from ${existingLoan.pipeline_stage} to ${effectivePipedriveStage} (Pipedrive webhook)`,
+        })
+      } catch (err) {
+        console.error('Webhook stage-change event log error:', err)
+      }
+    }
+    // Also log when we *refused* a backward move so it's visible — staff
+    // need to see "Pipedrive sent X but we kept Y" if Pipedrive starts
+    // drifting from portal state.
+    if (stageWasOverridden && existingLoan?.id) {
+      try {
+        await supabase.from('loan_events').insert({
+          loan_id: existingLoan.id,
+          event_type: 'stage_protected',
+          description: `Pipedrive sent stage "${deal.pipeline_stage}" but portal kept "${effectivePipedriveStage}" (forward-stage protection)`,
+        })
+      } catch (err) {
+        console.error('Webhook stage-protected event log error:', err)
+      }
     }
 
     // Send "Loan Approved" email if this is a new transition to Submitted
