@@ -6,6 +6,7 @@ import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
+import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
 
 async function verifyAdmin(): Promise<{ adminName: string } | null> {
   const supabase = await createClient()
@@ -194,10 +195,12 @@ export async function PATCH(request: Request) {
     updatePayload.category = validCategories.includes(category) ? category : null
   }
 
-  // Fetch condition details before updating
+  // Fetch condition details before updating. Status is captured so we can
+  // detect an Outstanding/Rejected → Received transition for the urgent
+  // notification.
   const { data: condition } = await adminClient
     .from('conditions')
-    .select('title, loan_id, assigned_to')
+    .select('title, loan_id, assigned_to, status')
     .eq('id', conditionId)
     .single()
 
@@ -205,6 +208,17 @@ export async function PATCH(request: Request) {
     .from('conditions').update(updatePayload).eq('id', conditionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Urgent-received notification — helper guards against irrelevant
+  // transitions, so we can call it unconditionally for any status update.
+  if (status) {
+    await notifyUwIfUrgentReceived({
+      adminClient,
+      conditionId,
+      newStatus: status,
+      previousStatus: (condition?.status as string | null) ?? null,
+    })
+  }
 
   // Log status change event
   if (condition && status) {

@@ -6,6 +6,7 @@ import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
+import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -152,10 +153,12 @@ export async function PATCH(req: NextRequest) {
   const validStatuses = ['Outstanding', 'Satisfied', 'Rejected', 'Received', 'Waived']
   if (!validStatuses.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
 
-  // Verify the condition belongs to a loan this underwriter owns
+  // Verify the condition belongs to a loan this underwriter owns. Status
+  // is captured so we can fire the urgent-received notification on an
+  // Outstanding/Rejected → Received transition.
   const { data: condition } = await adminClient
     .from('conditions')
-    .select('id, title, loan_id')
+    .select('id, title, loan_id, status')
     .eq('id', conditionId)
     .single()
   if (!condition) return NextResponse.json({ error: 'Condition not found' }, { status: 404 })
@@ -163,6 +166,8 @@ export async function PATCH(req: NextRequest) {
   const { data: loan } = await adminClient
     .from('loans').select('id').eq('id', condition.loan_id).eq('underwriter_id', uw.id).single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const previousStatus = (condition.status as string | null) ?? null
 
   const updatePayload: Record<string, string | null> = { status }
   if (status === 'Rejected') updatePayload.rejection_reason = rejectionReason ?? null
@@ -174,6 +179,10 @@ export async function PATCH(req: NextRequest) {
     .eq('id', conditionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Urgent-received email — helper handles the "is this actually a
+  // Received transition + is the condition urgent" checks.
+  await notifyUwIfUrgentReceived({ adminClient, conditionId, newStatus: status, previousStatus })
 
   try {
     await adminClient.from('loan_events').insert({

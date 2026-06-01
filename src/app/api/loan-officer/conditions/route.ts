@@ -6,6 +6,7 @@ import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
+import { setConditionReceived } from '@/lib/condition-set-received'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -246,10 +247,11 @@ export async function PATCH(req: NextRequest) {
     .from('loans').select('id').eq('id', condition.loan_id).eq('loan_officer_id', lo.id).single()
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { error } = await adminClient
-    .from('conditions')
-    .update({ response: response.trim(), status: 'Received' })
-    .eq('id', conditionId)
+  const { error } = await setConditionReceived({
+    adminClient,
+    conditionId,
+    extra: { response: response.trim() },
+  })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

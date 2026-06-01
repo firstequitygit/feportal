@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { verifyContactAccess } from '@/lib/contact-access'
+import { setConditionReceived } from '@/lib/condition-set-received'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
@@ -76,9 +77,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Could not save documents: ' + error.message }, { status: 500 })
   }
 
-  // Flip the condition into the underwriter review queue when it was outstanding
+  // Flip the condition into the underwriter review queue when it was outstanding.
+  // setConditionReceived also fires the urgent-received notification when
+  // applicable, so we don't have to thread it manually.
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
-    await adminClient.from('conditions').update({ status: 'Received' }).eq('id', conditionId)
+    await setConditionReceived({ adminClient, conditionId })
   }
 
   // One event row per batch (lists every file name) so the activity feed

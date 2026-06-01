@@ -6,6 +6,7 @@ import { verifyContactAccess } from '@/lib/contact-access'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
+import { setConditionReceived } from '@/lib/condition-set-received'
 
 export async function PATCH(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -50,10 +51,11 @@ export async function PATCH(req: NextRequest) {
     responderName = b?.full_name ?? ''
   }
 
-  const { error } = await adminClient
-    .from('conditions')
-    .update({ response: response.trim(), status: 'Received' })
-    .eq('id', conditionId)
+  const { error } = await setConditionReceived({
+    adminClient,
+    conditionId,
+    extra: { response: response.trim() },
+  })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

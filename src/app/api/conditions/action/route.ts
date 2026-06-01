@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { type ConditionStatus } from '@/lib/types'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
 
 const VALID_ACTIONS: Record<string, ConditionStatus> = {
   received:  'Received',
@@ -106,6 +107,16 @@ export async function GET(req: NextRequest) {
     .eq('id', tokenRow.condition_id)
 
   if (error) return errorPage('Failed to update condition')
+
+  // Fire urgent-received email when applicable (helper guards against
+  // non-Received status changes and non-urgent conditions, so we can
+  // call it unconditionally here).
+  await notifyUwIfUrgentReceived({
+    adminClient,
+    conditionId: tokenRow.condition_id,
+    newStatus,
+    previousStatus: condition.status,
+  })
 
   // Log event
   try {

@@ -5,6 +5,7 @@ import { PORTAL_URL } from '@/lib/portal-url'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { sendEmail } from '@/lib/mailer'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { setConditionReceived } from '@/lib/condition-set-received'
 
 // LP upload record. Same multi-file batch shape as the LO route — accepts
 // either `files: [...]` or the legacy single-file fields.
@@ -59,9 +60,9 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: 'Could not save documents: ' + error.message }, { status: 500 })
 
-  // Flip the condition into the underwriter review queue when it was outstanding
+  // Flip into Received + fire urgent-received email when applicable.
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
-    await adminClient.from('conditions').update({ status: 'Received' }).eq('id', conditionId)
+    await setConditionReceived({ adminClient, conditionId })
   }
 
   try {

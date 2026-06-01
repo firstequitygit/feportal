@@ -276,6 +276,28 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
     }
   }
 
+  async function updateUrgent(conditionId: string, isUrgent: boolean) {
+    try {
+      const res = await fetch('/api/conditions/urgency', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditionId, isUrgent }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setLocalConditions(prev =>
+          prev.map(c => c.id === conditionId ? { ...c, is_urgent: isUrgent } : c)
+        )
+        toast.success(isUrgent ? 'Marked urgent' : 'Removed urgent flag')
+      } else {
+        toast.error('Failed to update urgency: ' + (data.error ?? 'Unknown error'))
+      }
+    } catch (err) {
+      toast.error('Network error. Please try again.')
+      console.error('updateUrgent error:', err)
+    }
+  }
+
   async function confirmRejection() {
     if (!pendingRejection) return
     setSaving(true)
@@ -365,7 +387,14 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                         <div key={condition.id}>
                           <div className="flex items-center gap-3 border rounded-lg p-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{condition.title}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium text-gray-900 truncate">{condition.title}</p>
+                                {condition.is_urgent && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                                    <span aria-hidden>🔥</span> Urgent
+                                  </span>
+                                )}
+                              </div>
                               {condition.description && (
                                 <p className="text-xs text-gray-500 truncate">{condition.description}</p>
                               )}
@@ -403,6 +432,15 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                               <option value="loan_officer">Loan Officer</option>
                               <option value="loan_processor">Loan Processor</option>
                             </select>
+                            {/* Urgent toggle */}
+                            <button
+                              type="button"
+                              onClick={() => updateUrgent(condition.id, !condition.is_urgent)}
+                              className={`text-xs px-2 py-1 rounded border transition-colors ${condition.is_urgent ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                              title={condition.is_urgent ? 'Remove urgent flag' : 'Mark urgent — notifies UW when received'}
+                            >
+                              {condition.is_urgent ? '🔥 Urgent' : 'Mark urgent'}
+                            </button>
                             {/* Status dropdown */}
                             <select
                               value={condition.status}

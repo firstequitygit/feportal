@@ -5,6 +5,7 @@ import { PORTAL_URL } from '@/lib/portal-url'
 import { getStaffRecipientsForLoan } from '@/lib/staff-recipients'
 import { sendEmail } from '@/lib/mailer'
 import { assertNotImpersonating } from '@/lib/impersonate'
+import { setConditionReceived } from '@/lib/condition-set-received'
 
 // Step 3 (LO): record uploaded documents and notify the staff team.
 //
@@ -67,9 +68,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Could not save documents: ' + error.message }, { status: 500 })
   }
 
-  // Flip the condition into the underwriter review queue when it was outstanding
+  // Flip into Received + fire urgent-received email when applicable.
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
-    await adminClient.from('conditions').update({ status: 'Received' }).eq('id', conditionId)
+    await setConditionReceived({ adminClient, conditionId })
   }
 
   // One audit row per batch.

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { getLoanRoleForUser } from '@/lib/loan-authorization'
+import { setConditionReceived } from '@/lib/condition-set-received'
 
 export async function PATCH(
   req: NextRequest,
@@ -45,8 +46,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Condition not on this loan' }, { status: 400 })
     }
     // Flip condition status from Outstanding/Rejected to Received, matching existing upload-record behavior.
+    // setConditionReceived also fires the urgent-received email when applicable.
     if (condition.status === 'Outstanding' || condition.status === 'Rejected') {
-      await adminClient.from('conditions').update({ status: 'Received' }).eq('id', condition.id)
+      await setConditionReceived({ adminClient, conditionId: condition.id })
     }
   }
 

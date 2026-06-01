@@ -161,6 +161,12 @@ export interface Condition {
   category: ConditionCategory | null
   rejection_reason: string | null
   response: string | null
+  /**
+   * When true, the loan's underwriter is emailed the moment the
+   * condition status flips into 'Received'. Toggled via
+   * /api/conditions/urgency by any staff with loan access.
+   */
+  is_urgent: boolean
   created_at: string
   updated_at: string
 }

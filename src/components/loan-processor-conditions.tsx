@@ -85,7 +85,7 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, isImpersonating,
+  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, onToggleUrgent, isImpersonating,
 }: {
   condition: Condition
   docs: Document[]
@@ -105,6 +105,7 @@ function ConditionRow({
   onChangeStatus: (conditionId: string, status: ConditionStatus, rejectionReason?: string) => Promise<void>
   onChangeCategory: (conditionId: string, category: ConditionCategory | null) => Promise<void>
   onReassign: (conditionId: string, assignedTo: AssignedTo) => Promise<void>
+  onToggleUrgent: (conditionId: string, isUrgent: boolean) => Promise<void>
   isImpersonating: boolean
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -153,7 +154,7 @@ function ConditionRow({
     <div className={`border rounded-lg p-4 ${faded ? 'opacity-60' : ''} ${selected ? 'bg-primary/5 border-primary/40' : ''}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               type="checkbox"
               checked={selected}
@@ -163,6 +164,11 @@ function ConditionRow({
               aria-label={`Select ${condition.title}`}
             />
             <p className="font-medium text-gray-900 text-sm">{condition.title}</p>
+            {condition.is_urgent && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                <span aria-hidden>🔥</span> Urgent
+              </span>
+            )}
           </div>
           {condition.description && (
             <p className="text-xs text-gray-500 mt-1">{condition.description}</p>
@@ -249,6 +255,15 @@ function ConditionRow({
             <option value="loan_processor">Loan Processor</option>
             <option value="underwriter">Underwriter</option>
           </select>
+          <button
+            type="button"
+            onClick={isImpersonating ? undefined : () => onToggleUrgent(condition.id, !condition.is_urgent)}
+            disabled={isImpersonating}
+            className={`text-xs px-2 py-1 rounded border transition-colors disabled:opacity-50 ${condition.is_urgent ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'} ${isImpersonating ? 'cursor-not-allowed' : ''}`}
+            title={isImpersonating ? 'Read-only preview — exit View As to act' : (condition.is_urgent ? 'Remove urgent flag' : 'Mark urgent — notifies UW when received')}
+          >
+            {condition.is_urgent ? '🔥 Urgent' : 'Mark urgent'}
+          </button>
           {statusChanging && <span className="text-xs text-gray-400">Saving…</span>}
         </div>
       )}
@@ -402,6 +417,20 @@ export function LoanProcessorConditions({ loanId, loanType, propertyAddress, con
       router.refresh()
     } else {
       setAddError(data.error ?? 'Failed to reassign condition')
+    }
+  }
+
+  async function handleToggleUrgent(conditionId: string, isUrgent: boolean) {
+    const res = await fetch('/api/conditions/urgency', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conditionId, isUrgent }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (data.success) {
+      router.refresh()
+    } else {
+      setAddError(data.error ?? 'Failed to update urgency')
     }
   }
 
@@ -817,6 +846,7 @@ export function LoanProcessorConditions({ loanId, loanType, propertyAddress, con
                     onChangeStatus={handleChangeStatus}
                     onChangeCategory={handleChangeCategory}
                     onReassign={handleReassign}
+                    onToggleUrgent={handleToggleUrgent}
                     isImpersonating={isImpersonating} />
                 )
               })}
