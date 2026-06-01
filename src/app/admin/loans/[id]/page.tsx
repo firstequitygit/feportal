@@ -37,6 +37,7 @@ import { buildViewAsOptions } from '@/lib/view-as-options'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
+import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
 import Link from 'next/link'
 
@@ -149,6 +150,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan, { includeStaff: true })} />
+            <NotifyUnderwriterButton loanId={id} underwriterName={loan.underwriters?.full_name ?? null} />
             <LoanAirtableSyncButton loanId={id} />
             <Link
               href={`/approval-letter/${id}`}
