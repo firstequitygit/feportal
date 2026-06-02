@@ -27,6 +27,21 @@ function formatCurrency(val: number | null): string {
   }).format(val)
 }
 
+/**
+ * Short "MM/DD/YY" date for the loan-card subtitle. Parses as a local
+ * date by splitting the ISO components — keeps a "2026-06-12" string
+ * from rendering as Jun 11 in negative-offset timezones.
+ */
+function formatShortDate(val: string | null | undefined): string | null {
+  if (!val) return null
+  // Accept both "2026-06-12" and full ISO timestamps — only need the date part.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(val)
+  if (!m) return null
+  const [, , mm, dd] = m
+  const yy = m[1].slice(2)
+  return `${Number(mm)}/${Number(dd)}/${yy}`
+}
+
 function stageBadgeColor(stage: PipelineStage | null): string {
   switch (stage) {
     case 'New Application':          return 'bg-gray-100 text-gray-700'
@@ -85,6 +100,27 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix }: Props) {
                 {loan.loan_type}
                 <span className="text-gray-300"> · </span>
                 {formatCurrency(loan.loan_amount)}
+                {/* Estimated closing + rate lock expiration. Each only
+                    renders when set — keeps cards without dates clean
+                    instead of showing "Close —". */}
+                {(() => {
+                  const close = formatShortDate(loan.estimated_closing_date)
+                  return close ? (
+                    <>
+                      <span className="text-gray-300"> · </span>
+                      Close {close}
+                    </>
+                  ) : null
+                })()}
+                {(() => {
+                  const rate = formatShortDate(loan.rate_lock_expiration_date)
+                  return rate ? (
+                    <>
+                      <span className="text-gray-300"> · </span>
+                      Rate exp {rate}
+                    </>
+                  ) : null
+                })()}
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
