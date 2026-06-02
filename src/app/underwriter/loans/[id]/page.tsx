@@ -167,6 +167,18 @@ export default async function UnderwriterLoanPage({
               <FieldRow label="Loan Type">
                 <EditableLoanField loanId={id} field="loan_type" type="enum" options={LOAN_TYPES} currentValue={loan.loan_type} display={loan.loan_type ?? '—'} />
               </FieldRow>
+              <FieldRow label="Loan Type I">
+                {/* Mirror of the Loan Type I row inside the Loan Details
+                    card — same backing field (loan_details.loan_type_one). */}
+                <EditableLoanField
+                  loanId={id}
+                  field="loan_type_one"
+                  type="enum"
+                  options={['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase']}
+                  currentValue={(loanDetails as LoanDetails | null)?.loan_type_one ?? null}
+                  display={(loanDetails as LoanDetails | null)?.loan_type_one ?? '—'}
+                />
+              </FieldRow>
               <FieldRow label="Loan Amount">
                 <EditableLoanField loanId={id} field="loan_amount" type="currency" currentValue={loan.loan_amount} display={formatCurrency(loan.loan_amount)} placeholder="500000" />
               </FieldRow>
