@@ -15,6 +15,7 @@
 // row variant aligns right so it doesn't overflow narrow rows.
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Mail } from 'lucide-react'
@@ -46,6 +47,27 @@ export function NotifyUnderwriterButton({
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  // Anchor position for the portal-rendered popover. Computed from the
+  // trigger's bounding rect each time the popover opens so a Card with
+  // overflow-hidden can't clip it.
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  function recomputeAnchor() {
+    const el = triggerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // Position the popover's right edge under the trigger's right edge,
+    // with a 4px (mt-1 equivalent) gap below. Coordinates are page-
+    // relative (include scroll) so the portal stays anchored as the
+    // page scrolls.
+    setAnchor({
+      top: rect.bottom + window.scrollY + 4,
+      right: window.innerWidth - rect.right,
+    })
+  }
 
   const disabled = !underwriterName || isImpersonating
   const disabledReason =
@@ -55,15 +77,29 @@ export function NotifyUnderwriterButton({
 
   useEffect(() => {
     if (!open) return
+    // Re-anchor on scroll/resize so the portal popover stays under the
+    // trigger button — without this, scrolling the page leaves it pinned
+    // to its original position.
+    function reposition() { recomputeAnchor() }
     function onDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // Trigger wrapper OR the portal popover (data-portal-popover) count
+      // as inside — clicks elsewhere close.
+      if (rootRef.current?.contains(target)) return
+      const popover = document.querySelector('[data-notify-uw-popover="true"]')
+      if (popover?.contains(target)) return
+      setOpen(false)
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
     }
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
     return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
     }
@@ -115,8 +151,13 @@ export function NotifyUnderwriterButton({
   return (
     <div ref={rootRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={() => {
+          if (disabled) return
+          if (!open) recomputeAnchor()
+          setOpen(o => !o)
+        }}
         disabled={disabled}
         title={disabledReason}
         className={triggerClass}
@@ -125,8 +166,19 @@ export function NotifyUnderwriterButton({
         {variant === 'section' ? 'Notify Underwriter' : 'Notify UW'}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-md shadow-lg z-20 p-3 space-y-2">
+      {/* Render the popover via a portal so the wrapping Card's
+          overflow-hidden doesn't clip it. Coordinates are page-relative
+          and tracked via scroll/resize listeners above. */}
+      {open && mounted && anchor && createPortal(
+        <div
+          data-notify-uw-popover="true"
+          style={{
+            position: 'absolute',
+            top: anchor.top,
+            right: anchor.right,
+          }}
+          className="w-80 bg-white border border-gray-200 rounded-md shadow-lg z-50 p-3 space-y-2"
+        >
           <div className="text-xs text-gray-600">
             Emailing <span className="font-medium text-gray-900">{underwriterName}</span>
             {variant === 'row' && conditionTitle && (
@@ -165,7 +217,8 @@ export function NotifyUnderwriterButton({
               {sending ? 'Sending…' : 'Send'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
