@@ -92,6 +92,33 @@ interface AirtableFieldSchema {
   options?: Set<string>
 }
 
+// Airtable field types whose values are computed by Airtable itself —
+// any write attempt fails with INVALID_PERMISSIONS. We detect these from
+// the schema fetch and skip them automatically.
+const READ_ONLY_FIELD_TYPES = new Set<string>([
+  'formula',
+  'rollup',
+  'lookup',
+  'multipleLookupValues',
+  'count',
+  'createdTime',
+  'lastModifiedTime',
+  'createdBy',
+  'lastModifiedBy',
+  'autoNumber',
+  'button',
+  'externalSyncSource',
+])
+
+// Process-level cache of fields we've discovered are unwritable at
+// runtime (i.e., the schema looked writable but Airtable returned 403
+// INVALID_PERMISSIONS when we actually tried). Common cause: enterprise
+// field-level permissions that the Metadata API doesn't expose. Stays
+// in memory for the lifetime of the serverless container so subsequent
+// syncs in the same process skip the field instead of repeatedly hitting
+// the same 403.
+const runtimeReadOnlyFields = new Set<string>()
+
 let dealsSchemaCache: Map<string, AirtableFieldSchema> | null = null
 let dealsSchemaPromise: Promise<Map<string, AirtableFieldSchema>> | null = null
 
@@ -332,13 +359,41 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
 
   // 5. Apply Airtable changes (PATCH the Deal — typecast lets Airtable coerce
   //    text into enum choices when values match).
+  //
+  // Some Airtable bases have field-level permissions that the Metadata API
+  // doesn't expose (enterprise feature). When a write hits one, Airtable
+  // returns 403 INVALID_PERMISSIONS naming the field. We extract that name,
+  // add it to runtimeReadOnlyFields so future syncs in this process skip
+  // it automatically, drop it from the current patch, and retry once.
+  // Bounded retry — at most a handful of iterations, then give up.
   let pushedToAirtable = 0
   if (Object.keys(airtablePatch).length > 0) {
-    await airtable(`/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}/${dealRecord.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ fields: airtablePatch, typecast: true }),
-    })
-    pushedToAirtable = Object.keys(airtablePatch).length
+    let attempts = 0
+    while (Object.keys(airtablePatch).length > 0 && attempts < 6) {
+      attempts++
+      try {
+        await airtable(`/${AIRTABLE_BASE_ID}/${AIRTABLE_DEALS_TABLE_ID}/${dealRecord.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ fields: airtablePatch, typecast: true }),
+        })
+        pushedToAirtable = Object.keys(airtablePatch).length
+        break
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        // Parse the field name out of Airtable's 403 message. Example:
+        //   Airtable 403 on /...: {"error":{"type":"INVALID_PERMISSIONS",
+        //   "message":"You are not permitted to write cell values in field Closing Date (fldWOrNQRRydluK9I)"}}
+        const match = /INVALID_PERMISSIONS[\s\S]*?in field ([^"(]+?)(?:\s*\([^)]*\))?(?:["\\])/.exec(msg)
+        const offendingField = match?.[1]?.trim()
+        if (offendingField && airtablePatch[offendingField] !== undefined) {
+          console.warn(`[airtable] field "${offendingField}" is not writable for this token — skipping for the rest of this process`)
+          runtimeReadOnlyFields.add(offendingField)
+          delete airtablePatch[offendingField]
+          continue  // retry without it
+        }
+        throw e  // not an INVALID_PERMISSIONS we can recover from
+      }
+    }
   }
 
   // 6. Apply portal changes
@@ -413,11 +468,23 @@ function reconcileScalar(
     // Skip the patch when Airtable already holds the same value — avoids
     // unnecessary writes / API calls on a no-op sync.
     if (!airtableEmpty && airtableValue === v) return
+    // Skip computed/locked Airtable fields. Two flavors:
+    //   - schema-declared read-only types (formula, rollup, lookup, etc.)
+    //     — these never accept writes.
+    //   - fields discovered to be unwritable at runtime (enterprise
+    //     field-level permissions that the schema doesn't expose).
+    //     Populated by the patch handler below on INVALID_PERMISSIONS.
+    const fieldSchema = schema.get(m.airtableField)
+    if (fieldSchema && READ_ONLY_FIELD_TYPES.has(fieldSchema.type)) {
+      return
+    }
+    if (runtimeReadOnlyFields.has(m.airtableField)) {
+      return
+    }
     // Skip-on-mismatch for singleSelect fields. If the portal value isn't
     // one of Airtable's curated choices, we drop the push silently rather
     // than letting Airtable reject the whole PATCH. Other fields in the
     // same sync still go through.
-    const fieldSchema = schema.get(m.airtableField)
     if (fieldSchema?.type === 'singleSelect' && fieldSchema.options && typeof v === 'string' && !fieldSchema.options.has(v)) {
       console.warn(`[airtable] skipping ${m.airtableField}: portal value "${v}" not in Airtable choices`)
       return
