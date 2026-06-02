@@ -1,0 +1,66 @@
+Section,Portal Field,Portal Table,Airtable Field,Sync,Transform / Notes
+Loan Overview,pipeline_stage,loans,Loan Status,Bidirectional,"Stage names mapped; CA collapses to Underwriting; New Application skipped (loans not yet in Airtable); skipped while loan is on_hold/cancelled"
+Loan Overview,loan_number,loans,Loan Number,Bidirectional,Direct
+Loan Overview,loan_type,loans,Loan Type,Bidirectional,"Fix & Flip (Bridge) ↔ Bridge; Rental (DSCR) ↔ DSCR; New Construction ↔ New Construction"
+Loan Overview,loan_amount,loans,Loan Amount,Bidirectional,Direct
+Loan Overview,interest_rate,loans,Rate,Bidirectional,"Portal percent (7.75) ↔ Airtable fraction (0.0775)"
+Loan Overview,arv,loans,ARV Value,Bidirectional,Direct
+Loan Overview,rehab_budget,loans,Construction Cost,Bidirectional,Direct
+Loan Overview,term_months,loans,Loan Term,Bidirectional,"12/18/360/480 ↔ '12 Months'/'18 Months'/'360 Months'/'480 Months'"
+Loan Overview,origination_date,loans,Closing Date,Bidirectional,Direct
+Loan Overview,maturity_date,loans,Maturity Date (trailing space),Bidirectional,"Airtable field literally has a trailing space"
+Loan Overview,entity_name,loans,Entity,Bidirectional,Direct
+Loan / Deal Overview,investor_loan_number,loan_details,Investor Loan Number,Bidirectional,Direct
+Loan / Deal Overview,submitted_at,loan_details,Submitted,Bidirectional,Direct
+Loan / Deal Overview,urgency,loan_details,Urgency,Bidirectional,Direct
+Loan / Deal Overview,investor,loan_details,Investor,Bidirectional,Direct
+Loan / Deal Overview,underwriter_notes,loan_details,Alicyn's Notes,Bidirectional,Direct
+Loan / Deal Overview,exceptions,loan_details,Exceptions,Bidirectional,Direct
+Loan / Deal Overview,cross_collateralization,loan_details,Cross Collaterization Flag (trailing space),Bidirectional,"Boolean ↔ Yes/No singleSelect; Airtable field misspelled & has trailing space"
+Loan / Deal Overview,foreign_national,loan_details,Foreign National,Bidirectional,Boolean ↔ Yes/No singleSelect
+Property Information,property_street,loan_details,Property Street,Bidirectional,Direct
+Property Information,property_city,loan_details,Property City,Bidirectional,Direct
+Property Information,property_state,loan_details,Property State,Bidirectional,Direct
+Property Information,property_zip,loan_details,Property ZIP,Bidirectional,Direct
+Property Information,property_type,loan_details,Property Type,Bidirectional,Direct
+Property Information,number_of_units,loan_details,Number of Units,Bidirectional,"Integer ↔ singleLineText"
+Property Information,flood_zone,loan_details,Flood Zone,Bidirectional,"Pass through Yes/No only"
+Loan Terms,initial_loan_amount,loan_details,Initial Loan Amount,Bidirectional,Direct
+Loan Terms,cash_out_amount,loan_details,Cash Out Amt,Bidirectional,Direct
+Loan Terms,rate_type,loan_details,Rate Type,Bidirectional,"Portal Fixed/ARM ↔ Airtable Fixed / 5 Year ARM / 7 Year ARM (ARM → 5 Year ARM on push)"
+Loan Terms,points,loan_details,Points,Bidirectional,Direct
+Loan Terms,broker_points,loan_details,Broker Points,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
+Loan Terms,broker_ysp,loan_details,Broker YSP,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
+Loan Terms,rate_costs_points,loan_details,Extension Cost - Points,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
+Loan Terms,other_exception_costs_points,loan_details,SLV/Exception Points,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
+Loan Terms,prepayment_penalty,loan_details,Prepayment Penalty,Bidirectional,"Skipped on push if portal value isn't one of Airtable's singleSelect choices"
+Loan Terms,first_payment_date,loan_details,First Payment Date,Bidirectional,Direct
+Loan Terms,loan_type_one,loan_details,Loan Purpose,Bidirectional,Direct
+Borrower / Guarantor,experience_notes,loan_details,Experience Notes,Bidirectional,Direct
+Borrower / Guarantor,number_of_properties,loan_details,Number of Properties (trailing space),Bidirectional,"Airtable field literally has a trailing space"
+Borrower / Guarantor,verified_assets,loan_details,Verified Assets,Bidirectional,"Portal text ('$250k') ↔ Airtable currency number"
+Credit / Background,credit_report_date,loan_details,Credit Date,Bidirectional,Direct
+Credit / Background,credit_background_notes,loan_details,Credit/Background Notes,Bidirectional,Direct
+Appraisal / Review Tracking,appraisal_received_date,loan_details,Appraisal Received Date,Bidirectional,Direct
+Appraisal / Review Tracking,appraisal_paid_date,loan_details,Appraisal Paid Date,Bidirectional,Direct
+Valuation / Collateral,purchase_price,loan_details,Purchase Price,Bidirectional,Direct
+Valuation / Collateral,acquisition_date,loan_details,Acquisition Date,Bidirectional,Direct
+Valuation / Collateral,value_as_is,loan_details,As Is Value,Bidirectional,Direct
+Valuation / Collateral,value_bpo,loan_details,BPO Value,Bidirectional,Direct
+Construction / Rehab,construction_holdback,loan_details,Construction Holdback,Bidirectional,Direct
+DSCR inputs,qualifying_rent,loan_details,Qualifying Rent,Bidirectional,Direct
+DSCR inputs,annual_insurance_premium,loan_details,HOI Premium,Bidirectional,Direct
+DSCR inputs,annual_property_tax,loan_details,Monthly Property Tax,Bidirectional,"Portal annual ↔ Airtable monthly (÷12 on push, ×12 on pull)"
+DSCR inputs,annual_flood_insurance,loan_details,Flood Insurance,Bidirectional,Direct
+DSCR inputs,annual_hoa_dues,loan_details,Yearly HOA,Bidirectional,Direct
+Vendors (linked tables),title_company,loan_details,Title (linked record → Title table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),title_email,loan_details,Title vendor 'Email',Bidirectional,Filled on the linked Title vendor row
+Vendors (linked tables),title_phone,loan_details,Title vendor 'Phone',Bidirectional,Filled on the linked Title vendor row
+Vendors (linked tables),insurance_company,loan_details,Insurance (linked record → Insurance table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),insurance_email,loan_details,Insurance vendor 'Email',Bidirectional,Filled on the linked Insurance vendor row
+Vendors (linked tables),insurance_phone,loan_details,Insurance vendor 'Phone',Bidirectional,Filled on the linked Insurance vendor row
+Vendors (linked tables),appraisal_company,loan_details,Appraiser (linked record → Appraisers table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),appraisal_email,loan_details,Appraiser vendor 'Email',Bidirectional,Filled on the linked Appraisers vendor row
+Vendors (linked tables),appraisal_phone,loan_details,Appraiser vendor 'Phone',Bidirectional,Filled on the linked Appraisers vendor row
+Lifecycle (separate flow),loan_status,loans,Loan Status,Push only,"Owned by /api/loans/status, not the field map. Pushes 'Canceled' / 'On Hold' / cleared to the same Loan Status cell that pipeline_stage uses. The field map skips pipeline_stage push while loan_status is on_hold/cancelled so the two don't fight."
+Match key,pipedrive_deal_id,loans,Pipedrive Deal ID,Match key,Used to find the Airtable Deals row for this loan. Not synced — purely the join column.
