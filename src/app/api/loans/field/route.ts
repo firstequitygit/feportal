@@ -5,6 +5,18 @@ import { assertNotImpersonating } from '@/lib/impersonate'
 import { updateDealField } from '@/lib/pipedrive'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
+import { sendRateLockedEmail } from '@/lib/expiration-emails'
+
+/**
+ * Convert a rate_locked_days enum value ("No" / "15 days" / "30 days"
+ * / "45 days") to its numeric days. Returns null for "No" / unknown so
+ * the rate-locked notification only fires on a real lock.
+ */
+function parseLockDays(v: unknown): number | null {
+  if (typeof v !== 'string') return null
+  const m = /^(\d+)\s*days?/i.exec(v.trim())
+  return m ? Number(m[1]) : null
+}
 import {
   PIPEDRIVE_FIELDS,
   PIPEDRIVE_LOAN_TYPE_MAP,
@@ -358,10 +370,12 @@ export async function PATCH(req: NextRequest) {
     pdValue = value.trim() || null
   }
 
-  // Get loan + verify access
+  // Get loan + verify access. rate_locked_days is fetched alongside the
+  // access columns so we can detect a "No → 15/30/45 days" transition
+  // and fire the rate-locked notification email after the update lands.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, pipedrive_deal_id, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id')
+    .select('id, pipedrive_deal_id, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id, rate_locked_days')
     .eq('id', loanId)
     .single()
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
@@ -464,6 +478,23 @@ export async function PATCH(req: NextRequest) {
         await updateDealField(loan.pipedrive_deal_id, PIPEDRIVE_FIELDS.ltv, patch.ltv as number)
       } catch (err) {
         console.error('LTV Pipedrive push failed:', err instanceof Error ? err.message : err)
+      }
+    }
+
+    // "Rate just got locked" notification — fires when rate_locked_days
+    // flips from null / 'No' to a numeric option (15/30/45 days). Emails
+    // LO + LP(s) with the lock window and the resulting expiration date.
+    // Fire-and-forget; the field update already succeeded.
+    if (field === 'rate_locked_days') {
+      const prev = (loan as unknown as { rate_locked_days: string | null }).rate_locked_days
+      const wasUnlocked = !prev || prev === 'No'
+      const days = parseLockDays(dbValue)
+      if (wasUnlocked && days !== null) {
+        try {
+          await sendRateLockedEmail(loanId, days)
+        } catch (err) {
+          console.error('sendRateLockedEmail failed:', err)
+        }
       }
     }
   } else {
