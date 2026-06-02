@@ -1,12 +1,18 @@
 'use client'
 
-// "Notify Underwriter" header action on LO / LP / admin loan detail pages.
+// "Notify Underwriter" action used in two contexts:
 //
-// Clicking opens an inline popover with a single textarea + Send button.
-// Sending POSTs to /api/loans/notify-underwriter; the server fires the
-// email and writes an audit row. Disabled (with tooltip) when the loan
-// has no underwriter assigned — the underlying route enforces the same
-// rule, but greying the button keeps users from clicking blindly.
+//   variant="section" — pill-style button shown next to the Conditions
+//                       section header. Whole-loan ping ("please review
+//                       this file"). No conditionId.
+//   variant="row"     — compact inline button on each condition row.
+//                       Sends a ping about that specific condition;
+//                       conditionId is required so the email subject /
+//                       body name the condition.
+//
+// Both open the same popover (note textarea + Send/Cancel). The popover
+// is anchored to the trigger; the section variant places it below, the
+// row variant aligns right so it doesn't overflow narrow rows.
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,9 +25,21 @@ interface Props {
   /** Display name of the assigned UW. Used in the popover header so the
       sender knows who they're emailing. Null = no UW assigned. */
   underwriterName: string | null
+  /** Section button = whole-loan ping. Row button = single-condition. */
+  variant?: 'section' | 'row'
+  /** Required when variant === 'row'. Names the condition in the email. */
+  conditionId?: string
+  /** Shown in the popover header for the row variant ("Re: {title}"). */
+  conditionTitle?: string
 }
 
-export function NotifyUnderwriterButton({ loanId, underwriterName }: Props) {
+export function NotifyUnderwriterButton({
+  loanId,
+  underwriterName,
+  variant = 'section',
+  conditionId,
+  conditionTitle,
+}: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const [open, setOpen] = useState(false)
@@ -35,7 +53,6 @@ export function NotifyUnderwriterButton({ loanId, underwriterName }: Props) {
     !underwriterName ? 'No underwriter assigned to this loan' :
     undefined
 
-  // Click outside / Escape closes the popover.
   useEffect(() => {
     if (!open) return
     function onDocClick(e: MouseEvent) {
@@ -58,14 +75,18 @@ export function NotifyUnderwriterButton({ loanId, underwriterName }: Props) {
       const res = await fetch('/api/loans/notify-underwriter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loanId, message }),
+        body: JSON.stringify({
+          loanId,
+          message,
+          ...(variant === 'row' && conditionId ? { conditionId } : {}),
+        }),
       })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
         toast.success(underwriterName ? `Notified ${underwriterName}` : 'Underwriter notified')
         setOpen(false)
         setMessage('')
-        router.refresh()  // surface the audit log row in the Activity feed
+        router.refresh()
       } else {
         toast.error(data?.error ?? `Could not send (HTTP ${res.status})`)
       }
@@ -76,6 +97,21 @@ export function NotifyUnderwriterButton({ loanId, underwriterName }: Props) {
     }
   }
 
+  // Trigger style: section variant matches the existing pill (h-7, text-xs);
+  // row variant is smaller and lower-key so it fits next to the per-row
+  // status/reassign controls without dominating them.
+  const triggerClass = variant === 'section'
+    ? `inline-flex items-center gap-1.5 h-7 px-3.5 text-xs font-medium border rounded-full whitespace-nowrap transition-colors ${
+        disabled
+          ? 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'
+          : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+      }`
+    : `inline-flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
+        disabled
+          ? 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'
+          : 'text-gray-600 bg-white border-gray-200 hover:bg-gray-50'
+      }`
+
   return (
     <div ref={rootRef} className="relative inline-block">
       <button
@@ -83,26 +119,30 @@ export function NotifyUnderwriterButton({ loanId, underwriterName }: Props) {
         onClick={() => !disabled && setOpen(o => !o)}
         disabled={disabled}
         title={disabledReason}
-        // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
-        className={`inline-flex items-center gap-1.5 h-7 px-3.5 text-xs font-medium border rounded-full whitespace-nowrap transition-colors ${
-          disabled
-            ? 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'
-            : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
-        }`}
+        className={triggerClass}
       >
-        <Mail className="w-3.5 h-3.5" />
-        Notify Underwriter
+        <Mail className={variant === 'section' ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+        {variant === 'section' ? 'Notify Underwriter' : 'Notify UW'}
       </button>
 
       {open && (
         <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-md shadow-lg z-20 p-3 space-y-2">
           <div className="text-xs text-gray-600">
             Emailing <span className="font-medium text-gray-900">{underwriterName}</span>
+            {variant === 'row' && conditionTitle && (
+              <>
+                {' '}about <span className="font-medium text-gray-900">&ldquo;{conditionTitle}&rdquo;</span>
+              </>
+            )}
           </div>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="Optional: what changed? (e.g. cash-out adjusted, please refresh DSCR)"
+            placeholder={
+              variant === 'row'
+                ? 'Optional: what changed on this condition?'
+                : 'Optional: what changed? (e.g. cash-out adjusted, please refresh DSCR)'
+            }
             rows={4}
             className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             autoFocus

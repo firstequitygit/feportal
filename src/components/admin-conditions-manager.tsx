@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type Condition, type ConditionTemplate, type ConditionStatus, type AssignedTo, type LoanType, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
+import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
 
 interface Props {
   loanId: string
@@ -14,6 +15,9 @@ interface Props {
   conditions: Condition[]
   templates: ConditionTemplate[]
   propertyAddress?: string | null
+  /** Underwriter assigned to the loan. Drives the Notify UW button —
+      null disables it with a tooltip ("No underwriter assigned"). */
+  underwriterName?: string | null
 }
 
 const STATUS_OPTIONS: ConditionStatus[] = ['Outstanding', 'Received', 'Satisfied', 'Waived', 'Rejected']
@@ -48,7 +52,7 @@ function assignedToLabel(assigned_to: AssignedTo): string {
   }
 }
 
-export function AdminConditionsManager({ loanId, loanType, conditions, templates, propertyAddress }: Props) {
+export function AdminConditionsManager({ loanId, loanType, conditions, templates, propertyAddress, underwriterName }: Props) {
   const [saving, setSaving] = useState(false)
   const [uploadingSet, setUploadingSet] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -355,13 +359,18 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
     <div className="space-y-4">
       {/* Current Conditions */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">
             Conditions
             <span className="ml-2 text-sm font-normal text-gray-500">
               {localConditions.filter(c => c.status !== 'Satisfied' && c.status !== 'Waived' && c.status !== 'Received').length} outstanding
             </span>
           </CardTitle>
+          <NotifyUnderwriterButton
+            loanId={loanId}
+            underwriterName={underwriterName ?? null}
+            variant="section"
+          />
         </CardHeader>
         <CardContent>
           {/* Hidden file input shared across all conditions */}
@@ -447,6 +456,14 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                             >
                               {condition.is_urgent ? '🔥 Urgent' : 'Mark urgent'}
                             </button>
+                            {/* Per-condition Notify UW */}
+                            <NotifyUnderwriterButton
+                              loanId={loanId}
+                              underwriterName={underwriterName ?? null}
+                              variant="row"
+                              conditionId={condition.id}
+                              conditionTitle={condition.title}
+                            />
                             {/* Status dropdown */}
                             <select
                               value={condition.status}

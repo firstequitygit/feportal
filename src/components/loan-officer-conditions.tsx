@@ -14,6 +14,7 @@ import { useImpersonation } from '@/components/impersonation-provider'
 import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
 import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
 import { suggestConditionId } from '@/lib/match-condition'
+import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -79,8 +80,9 @@ const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Reje
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 
 function ConditionRow({
-  condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, mentionableStaff, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, onToggleUrgent,
+  loanId, condition, docs, signedUrlMap, canUpload, uploading, selected, selectable, loanStaff, staffDirectory, notes, isImpersonating, mentionableStaff, onToggleSelect, onUpload, fileRef, onDeleteDoc, onSaveResponse, onChangeStatus, onChangeCategory, onReassign, onToggleUrgent,
 }: {
+  loanId: string
   condition: Condition
   docs: Document[]
   signedUrlMap: Record<string, string>
@@ -262,6 +264,15 @@ function ConditionRow({
           >
             {condition.is_urgent ? '🔥 Urgent' : 'Mark urgent'}
           </button>
+          {/* Per-condition Notify UW — pings the loan's UW about this
+              specific condition. Disabled when no UW assigned. */}
+          <NotifyUnderwriterButton
+            loanId={loanId}
+            underwriterName={loanStaff?.underwriter?.full_name ?? null}
+            variant="row"
+            conditionId={condition.id}
+            conditionTitle={condition.title}
+          />
           {statusChanging && <span className="text-xs text-gray-400">Saving…</span>}
         </div>
       )}
@@ -627,21 +638,30 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
-          {!isImpersonating && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
-                className="text-xs text-primary hover:opacity-80 font-medium"
-              >
-                Bulk Upload
-              </button>
-              {!adding && (
-                <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
-                  + Add Condition
+          <div className="flex items-center gap-3">
+            {/* Section-level Notify UW button — pings the loan's
+                underwriter to review the whole condition set. */}
+            <NotifyUnderwriterButton
+              loanId={loanId}
+              underwriterName={loanStaff?.underwriter?.full_name ?? null}
+              variant="section"
+            />
+            {!isImpersonating && (
+              <>
+                <button
+                  onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
+                  className="text-xs text-primary hover:opacity-80 font-medium"
+                >
+                  Bulk Upload
                 </button>
-              )}
-            </div>
-          )}
+                {!adding && (
+                  <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
+                    + Add Condition
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </CardHeader>
         {adding && (
           <CardContent className="pt-0 space-y-3">
@@ -756,7 +776,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
               {group.map(condition => {
                 const canUpload = condition.status === 'Outstanding' || condition.status === 'Received' || condition.status === 'Rejected'
                 return (
-                  <ConditionRow key={condition.id} condition={condition} docs={getDocsForCondition(condition.id)}
+                  <ConditionRow key={condition.id} loanId={loanId} condition={condition} docs={getDocsForCondition(condition.id)}
                     signedUrlMap={signedUrlMap} canUpload={canUpload} uploading={uploadingSet.has(condition.id)}
                     selected={selectedConditions.has(condition.id)}
                     selectable={condition.status !== 'Satisfied' && condition.status !== 'Waived'}
