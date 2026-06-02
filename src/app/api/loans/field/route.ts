@@ -125,6 +125,16 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   broker_ysp:             { type: 'number',   table: 'loan_details' },
   rate_costs_points:            { type: 'number', table: 'loan_details' },
   other_exception_costs_points: { type: 'number', table: 'loan_details' },
+  // New fee fields. Desk Review + Small Balance are Airtable formula
+  // fields (pull-only via the read-only-type guard); Feasibility Fee +
+  // Additional Fees are bidirectional. additional_fees_notes is
+  // portal-only freeform — captures which fees were rolled into the
+  // Additional Fees total (Flood Cert, COGS, Credit Rescore, Other).
+  desk_review_fee:        { type: 'number',   table: 'loan_details' },
+  small_balance_fee:      { type: 'number',   table: 'loan_details' },
+  feasibility_fee:        { type: 'number',   table: 'loan_details' },
+  additional_fees:        { type: 'number',   table: 'loan_details' },
+  additional_fees_notes:  { type: 'textarea', table: 'loan_details' },
   underwriting_fee:       { type: 'number',   table: 'loan_details' },
   legal_doc_prep_fee:     { type: 'number',   table: 'loan_details' },
   prepayment_penalty:     { type: 'text',     table: 'loan_details' },

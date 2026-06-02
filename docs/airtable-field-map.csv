@@ -33,6 +33,11 @@ Loan Terms,broker_points,loan_details,Broker Points,Bidirectional,"Portal percen
 Loan Terms,broker_ysp,loan_details,Broker YSP,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
 Loan Terms,rate_costs_points,loan_details,Extension Cost - Points,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
 Loan Terms,other_exception_costs_points,loan_details,SLV/Exception Points,Bidirectional,"Portal percent (1.5) ↔ Airtable fraction (0.015)"
+Loan Terms,desk_review_fee,loan_details,Desk Review Fee,Pull only,"Airtable formula field — schema read-only guard skips the push; portal mirrors the computed value"
+Loan Terms,small_balance_fee,loan_details,Small Balance Fee,Pull only,"Airtable formula field — schema read-only guard skips the push; portal mirrors the computed value"
+Loan Terms,feasibility_fee,loan_details,Feasibility Fee,Bidirectional,Direct
+Loan Terms,additional_fees,loan_details,Additional Fees,Bidirectional,"Aggregate dollar amount for fees Airtable doesn't track individually (Flood Cert, COGS, Credit Rescore, Other)"
+Loan Terms,additional_fees_notes,loan_details,—,Portal only,"Freeform notes describing what the Additional Fees total covers. No Airtable equivalent."
 Loan Terms,prepayment_penalty,loan_details,Prepayment Penalty,Bidirectional,"Skipped on push if portal value isn't one of Airtable's singleSelect choices"
 Loan Terms,first_payment_date,loan_details,First Payment Date,Bidirectional,Direct
 Loan Terms,loan_type_one,loan_details,Loan Purpose,Bidirectional,Direct

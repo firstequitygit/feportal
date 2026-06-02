@@ -38,6 +38,11 @@ export interface LoanDetails {
   broker_ysp?: number | null
   rate_costs_points?: number | null
   other_exception_costs_points?: number | null
+  desk_review_fee?: number | null
+  small_balance_fee?: number | null
+  feasibility_fee?: number | null
+  additional_fees?: number | null
+  additional_fees_notes?: string | null
   underwriting_fee?: number | null
   legal_doc_prep_fee?: number | null
   prepayment_penalty?: string | null
@@ -655,6 +660,68 @@ export function LoanDetailsCard({
                 currentValue={d.legal_doc_prep_fee ?? null}
                 display={formatCurrency(d.legal_doc_prep_fee)}
                 placeholder="850"
+              />
+            </DetailRow>
+            {/* Desk Review Fee + Small Balance Fee mirror Airtable
+                formula fields — the portal-side input is here for
+                display + reference; the Airtable sync pulls the
+                computed value in. Editing in the portal is allowed
+                (some workflows override the formula manually), but
+                the next sync will skip the push back per the schema
+                read-only guard. */}
+            <DetailRow label="Desk Review Fee">
+              <EditableLoanField
+                loanId={loanId}
+                field="desk_review_fee"
+                type="currency"
+                currentValue={d.desk_review_fee ?? null}
+                display={formatCurrency(d.desk_review_fee)}
+                placeholder="300"
+              />
+            </DetailRow>
+            <DetailRow label="Small Balance Fee">
+              <EditableLoanField
+                loanId={loanId}
+                field="small_balance_fee"
+                type="currency"
+                currentValue={d.small_balance_fee ?? null}
+                display={formatCurrency(d.small_balance_fee)}
+                placeholder="0"
+              />
+            </DetailRow>
+            <DetailRow label="Feasibility Fee">
+              <EditableLoanField
+                loanId={loanId}
+                field="feasibility_fee"
+                type="currency"
+                currentValue={d.feasibility_fee ?? null}
+                display={formatCurrency(d.feasibility_fee)}
+                placeholder="0"
+              />
+            </DetailRow>
+            <DetailRow label="Additional Fees">
+              <EditableLoanField
+                loanId={loanId}
+                field="additional_fees"
+                type="currency"
+                currentValue={d.additional_fees ?? null}
+                display={formatCurrency(d.additional_fees)}
+                placeholder="0"
+              />
+            </DetailRow>
+            {/* Freeform notes so staff can describe what the
+                Additional Fees total covers — Flood Cert Fee, COGS
+                Fee, Credit Rescore Fee, "Other", etc. Portal-only;
+                Airtable doesn't track these individually. */}
+            <DetailRow label="Additional Fees — Notes">
+              <EditableLoanField
+                loanId={loanId}
+                field="additional_fees_notes"
+                type="textarea"
+                currentValue={d.additional_fees_notes ?? null}
+                display={d.additional_fees_notes ?? '—'}
+                placeholder="e.g. Flood Cert Fee + COGS Fee"
+                inputWidthClass="w-72"
               />
             </DetailRow>
             <DetailRow label="Prepayment Penalty">

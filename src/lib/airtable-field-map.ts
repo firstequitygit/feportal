@@ -302,6 +302,17 @@ export const FIELD_MAP: FieldMapping[] = [
   // fraction handling as Broker Points / Broker YSP.
   s('rate_costs_points',            'loan_details', 'Extension Cost - Points', pointsForward, pointsInverse),
   s('other_exception_costs_points', 'loan_details', 'SLV/Exception Points',    pointsForward, pointsInverse),
+  // Desk Review Fee + Small Balance Fee are Airtable formula fields.
+  // The schema-based READ_ONLY_FIELD_TYPES guard in syncLoanToAirtable
+  // automatically skips push attempts on formula fields, so these end
+  // up effectively pull-only (Airtable computes → portal mirrors).
+  // Feasibility Fee + Additional Fees are normal currency fields and
+  // sync bidirectionally per the standard "portal wins, Airtable
+  // backfills" model.
+  s('desk_review_fee',   'loan_details', 'Desk Review Fee'),
+  s('small_balance_fee', 'loan_details', 'Small Balance Fee'),
+  s('feasibility_fee',   'loan_details', 'Feasibility Fee'),
+  s('additional_fees',   'loan_details', 'Additional Fees'),
   s('prepayment_penalty', 'loan_details', 'Prepayment Penalty'),
   s('first_payment_date', 'loan_details', 'First Payment Date'),
   s('loan_type_one', 'loan_details', 'Loan Purpose'),
