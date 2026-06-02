@@ -16,6 +16,7 @@ import { assertNotImpersonating } from '@/lib/impersonate'
 import { sendEmail } from '@/lib/mailer'
 import { getLoanContacts } from '@/lib/loan-contact'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
 const VALID_ASSIGNEES = ['borrower', 'loan_officer', 'loan_processor', 'underwriter', 'closer'] as const
 type AssignedTo = typeof VALID_ASSIGNEES[number]
@@ -125,7 +126,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const { data: loanRow } = await adminClient
       .from('loans')
-      .select('property_address, loan_officers!loan_officer_id(full_name, email), loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
+      .select('property_address, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name, email), loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
       .eq('id', condition.loan_id)
       .single()
 
@@ -133,12 +134,17 @@ export async function PATCH(req: NextRequest) {
     const fromLabel = roleLabel(condition.assigned_to as AssignedTo)
     const title = condition.title as string
     const description = (condition.description as string | null) ?? null
+    const contextBlock = loanContextBlockHtml({
+      borrowerName: (loanRow as unknown as { borrowers?: { full_name: string | null } | null })?.borrowers?.full_name ?? null,
+      loanOfficerName: (loanRow?.loan_officers as unknown as { full_name: string | null } | null)?.full_name ?? null,
+    })
 
     const staffHtml = (name: string | null, role: string, portalUrl: string) => `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${name ?? 'there'},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
         A condition for <strong>${propertyAddress}</strong> has been reassigned to you (${role}) from ${fromLabel}.
       </p>
+      ${contextBlock}
       <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
         ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
@@ -213,6 +219,7 @@ export async function PATCH(req: NextRequest) {
             <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
               A condition on ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${propertyAddress}</strong> has been reassigned to ${kind === 'broker' ? 'the broker' : 'you'} from ${fromLabel}.
             </p>
+            ${contextBlock}
             <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
               <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
               ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}

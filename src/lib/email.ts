@@ -2,6 +2,7 @@ import { createAdminClient } from './supabase/admin'
 import { PORTAL_URL, PORTAL_DOMAIN } from './portal-url'
 import { getLoanContacts } from './loan-contact'
 import { sendEmail } from './mailer'
+import { loanContextBlockHtml } from './email-loan-context'
 
 /**
  * Back-compat shim. Earlier this file exposed a nodemailer transporter via
@@ -52,14 +53,15 @@ export async function sendStageUpdateEmail(
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
 
-  const lo = loan.loan_officers as unknown as { email: string | null } | null
+  const lo = loan.loan_officers as unknown as { full_name: string | null; email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
+  const borrower = loan.borrowers as unknown as { full_name: string | null } | null
 
   const contacts = await getLoanContacts(loanId)
   const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
@@ -70,6 +72,10 @@ export async function sendStageUpdateEmail(
   const property = loan.property_address ?? 'this property'
   const fromLabel = shortStage(fromStage)
   const toLabel = shortStage(toStage)
+  const contextBlock = loanContextBlockHtml({
+    borrowerName: borrower?.full_name ?? null,
+    loanOfficerName: lo?.full_name ?? null,
+  })
 
   const subject = `Loan stage updated — ${property}`
   const bodyHtml = (greeting: string) => `
@@ -83,6 +89,7 @@ export async function sendStageUpdateEmail(
           The loan for <strong>${property}</strong> has moved to
           <strong style="color: #1F5D8F;">${toLabel}</strong>${fromStage ? ` (from ${fromLabel})` : ''}.
         </p>
+        ${contextBlock}
         <p style="margin-top: 24px;">
           <a href="${PORTAL_URL}/dashboard"
              style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
@@ -138,19 +145,25 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
 
-  const lo = loan.loan_officers as unknown as { email: string | null } | null
+  const lo = loan.loan_officers as unknown as { full_name: string | null; email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
+  const borrower = loan.borrowers as unknown as { full_name: string | null } | null
 
   const contacts = await getLoanContacts(loanId)
   const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
   const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
+
+  const contextBlock = loanContextBlockHtml({
+    borrowerName: borrower?.full_name ?? null,
+    loanOfficerName: lo?.full_name ?? null,
+  })
 
   const subject = `🏠 Loan funded — ${loan.property_address ?? 'property'}`
   const bodyHtml = (greeting: string) => `
@@ -164,6 +177,7 @@ export async function sendLoanFundedEmail(loanId: string) {
             Congratulations, your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
             <strong style="color: #1F5D8F;">successfully funded and closed!</strong>
           </p>
+          ${contextBlock}
           <p style="font-size: 15px;">
             Thank you for trusting First Equity Funding to help make this happen. We truly appreciate your business
             and hope to work with you again in the future.
@@ -202,19 +216,25 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, loan_officers(email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
 
-  const lo = loan.loan_officers as unknown as { email: string | null } | null
+  const lo = loan.loan_officers as unknown as { full_name: string | null; email: string | null } | null
   const lp  = loan.loan_processors as unknown as { email: string | null } | null
   const lp2 = (loan as unknown as { loan_processor_2: { email: string | null } | null }).loan_processor_2
+  const borrower = loan.borrowers as unknown as { full_name: string | null } | null
 
   const contacts = await getLoanContacts(loanId)
   const staffEmails = [lo?.email, lp?.email, lp2?.email].filter((e): e is string => !!e)
   const recipients = buildRecipients(contacts, staffEmails)
   if (recipients.length === 0) return
+
+  const contextBlock = loanContextBlockHtml({
+    borrowerName: borrower?.full_name ?? null,
+    loanOfficerName: lo?.full_name ?? null,
+  })
 
   const subject = `🎉 Loan Approved — ${loan.property_address ?? 'property'}`
   const bodyHtml = (greeting: string) => `
@@ -228,6 +248,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
             Great news, your loan for <strong>${loan.property_address ?? 'your property'}</strong> has been
             <strong style="color: #1F5D8F;">Loan Approved!</strong>
           </p>
+          ${contextBlock}
           <p style="font-size: 15px;">
             Your loan has been approved by underwriting and submitted to committee for final
             clear-to-close. Our team will be in touch shortly with next steps and closing details.
@@ -273,7 +294,7 @@ export async function sendPreUnderwritingClaimEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_number, loan_amount, loan_type, underwriter_id')
+    .select('id, property_address, loan_number, loan_amount, loan_type, underwriter_id, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name)')
     .eq('id', loanId)
     .single()
   if (!loan) return
@@ -291,11 +312,15 @@ export async function sendPreUnderwritingClaimEmail(loanId: string) {
 
   const property = loan.property_address ?? 'a new loan'
   const subject = `New loan ready for underwriting — ${property}`
+  const borrowerName = (loan as unknown as { borrowers?: { full_name: string | null } | null }).borrowers?.full_name ?? null
+  const loanOfficerName = (loan as unknown as { loan_officers?: { full_name: string | null } | null }).loan_officers?.full_name ?? null
 
   const detailRows = [
     loan.loan_number ? ['Loan #', loan.loan_number] : null,
     loan.loan_type ? ['Type', loan.loan_type] : null,
     loan.loan_amount ? ['Amount', new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(loan.loan_amount)] : null,
+    borrowerName ? ['Borrower', borrowerName] : null,
+    loanOfficerName ? ['Loan Officer', loanOfficerName] : null,
   ].filter((r): r is [string, string] => !!r)
 
   const bodyHtml = (greetingName: string) => `

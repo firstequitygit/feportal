@@ -7,6 +7,7 @@ import { PORTAL_URL } from '@/lib/portal-url'
 import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
+import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
 async function verifyAdmin(): Promise<{ adminName: string } | null> {
   const supabase = await createClient()
@@ -92,12 +93,18 @@ export async function POST(request: Request) {
     const lp = (loan as unknown as { loan_processors?: { full_name: string | null; email: string | null } | null })?.loan_processors ?? null
     const lp2 = (loan as unknown as { loan_processor_2?: { full_name: string | null; email: string | null } | null })?.loan_processor_2 ?? null
     const lps = [lp, lp2].filter((p): p is { full_name: string | null; email: string | null } => !!p?.email)
+    const borrower = (loan as unknown as { borrowers?: { full_name: string | null } | null })?.borrowers ?? null
+    const contextBlock = loanContextBlockHtml({
+      borrowerName: borrower?.full_name ?? null,
+      loanOfficerName: lo?.full_name ?? null,
+    })
 
     const staffHtml = (name: string | null, role: string, portalUrl: string) => `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${name ?? 'there'},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
         A new condition has been assigned to you (${role}) for <strong>${loan?.property_address ?? 'a loan'}</strong>.
       </p>
+      ${contextBlock}
       <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
         ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
@@ -150,6 +157,7 @@ export async function POST(request: Request) {
             <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
               A new condition has been added to ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${loan?.property_address ?? 'a property'}</strong>.
             </p>
+            ${contextBlock}
             <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
               <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
               ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}
@@ -289,6 +297,12 @@ async function sendBorrowerStatusNotification({
 
   const message = statusMessages[status] ?? `The status has been updated to ${status}.`
   const color = statusColors[status] ?? '#333'
+  const loanLo = (loan?.loan_officers as unknown as { full_name: string | null } | null)
+  const loanBorrower = (loan as unknown as { borrowers?: { full_name: string | null } | null })?.borrowers ?? null
+  const contextBlock = loanContextBlockHtml({
+    borrowerName: loanBorrower?.full_name ?? null,
+    loanOfficerName: loanLo?.full_name ?? null,
+  })
 
   await sendEmail({    to: contacts.map(c => c.email).join(', '),
     subject: `Condition update — ${loan?.property_address ?? 'a loan'}`,
@@ -297,6 +311,7 @@ async function sendBorrowerStatusNotification({
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
         A condition on ${kind === 'broker' ? 'a loan' : 'your loan'} for <strong>${loan?.property_address ?? 'a property'}</strong> has been updated.
       </p>
+      ${contextBlock}
       <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${condition.title}</strong></td></tr>
         <tr><td style="padding: 4px 16px 4px 0; color: #666;">Status</td><td><strong style="color: ${color};">${status}</strong></td></tr>

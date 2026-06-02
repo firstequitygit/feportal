@@ -21,6 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { sendEmail } from '@/lib/mailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -53,10 +54,12 @@ export async function POST(req: NextRequest) {
   const trimmedMessage = typeof message === 'string' ? message.trim().slice(0, 2000) : ''
   const targetConditionId = typeof conditionId === 'string' && conditionId ? conditionId : null
 
-  // Fetch loan + assigned UW in one shot.
+  // Fetch loan + assigned UW + borrower + LO names in one shot. The
+  // borrower/LO names go into the email context block; the UW joined
+  // fields are still the recipient.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, property_address, loan_number, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id, underwriters!underwriter_id(full_name, email)')
+    .select('id, property_address, loan_number, loan_officer_id, loan_processor_id, loan_processor_id_2, underwriter_id, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name), underwriters!underwriter_id(full_name, email)')
     .eq('id', loanId)
     .single()
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
@@ -113,6 +116,9 @@ export async function POST(req: NextRequest) {
     uw ? 'Underwriter' : 'Staff'
 
   const propertyAddress = loan.property_address ?? 'a loan'
+  const borrowerName = (loan as unknown as { borrowers?: { full_name: string | null } | null }).borrowers?.full_name ?? null
+  const loanOfficerName = (loan as unknown as { loan_officers?: { full_name: string | null } | null }).loan_officers?.full_name ?? null
+  const contextBlock = loanContextBlockHtml({ borrowerName, loanOfficerName })
 
   // Compose email + audit copy. Subject and body shift based on whether
   // this is a whole-loan ping or a condition-specific one.
@@ -137,6 +143,7 @@ export async function POST(req: NextRequest) {
     html: `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${underwriter.full_name ?? 'there'},</p>
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">${leadParagraph}</p>
+      ${contextBlock}
       ${conditionBlock}
       ${trimmedMessage ? `
         <blockquote style="font-family: Arial, sans-serif; font-size: 14px; color: #555; border-left: 3px solid #1F5D8F; padding: 8px 12px; margin: 12px 0; background: #f8fafc; white-space: pre-wrap;">

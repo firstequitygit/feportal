@@ -16,6 +16,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/mailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
 type AdminClient = SupabaseClient
 
@@ -40,7 +41,7 @@ export async function notifyUwIfUrgentReceived({
   try {
     const { data: row } = await adminClient
       .from('conditions')
-      .select('id, title, description, is_urgent, loan_id, loans!loan_id(property_address, underwriters!underwriter_id(full_name, email))')
+      .select('id, title, description, is_urgent, loan_id, loans!loan_id(property_address, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name), underwriters!underwriter_id(full_name, email))')
       .eq('id', conditionId)
       .single()
 
@@ -49,6 +50,8 @@ export async function notifyUwIfUrgentReceived({
     const loan = (row as unknown as {
       loans?: {
         property_address: string | null
+        borrowers?: { full_name: string | null } | null
+        loan_officers?: { full_name: string | null } | null
         underwriters?: { full_name: string | null; email: string | null } | null
       } | null
     }).loans ?? null
@@ -59,6 +62,10 @@ export async function notifyUwIfUrgentReceived({
     const propertyAddress = loan?.property_address ?? 'a loan'
     const title = (row.title as string) ?? '(untitled condition)'
     const description = (row.description as string | null) ?? null
+    const contextBlock = loanContextBlockHtml({
+      borrowerName: loan?.borrowers?.full_name ?? null,
+      loanOfficerName: loan?.loan_officers?.full_name ?? null,
+    })
 
     await sendEmail({
       to: uw.email,
@@ -68,6 +75,7 @@ export async function notifyUwIfUrgentReceived({
         <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
           An <strong style="color: #b91c1c;">urgent</strong> condition on <strong>${propertyAddress}</strong> has just been marked Received and is ready for your review.
         </p>
+        ${contextBlock}
         <table style="font-family: Arial, sans-serif; font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
           <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${title}</strong></td></tr>
           ${description ? `<tr><td style="padding: 4px 16px 4px 0; color: #666;">Details</td><td>${description}</td></tr>` : ''}

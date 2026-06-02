@@ -18,6 +18,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/mailer'
 import { PORTAL_URL } from '@/lib/portal-url'
+import { fetchLoanEmailContext, loanContextBlockHtml } from '@/lib/email-loan-context'
 
 type AdminClient = SupabaseClient
 
@@ -97,13 +98,17 @@ export async function processMentions({
     return true
   })
 
-  // Fetch property address for the email subject.
+  // Fetch property + borrower + LO for the email subject and context block.
   let propertyAddress = 'a loan'
+  let contextBlock = ''
   try {
-    const { data: loan } = await adminClient
-      .from('loans').select('property_address').eq('id', loanId).single()
-    if (loan?.property_address) propertyAddress = loan.property_address
-  } catch { /* keep default */ }
+    const ctx = await fetchLoanEmailContext(adminClient, loanId)
+    if (ctx.propertyAddress) propertyAddress = ctx.propertyAddress
+    contextBlock = loanContextBlockHtml({
+      borrowerName: ctx.borrowerName,
+      loanOfficerName: ctx.loanOfficerName,
+    })
+  } catch { /* keep defaults — email still useful */ }
 
   const excerpt = makeExcerpt(text)
   let created = 0
@@ -148,6 +153,7 @@ export async function processMentions({
               <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
                 <strong>${safeAuthor}</strong> mentioned you in a ${sourceLabel} on <strong>${propertyAddress}</strong>.
               </p>
+              ${contextBlock}
               <blockquote style="font-family: Arial, sans-serif; font-size: 14px; color: #555; border-left: 3px solid #1F5D8F; padding: 8px 12px; margin: 12px 0; background: #f8fafc;">
                 ${escapeHtml(excerpt)}
               </blockquote>

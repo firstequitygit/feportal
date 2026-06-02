@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { setConditionReceived } from '@/lib/condition-set-received'
 import { processMentions } from '@/lib/process-mentions'
+import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -84,6 +85,11 @@ export async function POST(req: NextRequest) {
     const allLPs = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string | null; email: string | null } => !!p?.email)
     const addr = loan.property_address ?? 'a loan'
     const conditionHtml = `<tr><td style="padding:4px 16px 4px 0;color:#666;">Condition</td><td><strong>${title}</strong></td></tr>${description ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Details</td><td>${description}</td></tr>` : ''}`
+    const borrowerName = (loan.borrowers as unknown as { full_name: string | null } | null)?.full_name ?? null
+    const contextBlock = loanContextBlockHtml({
+      borrowerName,
+      loanOfficerName: loanOfficer?.full_name ?? null,
+    })
 
     // "Other" UI path: condition pinned to a specific staff member (could be
     // someone not on this loan). Email goes straight to them — no role-wide
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
         await sendEmail({
           to: pinned.email,
           subject: `New condition assigned to you — ${addr}`,
-          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${pinned.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}${portalPath}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${pinned.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>${contextBlock}<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}${portalPath}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
         })
       }
     } else if (assigned_to === 'borrower') {
@@ -111,21 +117,21 @@ export async function POST(req: NextRequest) {
         await sendEmail({
           to: contacts.map(c => c.email).join(', '),
           subject: `New condition added — ${addr}`,
-          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${greeting},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${portalUrl}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+          html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${greeting},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been added to ${kind === 'broker' ? 'a loan file' : 'your loan file'} for <strong>${addr}</strong>.</p>${contextBlock}<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${portalUrl}" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">${kind === 'broker' ? 'View in Portal' : 'View My Loan'}</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
         })
       }
     } else if (assigned_to === 'loan_officer' && loanOfficer?.email) {
       await sendEmail({
         to: loanOfficer.email,
         subject: `New condition assigned to you — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${loanOfficer.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>${contextBlock}<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
       })
     } else if (assigned_to === 'loan_processor' && allLPs.length > 0) {
       // Role-wide fan-out to every LP on the loan.
       await Promise.all(allLPs.map(p => sendEmail({
         to: p.email!,
         subject: `New condition assigned to you — ${addr}`,
-        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${p.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p><table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${p.full_name ?? 'there'},</p><p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>${contextBlock}<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table><p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`,
       })))
     }
   } catch (err) { console.error('Notification error:', err) }
