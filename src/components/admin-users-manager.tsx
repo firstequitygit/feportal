@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Trash2, Plus, ShieldCheck } from 'lucide-react'
+import { Trash2, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,46 @@ export function AdminUsersManager({ initialAdmins, currentUserId, isSuper }: Pro
   const [saving, setSaving] = useState(false)
   const [createdInfo, setCreatedInfo] = useState<{ email: string; tempPassword: string } | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  // Inline-edit state: when editingId is set, that row swaps the static
+  // name for an Input + Save/Cancel. editDraft holds the working value
+  // so cancel doesn't have to refetch.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  function startEdit(a: AdminRow) {
+    setEditingId(a.id)
+    setEditDraft(a.full_name ?? '')
+  }
+  function cancelEdit() {
+    setEditingId(null)
+    setEditDraft('')
+  }
+  async function saveEdit(a: AdminRow) {
+    const next = editDraft.trim()
+    if (!next) { toast.error('Name cannot be empty'); return }
+    if (next === (a.full_name ?? '')) { cancelEdit(); return }
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/admin/admins', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, full_name: next }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAdmins(prev => prev.map(x => x.id === a.id ? { ...x, full_name: data.admin.full_name } : x))
+        cancelEdit()
+        toast.success('Name updated')
+      } else {
+        toast.error(data.error ?? 'Failed to update')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   async function handleAdd() {
     if (!newForm.email.trim() || !newForm.full_name.trim()) {
@@ -165,36 +205,70 @@ export function AdminUsersManager({ initialAdmins, currentUserId, isSuper }: Pro
 
         {/* List */}
         <div className="divide-y divide-gray-100">
-          {admins.map(a => (
-            <div key={a.id} className="py-3 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-900 truncate">{a.full_name ?? a.email}</p>
-                  {a.is_super && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      <ShieldCheck className="w-3 h-3" /> Super
-                    </span>
+          {admins.map(a => {
+            const isEditing = editingId === a.id
+            return (
+              <div key={a.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {isEditing ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Input
+                        autoFocus
+                        value={editDraft}
+                        onChange={e => setEditDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveEdit(a) }
+                          if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+                        }}
+                        className="h-8 text-sm max-w-xs"
+                        placeholder="Full name"
+                      />
+                      <Button size="sm" onClick={() => saveEdit(a)} disabled={savingEdit}>
+                        {savingEdit ? 'Saving…' : 'Save'}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit} disabled={savingEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">{a.full_name ?? a.email}</p>
+                      {a.is_super && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                          <ShieldCheck className="w-3 h-3" /> Super
+                        </span>
+                      )}
+                      {a.id === currentUserId && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">You</span>
+                      )}
+                    </div>
                   )}
-                  {a.id === currentUserId && (
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">You</span>
-                  )}
+                  <p className="text-xs text-gray-500 truncate">{a.email}</p>
                 </div>
-                <p className="text-xs text-gray-500 truncate">{a.email}</p>
+                {isSuper && !isEditing && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => startEdit(a)}
+                      title="Edit name"
+                      className="text-gray-400 hover:text-primary"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(a)}
+                      disabled={deletingId === a.id || a.id === currentUserId}
+                      title={a.id === currentUserId ? "You can't delete yourself" : 'Delete admin'}
+                      className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === a.id
+                        ? <span className="text-xs">Deleting…</span>
+                        : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                )}
               </div>
-              {isSuper && (
-                <button
-                  onClick={() => handleDelete(a)}
-                  disabled={deletingId === a.id || a.id === currentUserId}
-                  title={a.id === currentUserId ? "You can't delete yourself" : 'Delete admin'}
-                  className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  {deletingId === a.id
-                    ? <span className="text-xs">Deleting…</span>
-                    : <Trash2 className="w-3.5 h-3.5" />}
-                </button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </CardContent>
     </Card>

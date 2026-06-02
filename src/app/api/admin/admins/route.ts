@@ -70,6 +70,34 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true, admin: row, tempPassword })
 }
 
+// PATCH — rename an existing admin. Currently only full_name is editable;
+// email/role/is_super are managed elsewhere. Used by the Admin Users page
+// in Settings to clean up display names (e.g. drop a "(Admin)" suffix
+// that's surfacing in @mention pickers).
+export async function PATCH(request: Request) {
+  const block = await assertNotImpersonating()
+  if (block) return block
+  if (!await verifySuperAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { id, full_name } = await request.json()
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+  if (typeof full_name !== 'string' || !full_name.trim()) {
+    return NextResponse.json({ error: 'Full name is required' }, { status: 400 })
+  }
+  const trimmed = full_name.trim().slice(0, 200)
+
+  const adminClient = createAdminClient()
+  const { data: row, error } = await adminClient
+    .from('admin_users')
+    .update({ full_name: trimmed })
+    .eq('id', id)
+    .select('id, full_name, email, is_super, created_at')
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true, admin: row })
+}
+
 // DELETE — remove an admin. Super-admins can delete other admins; the
 // component side blocks self-delete, but we double-check here.
 export async function DELETE(request: Request) {
