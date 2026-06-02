@@ -54,12 +54,15 @@ export default async function BrokerDashboardPage({
   // Match the broker in either slot (primary or co-broker / processor)
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, borrowers!borrower_id(full_name)')
+    .select('id, property_address, pipeline_stage, loan_amount, loan_type, estimated_closing_date, loan_status, borrowers!borrower_id(full_name)')
     .or(`broker_id.eq.${broker.id},broker_id_2.eq.${broker.id}`)
     .eq('archived', false)
     .order('created_at', { ascending: false })
 
-  const active = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
+  const isHeld = (l: { loan_status?: string | null }) => (l.loan_status ?? 'active') === 'on_hold'
+  const nonClosed = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage !== 'Closed')
+  const active = nonClosed.filter(l => !isHeld(l))
+  const onHold = nonClosed.filter(isHeld)
   const closed = (loans ?? []).filter(l => !archivedSet.has(l.id) && l.pipeline_stage === 'Closed')
 
   return (
@@ -77,7 +80,9 @@ export default async function BrokerDashboardPage({
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">My Loans</h2>
         <p className="text-sm text-gray-500 mt-1">
-          {active.length} active loan{active.length === 1 ? '' : 's'}{closed.length > 0 ? ` · ${closed.length} closed` : ''}
+          {active.length} active loan{active.length === 1 ? '' : 's'}
+          {onHold.length > 0 ? ` · ${onHold.length} on hold` : ''}
+          {closed.length > 0 ? ` · ${closed.length} closed` : ''}
         </p>
       </div>
 
@@ -108,6 +113,33 @@ export default async function BrokerDashboardPage({
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stageBadgeColor(l.pipeline_stage)}`}>{l.pipeline_stage ?? '—'}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                      </div>
+                    </Link>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
+          {onHold.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base text-amber-800">On Hold</CardTitle></CardHeader>
+              <CardContent className="divide-y divide-gray-100">
+                {onHold.map(l => {
+                  const borrowerName = (l.borrowers as unknown as { full_name: string | null } | null)?.full_name
+                  return (
+                    <Link key={l.id} href={`/broker/loans/${l.id}`} className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50 -mx-6 px-6 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 truncate">{l.property_address ?? 'No property address'}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {borrowerName ?? 'Borrower TBD'}
+                          {l.loan_type ? ` · ${l.loan_type}` : ''}
+                          {l.loan_amount != null ? ` · ${formatCurrency(l.loan_amount)}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">On Hold</span>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stageBadgeColor(l.pipeline_stage)}`}>{l.pipeline_stage ?? '—'}</span>
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                       </div>

@@ -37,9 +37,10 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
 
   async function updateStatus(status: LoanStatus, reasonText?: string) {
-    setSaving(true); setError(null)
+    setSaving(true); setError(null); setWarnings([])
     try {
       const res = await fetch('/api/loans/status', {
         method: 'PATCH',
@@ -51,6 +52,9 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
         setError(data.error ?? 'Failed to update status')
         setSaving(false)
         return
+      }
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        setWarnings(data.warnings as string[])
       }
       setShowCancelPrompt(false)
       setReason('')
@@ -187,6 +191,16 @@ export function LoanStatusControl({ loanId, currentStatus, cancellationReason }:
       )}
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+
+      {warnings.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {warnings.map((w, i) => (
+            <p key={i} className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              <span className="font-medium">Sync warning:</span> {w} (status saved in the portal; admins notified)
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

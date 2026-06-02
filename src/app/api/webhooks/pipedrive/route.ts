@@ -131,6 +131,9 @@ export async function POST(request: Request) {
     // 8595 Creekwood (5/19) stuck around (webhook didn't fire for it).
     const archivedField: Record<string, unknown> = {}
     if (deal.pipedrive_status === 'lost') {
+      // PIPEDRIVE_BRIDGE - remove when Pipedrive is sunsetted.
+      // See cron/sync/route.ts for the matching write. on_hold / active are
+      // portal-authoritative and never flow inbound from Pipedrive.
       archivedField.archived = true
       archivedField.loan_status = 'cancelled'
       if (deal.lost_reason) archivedField.cancellation_reason = deal.lost_reason

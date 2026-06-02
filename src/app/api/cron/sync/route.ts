@@ -120,9 +120,12 @@ export async function GET(request: Request) {
       setIfPresent(payload, 'closed_at',               deal.closed_at)
       setIfPresent(payload, 'estimated_closing_date',  deal.estimated_closing_date)
       if (deal.pipedrive_status === 'lost') {
+        // PIPEDRIVE_BRIDGE - remove when Pipedrive is sunsetted.
         // Mirror Pipedrive-direct cancellations into our lifecycle status so
-        // the portal badge stays in sync. One-way assignment — we never
+        // the portal badge stays in sync. One-way assignment - we never
         // un-cancel via sync; admins do that explicitly in the portal.
+        // All OTHER status writes (on_hold / active) are portal-authoritative
+        // and never flow inbound from Pipedrive.
         payload.archived = true
         payload.loan_status = 'cancelled'
         if (deal.lost_reason) payload.cancellation_reason = deal.lost_reason

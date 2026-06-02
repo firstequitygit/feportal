@@ -26,7 +26,7 @@ export default async function UnderwriterInbox() {
 
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
+    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at, loan_status')
     .eq('underwriter_id', uw.id)
     .eq('archived', false)
 

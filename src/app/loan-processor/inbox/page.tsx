@@ -27,7 +27,7 @@ export default async function LoanProcessorInbox() {
   // Ops managers see every loan; regular LPs only their assigned.
   const baseLoansQuery = adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
+    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at, loan_status')
     .eq('archived', false)
   const { data: loans } = await (lp.is_ops_manager
     ? baseLoansQuery

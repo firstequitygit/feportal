@@ -27,7 +27,7 @@ export default async function LoanOfficerInbox() {
   // Active loans (non-archived) — drives the inbox and pipeline tiles.
   const { data: loans } = await adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at')
+    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at, loan_status')
     .eq('loan_officer_id', lo.id)
     .eq('archived', false)
 

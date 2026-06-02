@@ -18,6 +18,7 @@ interface ActiveLoanRow {
   id: string
   pipeline_stage: string | null
   loan_amount: number | null
+  loan_status: string | null
 }
 
 interface ClosedLoanRow {
@@ -37,6 +38,8 @@ export interface DashboardMetricsInput {
 export interface DashboardMetrics {
   pipelineCount: number
   pipelineVolume: number
+  onHoldCount: number
+  onHoldVolume: number
   closedCountTrailing12: number
   closedVolumeTrailing12: number
   outstandingCount: number
@@ -47,10 +50,19 @@ export async function computeDashboardMetrics(
   supabase: SupabaseAdmin,
   { activeLoans, closedLoansTrailing12, conditionAssignee }: DashboardMetricsInput,
 ): Promise<DashboardMetrics> {
-  // Pipeline = active non-closed loans
-  const pipeline = activeLoans.filter(l => l.pipeline_stage !== 'Closed')
+  // Pipeline = active non-closed loans, EXCLUDING on_hold.
+  // On-hold loans are paused — they don't count toward pipeline volume or
+  // the "outstanding for you" tile. They get their own count below.
+  const isHeld = (l: ActiveLoanRow) => (l.loan_status ?? 'active') === 'on_hold'
+
+  const nonClosed = activeLoans.filter(l => l.pipeline_stage !== 'Closed')
+  const pipeline = nonClosed.filter(l => !isHeld(l))
+  const onHold = nonClosed.filter(isHeld)
+
   const pipelineCount  = pipeline.length
   const pipelineVolume = pipeline.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
+  const onHoldCount    = onHold.length
+  const onHoldVolume   = onHold.reduce((s, l) => s + (l.loan_amount ?? 0), 0)
 
   // Closed-in-last-12-months — caller already filtered the time window
   const closedCountTrailing12  = closedLoansTrailing12.length
@@ -87,6 +99,8 @@ export async function computeDashboardMetrics(
   return {
     pipelineCount,
     pipelineVolume,
+    onHoldCount,
+    onHoldVolume,
     closedCountTrailing12,
     closedVolumeTrailing12,
     outstandingCount,

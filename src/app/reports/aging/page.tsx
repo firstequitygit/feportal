@@ -45,10 +45,14 @@ export default async function AgingReportPage({
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set((archivedIds ?? []).map((r: { loan_id: string }) => r.loan_id))
 
+  // on_hold loans are excluded: the clock stops while a deal is paused.
+  // `.neq('loan_status', 'on_hold')` also keeps rows where loan_status is
+  // null (treated as active), which matches the rest of the codebase.
   let q = adminClient
     .from('loans')
     .select('id, property_address, pipeline_stage, loan_amount, loan_officer_id, created_at, loan_officers(full_name)')
     .neq('pipeline_stage', 'Closed')
+    .neq('loan_status', 'on_hold')
     .eq('archived', false)
   if (ctx.loanScopeColumn && ctx.loanScopeId) {
     q = q.eq(ctx.loanScopeColumn, ctx.loanScopeId)

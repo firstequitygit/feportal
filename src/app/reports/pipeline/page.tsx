@@ -25,9 +25,15 @@ export default async function PipelineReportPage() {
   }
   const { data: loans } = await query
 
-  const active = (loans ?? []).filter((l: Loan) => !archivedSet.has(l.id))
+  const allActive = (loans ?? []).filter((l: Loan) => !archivedSet.has(l.id))
+  // on_hold takes precedence over pipeline_stage. Held loans live in a
+  // separate footer row so stage rows reflect only loans actively moving
+  // through the pipeline.
+  const isHeld = (l: Loan) => (l.loan_status ?? 'active') === 'on_hold'
+  const active = allActive.filter(l => !isHeld(l))
+  const onHold = allActive.filter(isHeld)
 
-  // Aggregate by stage
+  // Aggregate active (non-held) loans by stage
   const stageRows = PIPELINE_STAGES.map((stage: PipelineStage) => {
     const inStage = active.filter((l: Loan) => l.pipeline_stage === stage)
     const totalVolume = inStage.reduce((sum: number, l: Loan) => sum + (l.loan_amount ?? 0), 0)
@@ -38,12 +44,16 @@ export default async function PipelineReportPage() {
     }
   })
 
-  const grandCount = stageRows.reduce((s, r) => s + r.count, 0)
-  const grandVolume = stageRows.reduce((s, r) => s + r.totalVolume, 0)
-  const maxCount = Math.max(1, ...stageRows.map(r => r.count))
+  const onHoldCount  = onHold.length
+  const onHoldVolume = onHold.reduce((sum: number, l: Loan) => sum + (l.loan_amount ?? 0), 0)
+
+  const grandCount = stageRows.reduce((s, r) => s + r.count, 0) + onHoldCount
+  const grandVolume = stageRows.reduce((s, r) => s + r.totalVolume, 0) + onHoldVolume
+  const maxCount = Math.max(1, ...stageRows.map(r => r.count), onHoldCount)
 
   const csvHeaders = ['Stage', 'Loan Count', 'Total Volume']
-  const csvRows = stageRows.map(r => [r.stage, r.count, r.totalVolume])
+  const csvRows: (string | number)[][] = stageRows.map(r => [r.stage, r.count, r.totalVolume])
+  if (onHoldCount > 0) csvRows.push(['On Hold', onHoldCount, onHoldVolume])
   csvRows.push(['Total', grandCount, grandVolume])
 
   return (
@@ -63,7 +73,9 @@ export default async function PipelineReportPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Pipeline by Stage</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {grandCount} active loan{grandCount === 1 ? '' : 's'} · {formatCurrency(grandVolume)} total volume
+            {grandCount - onHoldCount} in pipeline
+            {onHoldCount > 0 ? ` · ${onHoldCount} on hold` : ''}
+            {' · '}{formatCurrency(grandVolume)} total volume
             {ctx.role !== 'admin' && ' · scoped to your loans'}
           </p>
         </div>
@@ -100,6 +112,21 @@ export default async function PipelineReportPage() {
                   </td>
                 </tr>
               ))}
+              {onHoldCount > 0 && (
+                <tr className="border-b border-gray-100 bg-amber-50/40">
+                  <td className="py-2.5 font-medium text-amber-800">On Hold</td>
+                  <td className="py-2.5 text-right tabular-nums">{onHoldCount}</td>
+                  <td className="py-2.5 text-right tabular-nums text-gray-700">{formatCurrency(onHoldVolume)}</td>
+                  <td className="py-2.5 pl-6">
+                    <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400"
+                        style={{ width: `${(onHoldCount / maxCount) * 100}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )}
               <tr className="font-semibold">
                 <td className="pt-3">Total</td>
                 <td className="pt-3 text-right tabular-nums">{grandCount}</td>

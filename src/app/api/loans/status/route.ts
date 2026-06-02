@@ -4,14 +4,18 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { markDealLost, markDealOpen, setDealLabel } from '@/lib/pipedrive'
 import { pushLoanStatusToAirtable } from '@/lib/airtable'
+import { notifyAdminsOfSyncFailure } from '@/lib/admin-notify'
 import type { LoanStatus } from '@/lib/types'
 
 // PATCH /api/loans/status
 //   body: { loanId, status: 'active' | 'on_hold' | 'cancelled', reason? }
 //
-// Cancelling auto-archives the loan and marks the Pipedrive deal as Lost.
-// Reactivating from cancelled un-archives and reopens the deal in Pipedrive.
-// On Hold is portal-only — no Pipedrive change.
+// Portal is the source of truth for status. Writes the local DB first;
+// then pushes best-effort to Pipedrive (deal label + lost/open status) and
+// Airtable (Loan Status field). Downstream failures do NOT roll back the
+// portal write — instead they're returned as { warnings: string[] }, logged
+// to loan_events as 'sync_warning', and emailed to all admins via
+// notifyAdminsOfSyncFailure().
 //
 // Permissions:
 //   Admin: any loan
@@ -63,18 +67,64 @@ export async function PATCH(req: NextRequest) {
 
   const previousStatus = (loan.loan_status ?? 'active') as LoanStatus
   if (previousStatus === status) {
-    return NextResponse.json({ success: true, unchanged: true })
+    return NextResponse.json({ success: true, unchanged: true, warnings: [] as string[] })
   }
 
-  // Sync Pipedrive FIRST — same pattern as the stage route, fail loudly
-  // before we touch the local DB so the two stay aligned.
-  //
-  // Status → Pipedrive translation:
-  //   cancelled  → status='lost' + lost_reason; label cleared
-  //   on_hold    → label='ON HOLD'; status untouched
-  //   active     → reopen if previously lost; label cleared
+  // Portal is source of truth — write the DB first. Pipedrive and Airtable
+  // are downstream best-effort sinks; their failures don't roll back the
+  // portal write.
+  const updatePayload: Record<string, unknown> = {
+    loan_status: status,
+    status_changed_at: new Date().toISOString(),
+  }
+  if (status === 'cancelled') {
+    updatePayload.cancellation_reason = reason?.trim() || null
+    updatePayload.archived = true
+  } else {
+    updatePayload.cancellation_reason = null
+    if (previousStatus === 'cancelled') updatePayload.archived = false
+  }
+
+  const { error: dbError } = await adminClient
+    .from('loans')
+    .update(updatePayload)
+    .eq('id', loanId)
+
+  if (dbError) {
+    console.error('Local status update failed:', dbError.message)
+    return NextResponse.json({ error: dbError.message }, { status: 500 })
+  }
+
+  // Audit log — the portal status change itself.
+  const editorName =
+    (lo?.full_name as string | undefined) ??
+    (lp?.full_name as string | undefined) ??
+    (uw?.full_name as string | undefined) ??
+    (admin ? 'Admin' : null)
+
   try {
-    if (loan.pipedrive_deal_id) {
+    let description: string
+    if (status === 'cancelled') {
+      description = `Loan cancelled${editorName ? ` by ${editorName}` : ''}${reason?.trim() ? ` — reason: ${reason.trim()}` : ''}`
+    } else if (status === 'on_hold') {
+      description = `Loan placed on hold${editorName ? ` by ${editorName}` : ''}`
+    } else {
+      const fromLabel = previousStatus === 'cancelled' ? 'cancelled' : 'on hold'
+      description = `Loan reactivated from ${fromLabel}${editorName ? ` by ${editorName}` : ''}`
+    }
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'loan_status_changed',
+      description,
+    })
+  } catch (err) { console.error('Event log error:', err) }
+
+  // Best-effort downstream pushes. Each failure is captured as a warning,
+  // logged as a 'sync_warning' loan_events row, and emailed to admins.
+  const warnings: string[] = []
+
+  if (loan.pipedrive_deal_id) {
+    try {
       if (status === 'cancelled') {
         await markDealLost(loan.pipedrive_deal_id, reason ?? null)
         // Clear the ON HOLD label if it was set — a lost deal shouldn't
@@ -91,16 +141,28 @@ export async function PATCH(req: NextRequest) {
           await setDealLabel(loan.pipedrive_deal_id, null)
         }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Pipedrive update failed'
+      console.error('Pipedrive status sync failed:', msg)
+      warnings.push(`Pipedrive sync failed: ${msg}`)
+      try {
+        await adminClient.from('loan_events').insert({
+          loan_id: loanId,
+          event_type: 'sync_warning',
+          description: `Pipedrive push failed for status=${status}: ${msg}`,
+        })
+      } catch (logErr) { console.error('Sync-warning event log error:', logErr) }
+      await notifyAdminsOfSyncFailure({
+        supabase: adminClient,
+        loanId,
+        propertyAddress: loan.property_address ?? null,
+        channel: 'pipedrive',
+        newStatus: status,
+        error: msg,
+      })
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Pipedrive update failed'
-    console.error('Pipedrive status sync failed:', msg)
-    return NextResponse.json({ error: `Could not update Pipedrive: ${msg}` }, { status: 502 })
   }
 
-  // Airtable mirror — singleSelect 'Loan Status' field on the matching Deals
-  // row. Best-effort: log + continue on failure rather than blocking the
-  // portal mutation. Worst case the user clicks the manual Airtable sync.
   if (loan.pipedrive_deal_id) {
     try {
       const airtableLabel: 'Canceled' | 'On Hold' | null =
@@ -109,57 +171,26 @@ export async function PATCH(req: NextRequest) {
         null
       await pushLoanStatusToAirtable(String(loan.pipedrive_deal_id), airtableLabel)
     } catch (err) {
-      console.error('Airtable Loan Status push failed:', err instanceof Error ? err.message : err)
+      const msg = err instanceof Error ? err.message : 'Airtable update failed'
+      console.error('Airtable Loan Status push failed:', msg)
+      warnings.push(`Airtable sync failed: ${msg}`)
+      try {
+        await adminClient.from('loan_events').insert({
+          loan_id: loanId,
+          event_type: 'sync_warning',
+          description: `Airtable push failed for status=${status}: ${msg}`,
+        })
+      } catch (logErr) { console.error('Sync-warning event log error:', logErr) }
+      await notifyAdminsOfSyncFailure({
+        supabase: adminClient,
+        loanId,
+        propertyAddress: loan.property_address ?? null,
+        channel: 'airtable',
+        newStatus: status,
+        error: msg,
+      })
     }
   }
 
-  // Mirror locally. Cancel auto-archives; reactivate-from-cancel unarchives.
-  const updatePayload: Record<string, unknown> = {
-    loan_status: status,
-    status_changed_at: new Date().toISOString(),
-  }
-  if (status === 'cancelled') {
-    updatePayload.cancellation_reason = reason?.trim() || null
-    updatePayload.archived = true
-  } else {
-    updatePayload.cancellation_reason = null
-    if (previousStatus === 'cancelled') updatePayload.archived = false
-  }
-
-  const { error } = await adminClient
-    .from('loans')
-    .update(updatePayload)
-    .eq('id', loanId)
-
-  if (error) {
-    console.error('Local status update failed:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  // Audit log
-  const editorName =
-    (lo?.full_name as string | undefined) ??
-    (lp?.full_name as string | undefined) ??
-    (uw?.full_name as string | undefined) ??
-    (admin ? 'Admin' : null)
-
-  try {
-    let description: string
-    if (status === 'cancelled') {
-      description = `Loan cancelled${editorName ? ` by ${editorName}` : ''}${reason?.trim() ? ` — reason: ${reason.trim()}` : ''}`
-    } else if (status === 'on_hold') {
-      description = `Loan placed on hold${editorName ? ` by ${editorName}` : ''}`
-    } else {
-      // reactivated
-      const fromLabel = previousStatus === 'cancelled' ? 'cancelled' : 'on hold'
-      description = `Loan reactivated from ${fromLabel}${editorName ? ` by ${editorName}` : ''}`
-    }
-    await adminClient.from('loan_events').insert({
-      loan_id: loanId,
-      event_type: 'loan_status_changed',
-      description,
-    })
-  } catch (err) { console.error('Event log error:', err) }
-
-  return NextResponse.json({ success: true, previousStatus, status })
+  return NextResponse.json({ success: true, previousStatus, status, warnings })
 }

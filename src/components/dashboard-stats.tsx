@@ -18,6 +18,12 @@ interface StatBlock {
 interface Props {
   pipelineCount: number
   pipelineVolume: number
+  /** Number of loans currently on hold — surfaced as a label suffix on the
+   *  Pipeline Loans tile so held deals stay visible without polluting the
+   *  primary count. */
+  onHoldCount: number
+  /** Surfaced via spread for forward-compat; not rendered today. */
+  onHoldVolume?: number
   /** Active pipeline volume EXCLUDING loans in the Closed stage. */
   closedCountTrailing12: number
   closedVolumeTrailing12: number
@@ -35,6 +41,7 @@ function formatCurrency(val: number): string {
 export function DashboardStats({
   pipelineCount,
   pipelineVolume,
+  onHoldCount,
   closedCountTrailing12,
   closedVolumeTrailing12,
   outstandingCount,
@@ -42,7 +49,7 @@ export function DashboardStats({
 }: Props) {
   const stats: StatBlock[] = [
     {
-      label: 'Pipeline Loans',
+      label: onHoldCount > 0 ? `Pipeline Loans · ${onHoldCount} on hold` : 'Pipeline Loans',
       value: String(pipelineCount),
       sub: pipelineVolume > 0 ? `${formatCurrency(pipelineVolume)} total volume` : null,
       icon: Building2,

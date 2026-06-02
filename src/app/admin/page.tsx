@@ -61,11 +61,22 @@ export default async function AdminPage() {
   //   outstandingMap = items needing borrower/staff action (Outstanding + Rejected)
   //   pendingReviewMap = items submitted and waiting on UW (Received)
   //   totalConditionsMap = every condition on the loan
+  // on_hold loans don't contribute to the per-row "outstanding"/"pending review"
+  // badges — the deal is paused, so its conditions aren't nagging anyone. The
+  // total count is still tracked so the "All Satisfied" fallback badge stays
+  // correct for held loans whose conditions were all wrapped up before pause.
+  const onHoldLoanIds = new Set<string>(
+    (loans ?? [])
+      .filter(l => (l.loan_status ?? 'active') === 'on_hold')
+      .map(l => l.id),
+  )
+
   const outstandingMap: Record<string, number> = {}
   const pendingReviewMap: Record<string, number> = {}
   const totalConditionsMap: Record<string, number> = {}
   for (const c of outstandingConditions ?? []) {
     totalConditionsMap[c.loan_id] = (totalConditionsMap[c.loan_id] ?? 0) + 1
+    if (onHoldLoanIds.has(c.loan_id)) continue
     if (c.status === 'Outstanding' || c.status === 'Rejected') {
       outstandingMap[c.loan_id] = (outstandingMap[c.loan_id] ?? 0) + 1
     } else if (c.status === 'Received') {
