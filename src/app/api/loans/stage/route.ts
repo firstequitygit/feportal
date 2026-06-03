@@ -88,12 +88,17 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Mirror locally. FE policy: moving a loan to Closed also archives it
-  // immediately (no 30-day grace period). Sets closed_at if not already set.
+  // Mirror locally. Moving a loan to Closed stamps closed_at when
+  // missing so the 30-day auto-archive cron has a baseline. We deliberately
+  // do NOT archive here — the LO/LP/UW Closed bucket needs to keep
+  // recently-closed loans visible for ~30 days post-close. The cron
+  // (/api/cron/auto-archive) handles the eventual archive sweep. Earlier
+  // behavior was archiving immediately on the stage flip, which caused
+  // freshly closed loans (e.g. 1023 Monroe Ave on 2026-06-02) to vanish
+  // from the active list the moment they were marked Closed.
   const updatePayload: Record<string, unknown> = { pipeline_stage: stage }
-  if (stage === 'Closed') {
-    updatePayload.archived = true
-    if (!loan.closed_at) updatePayload.closed_at = new Date().toISOString()
+  if (stage === 'Closed' && !loan.closed_at) {
+    updatePayload.closed_at = new Date().toISOString()
   }
   const { error } = await adminClient
     .from('loans')
