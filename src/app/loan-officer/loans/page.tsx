@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
-import { Building2, Users, AlertCircle } from 'lucide-react'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { getEffectiveStaffContext } from '@/lib/staff-context'
@@ -30,18 +30,33 @@ export default async function LoanOfficerLoansPage() {
   // LOs are auto-assigned at Pipedrive sync time (deal owner → loan_officer_id),
   // so there's no "Available to Claim" pool for them — they just see what
   // they own. LPs and UWs still go through the claim flow.
-  const { data: loans } = await adminClient
-    .from('loans')
-    .select(`
-      *,
-      borrowers!borrower_id(full_name, email),
-      loan_officers!loan_officer_id(id, full_name),
-      loan_processors!loan_processor_id(id, full_name),
-      loan_details(cash_out_amount)
-    `)
-    .eq('loan_officer_id', lo.id)
-    .eq('archived', false)
-    .order('created_at', { ascending: false })
+  //
+  // Two parallel queries:
+  //  - active loans: drives the list + the "active" half of the dashboard tiles
+  //  - closed-in-last-12-months: archived OR not (closed loans auto-archive
+  //    30 days post-close, so we have to look past the archived flag to
+  //    populate the "Closed (Last 12 Months)" tile)
+  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+  const [{ data: loans }, { data: closedTrailing }] = await Promise.all([
+    adminClient
+      .from('loans')
+      .select(`
+        *,
+        borrowers!borrower_id(full_name, email),
+        loan_officers!loan_officer_id(id, full_name),
+        loan_processors!loan_processor_id(id, full_name),
+        loan_details(cash_out_amount)
+      `)
+      .eq('loan_officer_id', lo.id)
+      .eq('archived', false)
+      .order('created_at', { ascending: false }),
+    adminClient
+      .from('loans')
+      .select('loan_amount')
+      .eq('loan_officer_id', lo.id)
+      .eq('pipeline_stage', 'Closed')
+      .gte('closed_at', oneYearAgoIso),
+  ])
 
   const loanIds = (loans ?? []).map((l: Loan) => l.id)
 
@@ -74,10 +89,13 @@ export default async function LoanOfficerLoansPage() {
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed' && !archivedSet.has(l.id))
   const closedLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage === 'Closed' && !archivedSet.has(l.id))
 
-  const totalLoans = activeLoans.length + closedLoans.length
-  const uniqueBorrowers = new Set((loans ?? []).filter(l => !archivedSet.has(l.id) && l.borrower_id).map(l => l.borrower_id)).size
-  const youOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.you, 0)
-  const totalOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.total, 0)
+  // Dashboard tile metrics — same set the Inbox used to render. Now lives
+  // at the top of the Loans page; the Inbox is just the inbox.
+  const metrics = await computeDashboardMetrics(adminClient, {
+    activeLoans: loans ?? [],
+    closedLoansTrailing12: closedTrailing ?? [],
+    conditionAssignee: 'loan_officer',
+  })
 
   const impersonation = await resolveImpersonation(adminClient, ctx.staff_user.auth_user_id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_officer'
@@ -88,54 +106,9 @@ export default async function LoanOfficerLoansPage() {
         name: lo.full_name,
         exitHref: impersonationExitHref(),
       } : null}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Loans</h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Building2 className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{totalLoans}</p>
-                <p className="text-sm text-gray-500 mt-0.5">Total Loans</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                <Users className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{uniqueBorrowers}</p>
-                <p className="text-sm text-gray-500 mt-0.5">Borrowers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-6 h-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-red-600">{youOutstanding}</p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Outstanding for you
-                  {totalOutstanding > youOutstanding && (
-                    <span className="text-gray-400"> · {totalOutstanding} total</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <DashboardStats {...metrics} />
+      <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
       <LoanListSorted
         activeLoans={activeLoans}
         closedLoans={closedLoans}

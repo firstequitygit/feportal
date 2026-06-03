@@ -3,8 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { InboxView, type InboxItem } from '@/components/inbox-view'
-import { DashboardStats } from '@/components/dashboard-stats'
-import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { fetchMentionsForRole, resolveRoleIdent } from '@/lib/fetch-mentions'
 import { MentionsCard } from '@/components/mentions-card'
@@ -21,38 +19,18 @@ export default async function LoanProcessorInbox() {
   )
   if (!lp) redirect('/login')
 
-  const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
-  const archivedSet = new Set<string>((archivedIds ?? []) as string[])
-
   // Ops managers see every loan; regular LPs only their assigned.
   const baseLoansQuery = adminClient
     .from('loans')
-    .select('id, property_address, pipeline_stage, loan_number, loan_amount, closed_at, loan_status')
+    .select('id, property_address, pipeline_stage, loan_number')
     .eq('archived', false)
   const { data: loans } = await (lp.is_ops_manager
     ? baseLoansQuery
     : baseLoansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
 
-  // Closed-in-last-12-months — archived OR not.
-  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
-  const closedTrailingQuery = adminClient
-    .from('loans')
-    .select('loan_amount')
-    .eq('pipeline_stage', 'Closed')
-    .gte('closed_at', oneYearAgoIso)
-  const { data: closedTrailing } = await (lp.is_ops_manager
-    ? closedTrailingQuery
-    : closedTrailingQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`))
-
   const activeLoans = (loans ?? []).filter(l => l.pipeline_stage !== 'Closed')
   const loanIds = activeLoans.map(l => l.id)
   const loanMap = new Map(activeLoans.map(l => [l.id, l]))
-
-  const metrics = await computeDashboardMetrics(adminClient, {
-    activeLoans: loans ?? [],
-    closedLoansTrailing12: closedTrailing ?? [],
-    conditionAssignee: 'loan_processor',
-  })
 
   const { data: conditions } = loanIds.length > 0
     ? await adminClient
@@ -98,10 +76,9 @@ export default async function LoanProcessorInbox() {
         exitHref: impersonationExitHref(),
       } : null}
     >
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      <DashboardStats {...metrics} />
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Inbox</h2>
       {mentions.length > 0 && (
-        <div className="mt-6">
+        <div className="mb-6">
           <MentionsCard initial={mentions} linkPrefix="/loan-processor" />
         </div>
       )}

@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
 import { AvailableLoans } from '@/components/available-loans'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -22,7 +24,12 @@ export default async function UnderwriterLoansPage() {
   const { data: archivedIds } = await adminClient.rpc('get_archived_loan_ids')
   const archivedSet = new Set<string>((archivedIds ?? []) as string[])
 
-  const [{ data: loans }, { data: unassignedLoans }] = await Promise.all([
+  // Closed-in-last-12-months drives the "Closed (Last 12 Months)" dashboard
+  // tile. Looks past the archived flag (closed loans auto-archive 30 days
+  // post-close so the trailing-12-month window wouldn't be visible otherwise).
+  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [{ data: loans }, { data: unassignedLoans }, { data: closedTrailing }] = await Promise.all([
     adminClient
       .from('loans')
       .select(`
@@ -50,6 +57,12 @@ export default async function UnderwriterLoansPage() {
       .in('pipeline_stage', ['Pre-Underwriting', 'Underwriting', 'Conditionally Approved', 'Approved'])
       .eq('archived', false)
       .order('created_at', { ascending: false }),
+    adminClient
+      .from('loans')
+      .select('loan_amount')
+      .eq('underwriter_id', uw.id)
+      .eq('pipeline_stage', 'Closed')
+      .gte('closed_at', oneYearAgoIso),
   ])
 
   const loanIds = (loans ?? []).map((l: Loan) => l.id)
@@ -81,6 +94,13 @@ export default async function UnderwriterLoansPage() {
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed' && !archivedSet.has(l.id))
   const closedLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage === 'Closed' && !archivedSet.has(l.id))
 
+  // Dashboard tile metrics — same set the Inbox used to render.
+  const metrics = await computeDashboardMetrics(adminClient, {
+    activeLoans: loans ?? [],
+    closedLoansTrailing12: closedTrailing ?? [],
+    conditionAssignee: 'underwriter',
+  })
+
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'underwriter'
 
@@ -90,7 +110,9 @@ export default async function UnderwriterLoansPage() {
         name: uw.full_name,
         exitHref: impersonationExitHref(),
       } : null}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Loans</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <DashboardStats {...metrics} />
+      <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
       <AvailableLoans
         loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
         claimEndpoint="/api/underwriter/claim"

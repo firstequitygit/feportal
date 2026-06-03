@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Card, CardContent } from '@/components/ui/card'
 import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
 import { AvailableLoans } from '@/components/available-loans'
-import { Building2, Users, AlertCircle } from 'lucide-react'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -42,7 +42,20 @@ export default async function LoanProcessorLoansPage() {
     ? myLoansQuery
     : myLoansQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
 
-  const [{ data: loans }, { data: unassignedLoansRaw }] = await Promise.all([
+  // Closed-in-last-12-months query for the dashboard tile — needs to
+  // look past the archived flag (closed loans auto-archive 30 days
+  // post-close). Scoped to this LP unless they're an ops manager.
+  const oneYearAgoIso = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+  const closedTrailingQuery = adminClient
+    .from('loans')
+    .select('loan_amount')
+    .eq('pipeline_stage', 'Closed')
+    .gte('closed_at', oneYearAgoIso)
+  const scopedClosedTrailing = lp.is_ops_manager
+    ? closedTrailingQuery
+    : closedTrailingQuery.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`)
+
+  const [{ data: loans }, { data: unassignedLoansRaw }, { data: closedTrailing }] = await Promise.all([
     scopedMyLoans,
     // Available to claim — ops managers don't claim, but the section is
     // hidden by client filter (see below) so we just return an empty list.
@@ -62,6 +75,7 @@ export default async function LoanProcessorLoansPage() {
           .neq('pipeline_stage', 'New Application')
           .eq('archived', false)
           .order('created_at', { ascending: false }),
+    scopedClosedTrailing,
   ])
 
   // Exclude loans where this LP already occupies one of the slots
@@ -100,10 +114,12 @@ export default async function LoanProcessorLoansPage() {
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed' && !archivedSet.has(l.id))
   const closedLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage === 'Closed' && !archivedSet.has(l.id))
 
-  const totalLoans = activeLoans.length + closedLoans.length
-  const uniqueBorrowers = new Set((loans ?? []).filter(l => !archivedSet.has(l.id) && l.borrower_id).map(l => l.borrower_id)).size
-  const youOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.you, 0)
-  const totalOutstanding = Object.values(outstandingMap).reduce((s, c) => s + c.total, 0)
+  // Dashboard tile metrics. Same component the Inbox used to render.
+  const metrics = await computeDashboardMetrics(adminClient, {
+    activeLoans: loans ?? [],
+    closedLoansTrailing12: closedTrailing ?? [],
+    conditionAssignee: 'loan_processor',
+  })
 
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_processor'
@@ -114,54 +130,9 @@ export default async function LoanProcessorLoansPage() {
         name: lp.full_name,
         exitHref: impersonationExitHref(),
       } : null}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Loans</h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Building2 className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{totalLoans}</p>
-                <p className="text-sm text-gray-500 mt-0.5">Total Loans</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                <Users className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{uniqueBorrowers}</p>
-                <p className="text-sm text-gray-500 mt-0.5">Borrowers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 pb-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-6 h-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-red-600">{youOutstanding}</p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Outstanding for you
-                  {totalOutstanding > youOutstanding && (
-                    <span className="text-gray-400"> · {totalOutstanding} total</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+      <DashboardStats {...metrics} />
+      <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
       <AvailableLoans
         loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
         claimEndpoint="/api/loan-processor/claim"
