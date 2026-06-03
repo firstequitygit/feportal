@@ -75,12 +75,12 @@ export default async function UnderwriterInbox() {
         exitHref: impersonationExitHref(),
       } : null}
     >
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Inbox</h2>
       {mentions.length > 0 && (
         <div className="mb-6">
           <MentionsCard initial={mentions} linkPrefix="/underwriter" />
         </div>
       )}
+      {/* InboxView renders its own "Inbox N" header with the count. */}
       <InboxView items={items} role="underwriter" linkPrefix="/underwriter" />
     </PortalShell>
   )
