@@ -251,7 +251,7 @@ export default async function DashboardPage({
                           <p className="font-medium">{loan.rate_locked_days ?? '—'}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500 text-xs">Loan Type I</p>
+                          <p className="text-gray-500 text-xs">Loan Purpose</p>
                           <p className="font-medium">{loanTypeOneByLoanId[loan.id] ?? '—'}</p>
                         </div>
                         <div>

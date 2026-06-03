@@ -185,7 +185,8 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   square_footage: { type: 'number',  table: 'loan_details' },
   units_vacant:   { type: 'boolean', table: 'loan_details' },
 
-  // Loan Terms — Loan Type I (Purchase / Refi variants)
+  // Loan Terms — Loan Purpose (Purchase / Refi variants; column is
+  // historically named loan_type_one)
   loan_type_one: { type: 'enum', table: 'loan_details', validValues: LOAN_TYPE_ONE_OPTIONS },
 
   // Borrower / Guarantor — financial summary

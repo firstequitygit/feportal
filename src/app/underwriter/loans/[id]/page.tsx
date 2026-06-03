@@ -167,8 +167,8 @@ export default async function UnderwriterLoanPage({
               <FieldRow label="Loan Type">
                 <EditableLoanField loanId={id} field="loan_type" type="enum" options={LOAN_TYPES} currentValue={loan.loan_type} display={loan.loan_type ?? '—'} />
               </FieldRow>
-              <FieldRow label="Loan Type I">
-                {/* Mirror of the Loan Type I row inside the Loan Details
+              <FieldRow label="Loan Purpose">
+                {/* Mirror of the Loan Purpose row inside the Loan Details
                     card — same backing field (loan_details.loan_type_one). */}
                 <EditableLoanField
                   loanId={id}

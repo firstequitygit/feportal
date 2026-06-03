@@ -146,6 +146,38 @@ function mapStageInverse(v: unknown): string | undefined {
   }
 }
 
+// ---- loan_type_one ↔ Airtable "Loan Purpose" ----
+// Portal stores the long-form labels staff have always used; Airtable
+// uses shorter ones. Map both directions explicitly so the sync doesn't
+// get tripped by INVALID_MULTIPLE_CHOICE_OPTIONS on the push.
+//
+//   Portal                       Airtable
+//   ------------------------     ----------------
+//   Purchase                  ↔  Purchase
+//   Delayed Purchase          ↔  Delayed Purchase
+//   Refinance (no cash out)   ↔  Rate/Term Refi
+//   Refinance (cash out)      ↔  Cash Out Refi
+function mapLoanPurposeForward(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  switch (v) {
+    case 'Purchase':                return 'Purchase'
+    case 'Delayed Purchase':        return 'Delayed Purchase'
+    case 'Refinance (no cash out)': return 'Rate/Term Refi'
+    case 'Refinance (cash out)':    return 'Cash Out Refi'
+    default:                        return undefined
+  }
+}
+function mapLoanPurposeInverse(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  switch (v) {
+    case 'Purchase':         return 'Purchase'
+    case 'Delayed Purchase': return 'Delayed Purchase'
+    case 'Rate/Term Refi':   return 'Refinance (no cash out)'
+    case 'Cash Out Refi':    return 'Refinance (cash out)'
+    default:                 return undefined
+  }
+}
+
 // ---- rate_type ----
 // Airtable's Rate Type singleSelect has 'Fixed', '5 Year ARM', '7 Year ARM'.
 // The portal only stores 'Fixed' or 'ARM' (no 5 vs 7 distinction), so we
@@ -315,7 +347,7 @@ export const FIELD_MAP: FieldMapping[] = [
   s('additional_fees',   'loan_details', 'Additional Fees'),
   s('prepayment_penalty', 'loan_details', 'Prepayment Penalty'),
   s('first_payment_date', 'loan_details', 'First Payment Date'),
-  s('loan_type_one', 'loan_details', 'Loan Purpose'),
+  s('loan_type_one', 'loan_details', 'Loan Purpose', mapLoanPurposeForward, mapLoanPurposeInverse),
 
   // ---- Borrower / Guarantor ----
   s('experience_notes', 'loan_details', 'Experience Notes'),

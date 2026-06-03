@@ -92,7 +92,7 @@ export interface LoanDetails {
   square_footage?: number | null
   units_vacant?: boolean | null
 
-  // JotForm-sourced — Loan Type I
+  // JotForm-sourced — Loan Purpose (column is historically named loan_type_one)
   loan_type_one?: string | null
 
   // JotForm-sourced — Borrower financial summary
@@ -541,7 +541,7 @@ export function LoanDetailsCard({
           </Section>
 
           <Section title="Loan Terms">
-            <DetailRow label="Loan Type I">
+            <DetailRow label="Loan Purpose">
               <EditableLoanField
                 loanId={loanId}
                 field="loan_type_one"

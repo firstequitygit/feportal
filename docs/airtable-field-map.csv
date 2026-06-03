@@ -40,7 +40,7 @@ Loan Terms,additional_fees,loan_details,Additional Fees,Bidirectional,"Aggregate
 Loan Terms,additional_fees_notes,loan_details,—,Portal only,"Freeform notes describing what the Additional Fees total covers. No Airtable equivalent."
 Loan Terms,prepayment_penalty,loan_details,Prepayment Penalty,Bidirectional,"Skipped on push if portal value isn't one of Airtable's singleSelect choices"
 Loan Terms,first_payment_date,loan_details,First Payment Date,Bidirectional,Direct
-Loan Terms,loan_type_one,loan_details,Loan Purpose,Bidirectional,Direct
+Loan Terms,loan_type_one,loan_details,Loan Purpose,Bidirectional,"UI label is 'Loan Purpose'. Portal 'Refinance (no cash out)' ↔ Airtable 'Rate/Term Refi'; Portal 'Refinance (cash out)' ↔ Airtable 'Cash Out Refi'; Purchase / Delayed Purchase pass through unchanged"
 Borrower / Guarantor,experience_notes,loan_details,Experience Notes,Bidirectional,Direct
 Borrower / Guarantor,number_of_properties,loan_details,Number of Properties (trailing space),Bidirectional,"Airtable field literally has a trailing space"
 Borrower / Guarantor,verified_assets,loan_details,Verified Assets,Bidirectional,"Portal text ('$250k') ↔ Airtable currency number"
