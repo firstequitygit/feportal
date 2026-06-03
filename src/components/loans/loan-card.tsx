@@ -2,7 +2,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronRight, MapPin } from 'lucide-react'
+import { ChevronRight, MapPin, MessageSquareText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type PipelineStage, type OutstandingCounts } from '@/lib/types'
 
@@ -14,6 +14,8 @@ interface Props {
   loan: LoanCardLoan
   outstanding: OutstandingCounts
   linkPrefix: string
+  /** Most recent Closer Notes entry on this loan, when one exists. */
+  latestCloserNote?: string | null
 }
 
 const ZERO: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
@@ -72,7 +74,7 @@ function accentClass(loan: LoanCardLoan, outstanding: OutstandingCounts): string
   return 'border-l-green-400'
 }
 
-export function LoanCard({ loan, outstanding = ZERO, linkPrefix }: Props) {
+export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNote }: Props) {
   const isClosed = loan.pipeline_stage === 'Closed'
   const isOnHold = loan.loan_status === 'on_hold'
   const isCancelled = loan.loan_status === 'cancelled'
@@ -122,6 +124,19 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix }: Props) {
                   ) : null
                 })()}
               </p>
+              {/* Latest Closer Notes entry on this loan, when one exists.
+                  Rendered on its own line so the dates row stays clean.
+                  Truncate covers anything longer than the card width. */}
+              {latestCloserNote && (
+                <p
+                  className="text-xs text-gray-500 italic mt-0.5 ml-5 truncate flex items-center gap-1"
+                  title={latestCloserNote}
+                >
+                  <MessageSquareText className="w-3 h-3 text-gray-400 shrink-0" aria-hidden />
+                  <span className="font-medium text-gray-600 not-italic">Closer:</span>
+                  <span className="truncate">{latestCloserNote}</span>
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {outstanding.you > 0 && (

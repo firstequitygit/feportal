@@ -28,6 +28,8 @@ interface Props {
   closedLoans: LoanWithBorrower[]
   outstandingMap: Record<string, OutstandingCounts>
   lastUpdatedMap: Record<string, string>
+  /** loan_id → most recent Closer Notes excerpt, when one exists. */
+  latestCloserNoteByLoan?: Record<string, string>
   linkPrefix: string
   /**
    * When true, hides Loan-officer filter / group dimensions in the toolbar.
@@ -67,6 +69,7 @@ export function LoanListSorted({
   closedLoans,
   outstandingMap,
   lastUpdatedMap,
+  latestCloserNoteByLoan,
   linkPrefix,
   hideLoanOfficerDimensions = false,
 }: Props) {
@@ -180,6 +183,7 @@ export function LoanListSorted({
                   loan={loan}
                   outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                   linkPrefix={linkPrefix}
+                  latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
                 />
               ))}
             </div>
@@ -202,6 +206,7 @@ export function LoanListSorted({
                           loan={loan}
                           outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                           linkPrefix={linkPrefix}
+                          latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
                         />
                       ))}
                     </div>
@@ -239,6 +244,7 @@ export function LoanListSorted({
                       loan={loan}
                       outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                       linkPrefix={linkPrefix}
+                      latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
                     />
                   ))}
                 </div>
