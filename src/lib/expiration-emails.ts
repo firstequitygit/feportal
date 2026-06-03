@@ -15,7 +15,7 @@ import { sendEmail } from '@/lib/mailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
 
-export type ExpirationKind = 'rate_lock' | 'appraisal' | 'credit'
+export type ExpirationKind = 'rate_lock' | 'appraisal' | 'credit' | 'maturity'
 
 interface LoanRow {
   id: string
@@ -34,7 +34,10 @@ const STAFF_SELECT = `
   loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)
 `
 
-function staffRecipients(loan: LoanRow): Array<{ name: string | null; email: string }> {
+function staffRecipients(
+  loan: LoanRow,
+  scope: 'lo_only' | 'lo_plus_lps',
+): Array<{ name: string | null; email: string }> {
   const out: Array<{ name: string | null; email: string }> = []
   const seen = new Set<string>()
   function push(p: { full_name: string | null; email: string | null } | null | undefined) {
@@ -45,8 +48,10 @@ function staffRecipients(loan: LoanRow): Array<{ name: string | null; email: str
     out.push({ name: p.full_name, email: p.email })
   }
   push(loan.loan_officers)
-  push(loan.loan_processors)
-  push(loan.loan_processor_2)
+  if (scope === 'lo_plus_lps') {
+    push(loan.loan_processors)
+    push(loan.loan_processor_2)
+  }
   return out
 }
 
@@ -54,6 +59,14 @@ const KIND_LABEL: Record<ExpirationKind, string> = {
   rate_lock: 'Rate lock',
   appraisal: 'Appraisal',
   credit:    'Credit report',
+  maturity:  'Loan maturity',
+}
+
+// Per FE policy:
+//   rate_lock / appraisal / credit → LO + both LP slots
+//   maturity                       → LO only (operational ownership)
+function recipientScope(kind: ExpirationKind): 'lo_only' | 'lo_plus_lps' {
+  return kind === 'maturity' ? 'lo_only' : 'lo_plus_lps'
 }
 
 /**
@@ -72,7 +85,7 @@ export async function sendRateLockedEmail(loanId: string, days: number): Promise
     const loan = loanRaw as unknown as LoanRow & { rate_lock_expiration_date: string | null } | null
     if (!loan) return
 
-    const recipients = staffRecipients(loan)
+    const recipients = staffRecipients(loan, 'lo_plus_lps')
     if (recipients.length === 0) return
 
     const property = loan.property_address ?? 'a loan'
@@ -125,7 +138,7 @@ export async function sendExpirationWarningEmail(
     const loan = loanRaw as unknown as LoanRow | null
     if (!loan) return
 
-    const recipients = staffRecipients(loan)
+    const recipients = staffRecipients(loan, recipientScope(kind))
     if (recipients.length === 0) return
 
     const property = loan.property_address ?? 'a loan'
@@ -136,14 +149,19 @@ export async function sendExpirationWarningEmail(
       loanOfficerName: loan.loan_officers?.full_name ?? null,
     })
 
-    // Two flavors — heads-up (5 days out) vs. day-of.
+    // Maturity reads slightly differently ("Loan matures" vs "X expires")
+    // so the recipient isn't decoding "Loan maturity expires today" copy.
+    const isMaturity = kind === 'maturity'
+    const verb = isMaturity ? 'matures' : 'expires'
+    const subjectKindLabel = isMaturity ? 'Loan' : kindLabel
     const subject = daysUntil === 0
-      ? `${kindLabel} expires TODAY — ${property}`
-      : `${kindLabel} expires in ${daysUntil} days — ${property}`
+      ? `${subjectKindLabel} ${verb === 'matures' ? 'matures' : 'expires'} TODAY — ${property}`
+      : `${subjectKindLabel} ${verb === 'matures' ? 'matures' : 'expires'} in ${daysUntil} days — ${property}`
 
+    const phrase = isMaturity ? 'loan' : kindLabel.toLowerCase()
     const leadParagraph = daysUntil === 0
-      ? `The <strong>${kindLabel.toLowerCase()}</strong> on <strong>${property}</strong> expires <strong style="color: #b91c1c;">today</strong> (${expiresFormatted}).`
-      : `The <strong>${kindLabel.toLowerCase()}</strong> on <strong>${property}</strong> expires in <strong style="color: #d97706;">${daysUntil} days</strong> (${expiresFormatted}).`
+      ? `The <strong>${phrase}</strong> on <strong>${property}</strong> ${verb} <strong style="color: #b91c1c;">today</strong> (${expiresFormatted}).`
+      : `The <strong>${phrase}</strong> on <strong>${property}</strong> ${verb} in <strong style="color: #d97706;">${daysUntil} days</strong> (${expiresFormatted}).`
 
     const bodyHtml = (name: string | null) => `
       <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${name ?? 'there'},</p>

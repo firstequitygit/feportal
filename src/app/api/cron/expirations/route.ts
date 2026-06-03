@@ -1,16 +1,17 @@
-// Daily cron — emails LO + LP(s) when:
-//   - rate_lock_expiration_date is 5 days away or today
-//   - appraisal_effective_date + 120 days is 5 days away or today
-//   - credit_report_date + 90 days is 5 days away or today
+// Daily cron — emails staff when a loan-level date is approaching:
+//   - rate_lock_expiration_date          5 days away  / today      → LO + LP(s)
+//   - appraisal_effective_date + 120d    5 days away  / today      → LO + LP(s)
+//   - credit_report_date + 90d           5 days away  / today      → LO + LP(s)
+//   - maturity_date                     45 / 15 / 5 / today        → LO only
 //
 // Dedup: every send writes an 'expiration_notified' row to loan_events
-// keyed by `kind|warning|date`. Before sending we check for an existing
+// keyed by `kind|window|date`. Before sending we check for an existing
 // row with the same key — if it's there, skip. This means re-running
 // the cron the same day is safe, and a one-off expiration won't trigger
 // a second email even if the cron schedule shifts.
 //
-// Recipients: each loan's LO + both LP slots. Borrower is intentionally
-// not notified — these are operational dates, not borrower-facing.
+// Borrowers are intentionally not notified — these are operational
+// dates, not borrower-facing.
 //
 // Protected by CRON_SECRET like the rest of the crons.
 
@@ -19,11 +20,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendExpirationWarningEmail, type ExpirationKind } from '@/lib/expiration-emails'
 
 // FE policy: validity windows for the two date-based expirations. Rate
-// lock has its own explicit expiration column on the loan row.
+// lock + maturity have their own explicit expiration columns on the loan row.
 const APPRAISAL_VALID_DAYS = 120
 const CREDIT_VALID_DAYS = 90
 
-const WARNING_DAYS = [5, 0]  // 5 days out, then day-of
+// Per-kind warning windows (days before expiration to send). Maturity
+// gets a longer ladder because it's a bigger operational signal —
+// staff need to start chasing extensions / payoffs further out.
+const WINDOWS_BY_KIND: Record<ExpirationKind, number[]> = {
+  rate_lock: [5, 0],
+  appraisal: [5, 0],
+  credit:    [5, 0],
+  maturity:  [45, 15, 5, 0],
+}
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -34,13 +43,15 @@ export async function GET(request: Request) {
   const adminClient = createAdminClient()
 
   // Active loans only — closed/cancelled/archived loans aren't watched.
-  // pipeline_stage is excluded for 'Closed' since those are no longer in
-  // the active book even if not archived yet.
+  // Maturity-date scans intentionally still include Closed loans here —
+  // a loan can fund and then mature before the auto-archive cron sweeps
+  // it. The per-loop status filter below skips archived/cancelled anyway.
   const { data: loans } = await adminClient
     .from('loans')
     .select(`
       id, pipeline_stage, loan_status, archived,
       rate_lock_expiration_date,
+      maturity_date,
       loan_details(appraisal_effective_date, credit_report_date)
     `)
     .eq('archived', false)
@@ -50,11 +61,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, scanned: 0, sent: 0 })
   }
 
-  // Compute today + 5-days-from-now in the same calendar timezone the
-  // dates are stored in. Dates in the portal are stored as YYYY-MM-DD
+  // Today in UTC — dates in the portal are stored as YYYY-MM-DD
   // strings (no timezone), so compare in UTC for stability.
   const today = isoDateOnlyUTC(new Date())
-  const inFive = isoDateOnlyUTC(addDays(new Date(), 5))
 
   let sent = 0
   let skippedAlreadyNotified = 0
@@ -71,20 +80,25 @@ export async function GET(request: Request) {
       { kind: 'rate_lock', expirationDate: (loan as { rate_lock_expiration_date?: string | null }).rate_lock_expiration_date ?? null },
       { kind: 'appraisal', expirationDate: detail?.appraisal_effective_date ? addDaysIso(detail.appraisal_effective_date, APPRAISAL_VALID_DAYS) : null },
       { kind: 'credit',    expirationDate: detail?.credit_report_date ? addDaysIso(detail.credit_report_date, CREDIT_VALID_DAYS) : null },
+      { kind: 'maturity',  expirationDate: (loan as { maturity_date?: string | null }).maturity_date ?? null },
     ]
 
     for (const { kind, expirationDate } of checks) {
       if (!expirationDate) continue
-      // Compare YYYY-MM-DD slices — the dates in the DB don't carry a
-      // timestamp so a string compare against today / inFive is correct.
+      // Compute exact day delta. Dates in the DB are YYYY-MM-DD strings
+      // (no timezone), so parse + diff in UTC for a stable answer.
       const expDate = expirationDate.slice(0, 10)
-      let daysUntil: number | null = null
-      if (expDate === today) daysUntil = 0
-      else if (expDate === inFive) daysUntil = 5
-      if (daysUntil === null) continue
+      const diffDays = daysBetween(today, expDate)
+      // Maturity ladder is 45/15/5/0; everything else is 5/0. Only fire
+      // when the diff matches one of the per-kind windows exactly.
+      if (!WINDOWS_BY_KIND[kind].includes(diffDays)) continue
+      const daysUntil = diffDays
 
-      // Dedup: skip if we already sent this exact notification.
-      const dedupKey = `${kind}|${daysUntil === 0 ? 'dayof' : '5day'}|${expDate}`
+      // Dedup: skip if we already sent this exact notification. Key
+      // includes the actual days-until so a maturity-45 send and a
+      // later maturity-15 send for the same loan don't collide.
+      const windowKey = daysUntil === 0 ? 'dayof' : `${daysUntil}day`
+      const dedupKey = `${kind}|${windowKey}|${expDate}`
       const { data: existing } = await adminClient
         .from('loan_events')
         .select('id')
@@ -99,11 +113,13 @@ export async function GET(request: Request) {
 
       // Write the audit/dedup row. The bracketed key in the description
       // is what the next run searches for; the rest is human-readable.
+      const verb = kind === 'maturity' ? 'matures' : 'expires'
+      const recipientLabel = kind === 'maturity' ? 'LO' : 'LO + LPs'
       try {
         await adminClient.from('loan_events').insert({
           loan_id: loan.id,
           event_type: 'expiration_notified',
-          description: `[${dedupKey}] ${kindLabel(kind)} ${daysUntil === 0 ? 'expires today' : `expires in ${daysUntil} days`} (${expDate}) — emailed LO + LPs`,
+          description: `[${dedupKey}] ${kindLabel(kind)} ${daysUntil === 0 ? `${verb} today` : `${verb} in ${daysUntil} days`} (${expDate}) — emailed ${recipientLabel}`,
         })
       } catch (err) {
         console.error('expiration_notified event log failed:', err)
@@ -123,11 +139,6 @@ export async function GET(request: Request) {
 function isoDateOnlyUTC(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
-function addDays(d: Date, days: number): Date {
-  const out = new Date(d)
-  out.setUTCDate(out.getUTCDate() + days)
-  return out
-}
 function addDaysIso(iso: string, days: number): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
   if (!m) return iso
@@ -135,10 +146,23 @@ function addDaysIso(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
+/** Whole-day diff in UTC: positive = target is in the future. */
+function daysBetween(today: string, target: string): number {
+  const a = parseIsoUTC(today)
+  const b = parseIsoUTC(target)
+  if (a === null || b === null) return Number.NaN
+  return Math.round((b - a) / 86_400_000)
+}
+function parseIsoUTC(iso: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return null
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
 function kindLabel(k: ExpirationKind): string {
   switch (k) {
     case 'rate_lock': return 'Rate lock'
     case 'appraisal': return 'Appraisal'
     case 'credit':    return 'Credit report'
+    case 'maturity':  return 'Loan maturity'
   }
 }

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { PortalShell } from '@/components/portal-shell'
 import { Card, CardContent } from '@/components/ui/card'
 import { getReportContext, roleLabel } from '@/lib/reports/auth'
-import { BarChart3, Briefcase, Clock, ClipboardList, CalendarRange } from 'lucide-react'
+import { BarChart3, Briefcase, Clock, ClipboardList, CalendarRange, AlarmClock } from 'lucide-react'
 
 const REPORTS = [
   {
@@ -34,6 +34,12 @@ const REPORTS = [
     label: 'Closings by Month',
     description: 'Closed loans bucketed by month for the trailing 12 months — count and volume.',
     icon: CalendarRange,
+  },
+  {
+    href: '/reports/maturity',
+    label: 'Loan Maturity',
+    description: 'Active loans bucketed by how soon they mature — overdue, next 5 / 15 / 45 days, and beyond.',
+    icon: AlarmClock,
   },
 ]
 
