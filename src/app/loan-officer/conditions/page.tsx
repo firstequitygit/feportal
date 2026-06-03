@@ -8,12 +8,13 @@ import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from
 
 function statusBadge(status: string | null) {
   switch (status) {
-    case 'Outstanding': return 'bg-red-100 text-red-700'
-    case 'Received':    return 'bg-yellow-100 text-yellow-700'
-    case 'Satisfied':   return 'bg-green-100 text-green-700'
-    case 'Waived':      return 'bg-gray-100 text-gray-500'
-    case 'Rejected':    return 'bg-red-100 text-red-800'
-    default:            return 'bg-gray-100 text-gray-600'
+    case 'Outstanding':  return 'bg-red-100 text-red-700'
+    case 'Received':     return 'bg-yellow-100 text-yellow-700'
+    case 'Under Review': return 'bg-blue-100 text-blue-700'
+    case 'Satisfied':    return 'bg-green-100 text-green-700'
+    case 'Waived':       return 'bg-gray-100 text-gray-500'
+    case 'Rejected':     return 'bg-red-100 text-red-800'
+    default:             return 'bg-gray-100 text-gray-600'
   }
 }
 

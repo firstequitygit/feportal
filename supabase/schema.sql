@@ -258,7 +258,7 @@ alter table conditions add column if not exists response         text;
 
 alter table conditions drop constraint if exists conditions_status_check;
 alter table conditions add  constraint conditions_status_check
-  check (status in ('Outstanding', 'Received', 'Satisfied', 'Waived', 'Rejected'));
+  check (status in ('Outstanding', 'Received', 'Under Review', 'Satisfied', 'Waived', 'Rejected'));
 
 alter table conditions drop constraint if exists conditions_assigned_to_check;
 alter table conditions add  constraint conditions_assigned_to_check

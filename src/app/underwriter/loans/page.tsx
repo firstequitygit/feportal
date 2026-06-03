@@ -70,7 +70,7 @@ export default async function UnderwriterLoansPage() {
 
   const [outstandingRes, eventsRes] = await Promise.all([
     loanIds.length > 0
-      ? adminClient.from('conditions').select('loan_id, assigned_to').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received')
+      ? adminClient.from('conditions').select('loan_id, assigned_to').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received,status.eq.Under Review')
       : Promise.resolve({ data: [] }),
     loanIds.length > 0
       ? adminClient.from('loan_events').select('loan_id, created_at').in('loan_id', loanIds).order('created_at', { ascending: false })

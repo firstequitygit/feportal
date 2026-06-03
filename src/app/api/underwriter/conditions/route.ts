@@ -158,7 +158,7 @@ export async function PATCH(req: NextRequest) {
   const { conditionId, status, rejectionReason } = await req.json()
   if (!conditionId || !status) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-  const validStatuses = ['Outstanding', 'Satisfied', 'Rejected', 'Received', 'Waived']
+  const validStatuses = ['Outstanding', 'Satisfied', 'Rejected', 'Received', 'Under Review', 'Waived']
   if (!validStatuses.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
 
   // Verify the condition belongs to a loan this underwriter owns. Status

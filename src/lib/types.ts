@@ -22,7 +22,7 @@ export type PipelineStage =
   | 'Approved'
   | 'Closed'
 
-export type ConditionStatus = 'Outstanding' | 'Received' | 'Satisfied' | 'Waived' | 'Rejected'
+export type ConditionStatus = 'Outstanding' | 'Received' | 'Under Review' | 'Satisfied' | 'Waived' | 'Rejected'
 // 'closer' is a workflow bucket, not a separate role table — emails for
 // closer-assigned conditions route directly to Omayra Cartagena
 // (loan_processors.ocartagena@fefunding.com) since she handles closing

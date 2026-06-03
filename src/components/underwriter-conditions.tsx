@@ -45,11 +45,12 @@ interface Props {
 
 function statusColor(status: ConditionStatus): string {
   switch (status) {
-    case 'Outstanding': return 'bg-red-100 text-red-700'
-    case 'Received':    return 'bg-yellow-100 text-yellow-700'
-    case 'Satisfied':   return 'bg-green-100 text-green-700'
-    case 'Waived':      return 'bg-gray-100 text-gray-500'
-    case 'Rejected':    return 'bg-red-100 text-red-800'
+    case 'Outstanding':  return 'bg-red-100 text-red-700'
+    case 'Received':     return 'bg-yellow-100 text-yellow-700'
+    case 'Under Review': return 'bg-blue-100 text-blue-700'
+    case 'Satisfied':    return 'bg-green-100 text-green-700'
+    case 'Waived':       return 'bg-gray-100 text-gray-500'
+    case 'Rejected':     return 'bg-red-100 text-red-800'
   }
 }
 
@@ -90,7 +91,7 @@ function ConditionRow({
   onToggleSelect: () => void
   onUpload: (files: FileList) => void
   fileRef: (el: HTMLInputElement | null) => void
-  onUpdateStatus: (conditionId: string, status: 'Outstanding' | 'Satisfied' | 'Rejected' | 'Waived', rejectionReason?: string) => Promise<void>
+  onUpdateStatus: (conditionId: string, status: 'Outstanding' | 'Satisfied' | 'Rejected' | 'Waived' | 'Under Review', rejectionReason?: string) => Promise<void>
   onDeleteDoc: (docId: string, fileName: string) => Promise<void>
   onDeleteCondition: (conditionId: string, title: string) => Promise<void>
   onChangeCategory: (conditionId: string, category: ConditionCategory | null) => Promise<void>
@@ -142,6 +143,13 @@ function ConditionRow({
   async function handleReopen() {
     setUpdating(true)
     await onUpdateStatus(condition.id, 'Outstanding')
+    setReviewing(false)
+    setUpdating(false)
+  }
+
+  async function handleUnderReview() {
+    setUpdating(true)
+    await onUpdateStatus(condition.id, 'Under Review')
     setReviewing(false)
     setUpdating(false)
   }
@@ -315,6 +323,10 @@ function ConditionRow({
                   <Button size="sm" variant="outline" onClick={() => setRejecting(true)} disabled={updating}
                     className="text-red-600 border-red-300 hover:bg-red-50 text-xs h-7 px-3">
                     ✕ Reject
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleUnderReview} disabled={updating}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50 text-xs h-7 px-3">
+                    ⏳ Under Review
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleWaive} disabled={updating}
                     className="text-gray-500 border-gray-300 hover:bg-gray-50 text-xs h-7 px-3">
@@ -579,7 +591,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
     }
   }
 
-  async function handleUpdateStatus(conditionId: string, status: 'Outstanding' | 'Satisfied' | 'Rejected' | 'Waived', rejectionReason?: string) {
+  async function handleUpdateStatus(conditionId: string, status: 'Outstanding' | 'Satisfied' | 'Rejected' | 'Waived' | 'Under Review', rejectionReason?: string) {
     setUpdateError(null)
     const res = await fetch('/api/underwriter/conditions', {
       method: 'PATCH',

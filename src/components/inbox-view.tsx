@@ -50,22 +50,24 @@ function ageDotClass(days: number): string {
 
 function statusBadgeClass(status: ConditionStatus): string {
   switch (status) {
-    case 'Outstanding': return 'bg-red-100 text-red-700'
-    case 'Rejected':    return 'bg-orange-100 text-orange-700'
-    case 'Received':    return 'bg-yellow-100 text-yellow-700'
-    case 'Satisfied':   return 'bg-green-100 text-green-700'
-    case 'Waived':      return 'bg-gray-100 text-gray-500'
+    case 'Outstanding':  return 'bg-red-100 text-red-700'
+    case 'Rejected':     return 'bg-orange-100 text-orange-700'
+    case 'Received':     return 'bg-yellow-100 text-yellow-700'
+    case 'Under Review': return 'bg-blue-100 text-blue-700'
+    case 'Satisfied':    return 'bg-green-100 text-green-700'
+    case 'Waived':       return 'bg-gray-100 text-gray-500'
   }
 }
 
 export function InboxView({ items, role, linkPrefix }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
 
-  // Underwriters review Received items, so they count as action needed for UW.
-  // For LO/LP, Received means they marked something received and it's no longer their action.
+  // Underwriters review Received + Under Review items, so they count as
+  // action needed for UW. For LO/LP, those states mean the work has been
+  // handed off and it's no longer their action.
   const isActionable = (status: ConditionStatus): boolean => {
     if (status === 'Outstanding' || status === 'Rejected') return true
-    if (role === 'underwriter' && status === 'Received') return true
+    if (role === 'underwriter' && (status === 'Received' || status === 'Under Review')) return true
     return false
   }
 

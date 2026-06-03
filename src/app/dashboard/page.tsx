@@ -144,7 +144,7 @@ export default async function DashboardPage({
   // Anything not yet Satisfied or Waived counts as outstanding from the
   // borrower's POV — including Received items that are awaiting UW review.
   const { data: outstandingConditions } = loanIds.length > 0
-    ? await adminClient.from('conditions').select('loan_id').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received')
+    ? await adminClient.from('conditions').select('loan_id').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received,status.eq.Under Review')
     : { data: [] }
 
   const totalOutstanding = (outstandingConditions ?? []).length

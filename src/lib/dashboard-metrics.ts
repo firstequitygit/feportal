@@ -70,9 +70,9 @@ export async function computeDashboardMetrics(
 
   // Outstanding conditions across this staff member's pipeline loans.
   // "Outstanding for you" = condition assigned to this role AND status is
-  // Outstanding/Rejected. (Received doesn't count for LO/LP — they handed
-  // it off; UW reviews Received items, so we also count Received when role
-  // is underwriter.)
+  // Outstanding/Rejected. (Received + Under Review don't count for LO/LP —
+  // they handed it off; UW reviews Received + Under Review items, so we
+  // count those for the underwriter role too.)
   let outstandingCount = 0
   let outstandingForYou = 0
   const pipelineIds = pipeline.map(l => l.id)
@@ -81,17 +81,17 @@ export async function computeDashboardMetrics(
       .from('conditions')
       .select('assigned_to, status')
       .in('loan_id', pipelineIds)
-      .or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received')
+      .or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received,status.eq.Under Review')
     for (const c of conditions ?? []) {
       const blocking =
         c.status === 'Outstanding' ||
         c.status === 'Rejected' ||
-        (conditionAssignee === 'underwriter' && c.status === 'Received')
+        (conditionAssignee === 'underwriter' && (c.status === 'Received' || c.status === 'Under Review'))
       if (!blocking) continue
       outstandingCount++
       const isYours =
         c.assigned_to === conditionAssignee ||
-        (conditionAssignee === 'underwriter' && c.status === 'Received')
+        (conditionAssignee === 'underwriter' && (c.status === 'Received' || c.status === 'Under Review'))
       if (isYours) outstandingForYou++
     }
   }

@@ -43,11 +43,12 @@ interface Props {
 
 function statusColor(status: ConditionStatus): string {
   switch (status) {
-    case 'Outstanding': return 'bg-red-100 text-red-700'
-    case 'Received':    return 'bg-yellow-100 text-yellow-700'
-    case 'Satisfied':   return 'bg-green-100 text-green-700'
-    case 'Waived':      return 'bg-gray-100 text-gray-500'
-    case 'Rejected':    return 'bg-red-100 text-red-800'
+    case 'Outstanding':  return 'bg-red-100 text-red-700'
+    case 'Received':     return 'bg-yellow-100 text-yellow-700'
+    case 'Under Review': return 'bg-blue-100 text-blue-700'
+    case 'Satisfied':    return 'bg-green-100 text-green-700'
+    case 'Waived':       return 'bg-gray-100 text-gray-500'
+    case 'Rejected':     return 'bg-red-100 text-red-800'
   }
 }
 
@@ -75,7 +76,7 @@ function assignedToColor(assigned_to: AssignedTo): string {
 
 // 'Satisfied' is included so LOs can mark a condition complete when the
 // underwriter isn't around. ConditionRow gates it behind a confirm prompt.
-const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Received', 'Rejected', 'Waived', 'Satisfied']
+const CHANGEABLE_STATUSES: ConditionStatus[] = ['Outstanding', 'Rejected', 'Received', 'Under Review', 'Waived', 'Satisfied']
 
 const SATISFY_WARNING = 'Are you sure you would like to satisfy this condition? You are not the underwriter assigned to this loan.'
 

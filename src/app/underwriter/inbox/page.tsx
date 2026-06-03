@@ -36,7 +36,7 @@ export default async function UnderwriterInbox() {
         .from('conditions')
         .select('id, loan_id, title, description, status, category, rejection_reason, created_at, updated_at')
         .in('loan_id', loanIds)
-        .or('assigned_to.eq.underwriter,status.eq.Received')
+        .or('assigned_to.eq.underwriter,status.eq.Received,status.eq.Under Review')
     : { data: [] }
 
   const items: InboxItem[] = (conditions ?? []).map(c => {
