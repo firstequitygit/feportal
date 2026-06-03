@@ -25,12 +25,13 @@ const APPRAISAL_VALID_DAYS = 120
 const CREDIT_VALID_DAYS = 90
 
 // Per-kind warning windows (days before expiration to send). Maturity
-// gets a longer ladder because it's a bigger operational signal —
-// staff need to start chasing extensions / payoffs further out.
+// gets the longest ladder; appraisal + credit have a 15-day heads-up
+// so staff can schedule a re-pull / re-appraisal in time; rate lock
+// stays short because lock windows themselves are short (15-45 days).
 const WINDOWS_BY_KIND: Record<ExpirationKind, number[]> = {
   rate_lock: [5, 0],
-  appraisal: [5, 0],
-  credit:    [5, 0],
+  appraisal: [15, 5, 0],
+  credit:    [15, 5, 0],
   maturity:  [45, 15, 5, 0],
 }
 
