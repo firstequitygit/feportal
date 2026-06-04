@@ -48,9 +48,12 @@ interface Props {
    *  page knows the visitor's StaffContext; the toggle self-hides unless
    *  the user has both admin + a base role. */
   staffContext?: StaffContext | null
-  /** Unread @mention count — shown as a numeric badge on the Inbox nav
-      item. 0 = no badge. Computed server-side in PortalShell. */
+  /** Unread @mention count — contributes to the red badge on the Inbox
+      nav item. Computed server-side in PortalShell. */
   unreadMentions?: number
+  /** Outstanding-for-you condition count — also contributes to the same
+      Inbox badge. Sum (mentions + outstanding) = number shown. */
+  outstandingForYou?: number
   children: React.ReactNode
 }
 
@@ -118,6 +121,7 @@ export function PortalShellClient({
   impersonation,
   staffContext,
   unreadMentions = 0,
+  outstandingForYou = 0,
   children,
 }: Props) {
   const showViewAsTrigger = variant === 'admin' && !impersonation
@@ -277,10 +281,18 @@ export function PortalShellClient({
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map(({ href, label, icon: Icon, exact }) => {
             const active = navIsActive({ href, label, icon: Icon, exact }, pathname)
-            // Inbox item shows a red pill with the unread @mention count.
-            // Variant-specific Inbox hrefs all end in /inbox; checking the
-            // label is more robust than matching every role-specific path.
-            const showMentionBadge = label === 'Inbox' && unreadMentions > 0
+            // Inbox item shows a red pill with the combined count of
+            // unread @mentions + outstanding-for-you conditions.
+            const inboxBadgeCount = label === 'Inbox' ? unreadMentions + outstandingForYou : 0
+            const showInboxBadge = inboxBadgeCount > 0
+            // Collapsed-sidebar tooltip breaks the count down so users
+            // can see what's contributing at a glance.
+            const collapsedTooltip = showInboxBadge
+              ? `${label} (${[
+                  outstandingForYou > 0 ? `${outstandingForYou} outstanding` : null,
+                  unreadMentions > 0 ? `${unreadMentions} mention${unreadMentions === 1 ? '' : 's'}` : null,
+                ].filter(Boolean).join(' · ')})`
+              : label
             return (
               <Link
                 key={href}
@@ -291,16 +303,16 @@ export function PortalShellClient({
                     ? 'bg-primary/10 text-primary'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 } ${expanded ? 'px-3' : 'px-3 md:justify-center md:px-0'}`}
-                title={!expanded ? `${label}${showMentionBadge ? ` (${unreadMentions} new)` : ''}` : undefined}
+                title={!expanded ? collapsedTooltip : undefined}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 <span className={`flex-1 ${!expanded ? 'md:hidden' : ''}`}>{label}</span>
-                {showMentionBadge && expanded && (
+                {showInboxBadge && expanded && (
                   <span className="text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center">
-                    {unreadMentions > 99 ? '99+' : unreadMentions}
+                    {inboxBadgeCount > 99 ? '99+' : inboxBadgeCount}
                   </span>
                 )}
-                {showMentionBadge && !expanded && (
+                {showInboxBadge && !expanded && (
                   // Tiny red dot when collapsed — no room for the number.
                   <span className="absolute right-1 top-1 w-2 h-2 bg-red-500 rounded-full md:block hidden" />
                 )}

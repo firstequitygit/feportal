@@ -4,6 +4,7 @@ import type { StaffContext } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { countUnreadMentions, resolveRoleIdent } from '@/lib/fetch-mentions'
+import { countOutstandingForRole } from '@/lib/fetch-outstanding-count'
 
 // Server Component wrapper. Fetches StaffContext once on every render so the
 // admin/base toggle in the header is available on every page that uses
@@ -33,10 +34,14 @@ export async function PortalShell(props: PortalShellProps) {
       ? props.staffContext
       : await getEffectiveStaffContext()
 
-  // Unread @mention count for the sidebar badge on the Inbox nav item.
-  // Only computed for the four roles that have an Inbox in their nav —
-  // admin / borrower / broker variants don't render an Inbox item.
+  // Sidebar Inbox badge — sums two streams:
+  //   1. Unread @mentions for this role identity
+  //   2. Outstanding-for-you conditions (same definition as the dashboard
+  //      tile of the same name)
+  // Only computed for the three roles that have an Inbox nav item;
+  // admin / borrower / broker variants render no Inbox.
   let unreadMentions = 0
+  let outstandingForYou = 0
   const kindByVariant = mentionKindForVariant(props.variant)
   if (kindByVariant) {
     try {
@@ -45,16 +50,31 @@ export async function PortalShell(props: PortalShellProps) {
       if (user) {
         const adminClient = createAdminClient()
         const ident = await resolveRoleIdent(adminClient, user.id, kindByVariant)
-        if (ident) unreadMentions = await countUnreadMentions(adminClient, ident)
+        if (ident) {
+          // Both queries are independent — run in parallel.
+          const [m, o] = await Promise.all([
+            countUnreadMentions(adminClient, ident),
+            countOutstandingForRole(adminClient, kindByVariant, ident.id),
+          ])
+          unreadMentions = m
+          outstandingForYou = o
+        }
       }
     } catch (err) {
       // Badge is best-effort. A failure here shouldn't keep the shell
       // from rendering — fall back to 0 (no badge shown).
-      console.error('Unread-mentions count failed:', err instanceof Error ? err.message : err)
+      console.error('Inbox badge count failed:', err instanceof Error ? err.message : err)
     }
   }
 
-  return <PortalShellClient {...props} staffContext={staffContext} unreadMentions={unreadMentions} />
+  return (
+    <PortalShellClient
+      {...props}
+      staffContext={staffContext}
+      unreadMentions={unreadMentions}
+      outstandingForYou={outstandingForYou}
+    />
+  )
 }
 
 function mentionKindForVariant(
