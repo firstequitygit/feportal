@@ -15,6 +15,7 @@ import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
 import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
 import { suggestConditionId } from '@/lib/match-condition'
 import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
+import { ConditionReminderButton } from '@/components/condition-reminder-button'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -39,6 +40,10 @@ interface Props {
   staffDirectory?: StaffDirectorySummary
   notesByCondition?: Record<string, ConditionNote[]>
   mentionableStaff?: import('@/lib/mentionable-staff').MentionableUser[]
+  /** True if the loan has any borrower or broker slot filled — drives
+      the Send Reminder button. Server picks the actual recipient
+      party (broker wins). */
+  hasReminderRecipient?: boolean
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -373,7 +378,7 @@ function ConditionRow({
   )
 }
 
-export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap, loanStaff, staffDirectory, notesByCondition, mentionableStaff }: Props) {
+export function LoanOfficerConditions({ loanId, propertyAddress, conditions, documents, signedUrlMap, loanStaff, staffDirectory, notesByCondition, mentionableStaff, hasReminderRecipient }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -646,6 +651,12 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
               loanId={loanId}
               underwriterName={loanStaff?.underwriter?.full_name ?? null}
               variant="section"
+            />
+            {/* Reminder — emails borrower or broker (broker wins)
+                with the list of outstanding items. */}
+            <ConditionReminderButton
+              loanId={loanId}
+              hasRecipient={!!hasReminderRecipient}
             />
             {!isImpersonating && (
               <>

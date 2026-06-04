@@ -16,6 +16,7 @@ import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatche
 import { suggestConditionId } from '@/lib/match-condition'
 import { useImpersonation } from '@/components/impersonation-provider'
 import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
+import { ConditionReminderButton } from '@/components/condition-reminder-button'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -52,6 +53,10 @@ interface Props {
   notesByCondition?: Record<string, ConditionNote[]>
   /** Staff directory for @mention autocomplete (includes admins). */
   mentionableStaff?: import('@/lib/mentionable-staff').MentionableUser[]
+  /** True if the loan has any borrower or broker slot filled — drives
+      the Send Reminder button. Server picks the actual recipient
+      party (broker wins). */
+  hasReminderRecipient?: boolean
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -381,7 +386,7 @@ function ConditionRow({
   )
 }
 
-export function LoanProcessorConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition, mentionableStaff }: Props) {
+export function LoanProcessorConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition, mentionableStaff, hasReminderRecipient }: Props) {
   const { isImpersonating } = useImpersonation()
   const router = useRouter()
   const supabase = createClient()
@@ -727,6 +732,12 @@ export function LoanProcessorConditions({ loanId, loanType, propertyAddress, con
               loanId={loanId}
               underwriterName={loanStaff?.underwriter?.full_name ?? null}
               variant="section"
+            />
+            {/* Reminder — emails borrower or broker (broker wins)
+                with the list of outstanding items. */}
+            <ConditionReminderButton
+              loanId={loanId}
+              hasRecipient={!!hasReminderRecipient}
             />
             <button
               onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}

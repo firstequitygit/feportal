@@ -15,6 +15,7 @@ import { useImpersonation } from '@/components/impersonation-provider'
 import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
 import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
 import { suggestConditionId } from '@/lib/match-condition'
+import { ConditionReminderButton } from '@/components/condition-reminder-button'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -41,6 +42,10 @@ interface Props {
   staffDirectory?: StaffDirectorySummary
   notesByCondition?: Record<string, ConditionNote[]>
   mentionableStaff?: import('@/lib/mentionable-staff').MentionableUser[]
+  /** True if the loan has any borrower or broker slot filled — drives
+      the Send Reminder button. Server picks the actual recipient
+      party (broker wins). */
+  hasReminderRecipient?: boolean
 }
 
 function statusColor(status: ConditionStatus): string {
@@ -389,7 +394,7 @@ function ConditionRow({
   )
 }
 
-export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition, mentionableStaff }: Props) {
+export function UnderwriterConditions({ loanId, loanType, propertyAddress, conditions, documents, signedUrlMap, templates = [], loanStaff, staffDirectory, notesByCondition, mentionableStaff, hasReminderRecipient }: Props) {
   const router = useRouter()
   const { isImpersonating } = useImpersonation()
   const supabase = createClient()
@@ -702,21 +707,29 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
-          {!isImpersonating && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
-                className="text-xs text-primary hover:opacity-80 font-medium"
-              >
-                Bulk Upload
-              </button>
-              {!adding && (
-                <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
-                  + Add Condition
+          <div className="flex items-center gap-3">
+            {/* Reminder — emails borrower or broker (broker wins)
+                with the list of outstanding items. */}
+            <ConditionReminderButton
+              loanId={loanId}
+              hasRecipient={!!hasReminderRecipient}
+            />
+            {!isImpersonating && (
+              <>
+                <button
+                  onClick={() => { setBulkInitialDocs(undefined); setBulkModalOpen(true) }}
+                  className="text-xs text-primary hover:opacity-80 font-medium"
+                >
+                  Bulk Upload
                 </button>
-              )}
-            </div>
-          )}
+                {!adding && (
+                  <button onClick={() => setAdding(true)} className="text-xs text-primary hover:opacity-80 font-medium">
+                    + Add Condition
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </CardHeader>
         {adding && (
           <CardContent className="pt-0 space-y-3">

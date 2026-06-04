@@ -37,7 +37,6 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
-import { ConditionReminderButton } from '@/components/condition-reminder-button'
 import { buildViewAsOptions } from '@/lib/view-as-options'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -154,10 +153,6 @@ export default async function LoanProcessorLoanPage({
           <div className="flex items-center gap-2">
             <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan)} />
             <LoanAirtableSyncButton loanId={id} />
-            <ConditionReminderButton
-              loanId={id}
-              hasRecipient={!!(loan.borrower_id || loan.borrower_id_2 || loan.borrower_id_3 || loan.borrower_id_4 || loan.broker_id || loan.broker_id_2)}
-            />
             <Link
               href={`/approval-letter/${id}`}
               // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
@@ -467,6 +462,7 @@ export default async function LoanProcessorLoanPage({
           staffDirectory={staffDirectory}
           notesByCondition={conditionNotesByCondition}
           mentionableStaff={mentionableStaff}
+          hasReminderRecipient={!!(loan.borrower_id || loan.borrower_id_2 || loan.borrower_id_3 || loan.borrower_id_4 || loan.broker_id || loan.broker_id_2)}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

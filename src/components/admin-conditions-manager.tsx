@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type Condition, type ConditionTemplate, type ConditionStatus, type AssignedTo, type LoanType, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
+import { ConditionReminderButton } from '@/components/condition-reminder-button'
 
 interface Props {
   loanId: string
@@ -18,6 +19,10 @@ interface Props {
   /** Underwriter assigned to the loan. Drives the Notify UW button —
       null disables it with a tooltip ("No underwriter assigned"). */
   underwriterName?: string | null
+  /** True if the loan has any borrower or broker slot filled — drives
+      the Send Reminder button. Server picks the actual recipient
+      party (broker wins). */
+  hasReminderRecipient?: boolean
 }
 
 // Dropdown order intentionally puts active states first (Outstanding,
@@ -56,7 +61,7 @@ function assignedToLabel(assigned_to: AssignedTo): string {
   }
 }
 
-export function AdminConditionsManager({ loanId, loanType, conditions, templates, propertyAddress, underwriterName }: Props) {
+export function AdminConditionsManager({ loanId, loanType, conditions, templates, propertyAddress, underwriterName, hasReminderRecipient }: Props) {
   const [saving, setSaving] = useState(false)
   const [uploadingSet, setUploadingSet] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -370,11 +375,17 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
               {localConditions.filter(c => c.status !== 'Satisfied' && c.status !== 'Waived' && c.status !== 'Received').length} outstanding
             </span>
           </CardTitle>
-          <NotifyUnderwriterButton
-            loanId={loanId}
-            underwriterName={underwriterName ?? null}
-            variant="section"
-          />
+          <div className="flex items-center gap-2">
+            <NotifyUnderwriterButton
+              loanId={loanId}
+              underwriterName={underwriterName ?? null}
+              variant="section"
+            />
+            <ConditionReminderButton
+              loanId={loanId}
+              hasRecipient={!!hasReminderRecipient}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {/* Hidden file input shared across all conditions */}
