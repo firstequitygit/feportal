@@ -179,13 +179,12 @@ function ConditionRow({
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-xs text-gray-400">Category:</span>
             <select
-              value={condition.category ?? ''}
-              onChange={(e) => onChangeCategory(condition.id, (e.target.value || null) as ConditionCategory | null)}
+              value={condition.category ?? 'initial'}
+              onChange={(e) => onChangeCategory(condition.id, e.target.value as ConditionCategory)}
               disabled={isImpersonating}
               className={`text-xs text-gray-600 bg-transparent border border-transparent hover:border-gray-200 rounded cursor-pointer focus:outline-none focus:border-gray-300 px-1.5 py-0.5 ${isImpersonating ? 'opacity-50 cursor-not-allowed' : ''}`}
               title={isImpersonating ? 'Read-only preview — exit View As to act' : 'Change category'}
             >
-              <option value="">Uncategorized</option>
               {CONDITION_CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
@@ -392,7 +391,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
   const [addDescription, setAddDescription] = useState('')
   const [addAssignedTo, setAddAssignedTo] = useState<AssignedTo | 'other'>('borrower')
   const [addAssignedToStaffId, setAddAssignedToStaffId] = useState<string>('')
-  const [addCategory, setAddCategory] = useState<ConditionCategory | ''>('')
+  const [addCategory, setAddCategory] = useState<ConditionCategory>('initial')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
@@ -607,7 +606,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
           description: addDescription.trim() || null,
           assignedTo: resolvedRole,
           assignedToStaffId: staffId,
-          category: addCategory || null,
+          category: addCategory,
         }
       })()),
     })
@@ -616,7 +615,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       setAdding(false)
       setAddTitle('')
       setAddDescription('')
-      setAddCategory('')
+      setAddCategory('initial')
       setAddAssignedTo('borrower')
       setAddAssignedToStaffId('')
       setAddSaving(false)
@@ -683,10 +682,9 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
               <p className="text-xs text-gray-500 font-medium">Category</p>
               <select
                 value={addCategory}
-                onChange={e => setAddCategory(e.target.value as ConditionCategory | '')}
+                onChange={e => setAddCategory(e.target.value as ConditionCategory)}
                 className="w-full text-sm px-3 py-2 rounded border border-gray-200 bg-white text-gray-700"
               >
-                <option value="">Uncategorized</option>
                 {CONDITION_CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
@@ -742,7 +740,7 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
               <Button size="sm" onClick={handleAddCondition} disabled={addSaving}>
                 {addSaving ? 'Adding...' : 'Add Condition'}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setAddTitle(''); setAddDescription(''); setAddCategory(''); setAddError(null) }}>
+              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setAddTitle(''); setAddDescription(''); setAddCategory('initial'); setAddError(null) }}>
                 Cancel
               </Button>
             </div>

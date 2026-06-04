@@ -160,27 +160,27 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [newAssignedTo, setNewAssignedTo] = useState<AssignedTo>('borrower')
-  const [newCategory, setNewCategory] = useState<ConditionCategory | ''>('')
+  const [newCategory, setNewCategory] = useState<ConditionCategory>('initial')
   const [localConditions, setLocalConditions] = useState<Condition[]>(conditions)
   const [pendingRejection, setPendingRejection] = useState<{ id: string; reason: string } | null>(null)
-  const [pendingTemplate, setPendingTemplate] = useState<{ template: ConditionTemplate; category: ConditionCategory | '' } | null>(null)
+  const [pendingTemplate, setPendingTemplate] = useState<{ template: ConditionTemplate; category: ConditionCategory } | null>(null)
 
   const relevantTemplates = templates.filter(
     t => t.loan_type === null || t.loan_type === loanType
   )
   const alreadyAdded = new Set(localConditions.map(c => c.title))
 
-  async function updateCategory(conditionId: string, category: ConditionCategory | '') {
+  async function updateCategory(conditionId: string, category: ConditionCategory) {
     try {
       const res = await fetch('/api/admin/conditions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conditionId, category: category || null }),
+        body: JSON.stringify({ conditionId, category }),
       })
       const data = await res.json()
       if (data.success) {
         setLocalConditions(prev =>
-          prev.map(c => c.id === conditionId ? { ...c, category: (category || null) as ConditionCategory | null } : c)
+          prev.map(c => c.id === conditionId ? { ...c, category } : c)
         )
         toast.success('Category updated')
       } else {
@@ -192,7 +192,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
     }
   }
 
-  async function addFromTemplate(template: ConditionTemplate, categoryOverride: ConditionCategory | '') {
+  async function addFromTemplate(template: ConditionTemplate, categoryOverride: ConditionCategory) {
     setSaving(true)
     const res = await fetch('/api/admin/conditions', {
       method: 'POST',
@@ -202,7 +202,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
         title: template.title,
         description: template.description,
         assignedTo: template.assigned_to ?? 'borrower',
-        category: categoryOverride || template.category || null,
+        category: categoryOverride,
       }),
     })
     const data = await res.json()
@@ -227,7 +227,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
         title: newTitle.trim(),
         description: newDescription.trim() || null,
         assignedTo: newAssignedTo,
-        category: newCategory || null,
+        category: newCategory,
       }),
     })
     const data = await res.json()
@@ -236,7 +236,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
       setNewTitle('')
       setNewDescription('')
       setNewAssignedTo('borrower')
-      setNewCategory('')
+      setNewCategory('initial')
       toast.success('Condition added')
     } else {
       toast.error('Failed to add condition: ' + (data.error ?? 'Unknown error'))
@@ -441,11 +441,10 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                             </button>
                             {/* Category dropdown */}
                             <select
-                              value={condition.category ?? ''}
-                              onChange={(e) => updateCategory(condition.id, e.target.value as ConditionCategory | '')}
+                              value={condition.category ?? 'initial'}
+                              onChange={(e) => updateCategory(condition.id, e.target.value as ConditionCategory)}
                               className="text-xs px-2 py-1 rounded border border-gray-200 bg-white cursor-pointer text-gray-600"
                             >
-                              <option value="">Uncategorized</option>
                               {CONDITION_CATEGORIES.map(c => (
                                 <option key={c.value} value={c.value}>{c.label}</option>
                               ))}
@@ -557,10 +556,9 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
             <span className="text-sm text-gray-500">Category:</span>
             <select
               value={newCategory}
-              onChange={e => setNewCategory(e.target.value as ConditionCategory | '')}
+              onChange={e => setNewCategory(e.target.value as ConditionCategory)}
               className="text-sm px-2 py-1.5 rounded border border-gray-200 bg-white text-gray-700"
             >
-              <option value="">Uncategorized</option>
               {CONDITION_CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
@@ -610,7 +608,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                       disabled={saving || added}
                       onClick={() => isPending
                         ? setPendingTemplate(null)
-                        : setPendingTemplate({ template, category: template.category ?? '' })
+                        : setPendingTemplate({ template, category: (template.category as ConditionCategory | null) ?? 'initial' })
                       }
                       className="shrink-0"
                     >
@@ -624,10 +622,9 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                       <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Category:</span>
                       <select
                         value={pendingTemplate.category}
-                        onChange={e => setPendingTemplate({ ...pendingTemplate, category: e.target.value as ConditionCategory | '' })}
+                        onChange={e => setPendingTemplate({ ...pendingTemplate, category: e.target.value as ConditionCategory })}
                         className="text-sm px-2 py-1.5 rounded border border-gray-200 bg-white text-gray-700"
                       >
-                        <option value="">Uncategorized</option>
                         {CONDITION_CATEGORIES.map(c => (
                           <option key={c.value} value={c.value}>{c.label}</option>
                         ))}
