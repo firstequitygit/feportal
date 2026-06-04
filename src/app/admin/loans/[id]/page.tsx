@@ -38,6 +38,7 @@ import { formatInterestRate } from '@/lib/format-interest-rate'
 import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
+import { ConditionReminderButton } from '@/components/condition-reminder-button'
 import Link from 'next/link'
 
 function formatCurrency(val: number | null): string {
@@ -150,6 +151,10 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan, { includeStaff: true })} />
             <LoanAirtableSyncButton loanId={id} />
+            <ConditionReminderButton
+              loanId={id}
+              hasRecipient={!!(loan.borrower_id || loan.borrower_id_2 || loan.borrower_id_3 || loan.borrower_id_4 || loan.broker_id || loan.broker_id_2)}
+            />
             <Link
               href={`/approval-letter/${id}`}
               // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
