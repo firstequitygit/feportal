@@ -55,6 +55,10 @@ export async function PATCH(req: NextRequest) {
     adminClient,
     conditionId,
     extra: { response: response.trim() },
+    // Text responses intentionally do NOT nudge the UW per response —
+    // the status change is enough. Manual status changes from staff
+    // still email the UW via their dedicated routes.
+    notifyUwOnUrgentReceived: false,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

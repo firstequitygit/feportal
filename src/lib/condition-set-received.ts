@@ -24,6 +24,18 @@ interface Params {
    * the borrower's reply. status='Received' is set unconditionally.
    */
   extra?: Record<string, unknown>
+  /**
+   * When false, skips the urgent-received email to the UW even if the
+   * condition is urgent and we just transitioned into Received.
+   * Default: true (back-compat — every prior caller relied on this).
+   *
+   * Set to false from doc-upload + text-response paths where the
+   * underwriter shouldn't get a per-document / per-response nudge.
+   * Manual status changes by staff (admin/LO/LP/UW conditions routes)
+   * still fire the email — they call notifyUwIfUrgentReceived
+   * directly and aren't affected by this flag.
+   */
+  notifyUwOnUrgentReceived?: boolean
 }
 
 /**
@@ -34,6 +46,7 @@ export async function setConditionReceived({
   adminClient,
   conditionId,
   extra = {},
+  notifyUwOnUrgentReceived = true,
 }: Params): Promise<{ error: { message: string } | null }> {
   const { data: prev } = await adminClient
     .from('conditions')
@@ -51,12 +64,17 @@ export async function setConditionReceived({
 
   // Side effect — fire-and-forget. Helper itself swallows errors so a
   // mail failure can't roll back the status change.
-  await notifyUwIfUrgentReceived({
-    adminClient,
-    conditionId,
-    newStatus: 'Received',
-    previousStatus,
-  })
+  //
+  // Doc-upload + text-response callers pass false to suppress this —
+  // those flows shouldn't nudge the UW per file / per response.
+  if (notifyUwOnUrgentReceived) {
+    await notifyUwIfUrgentReceived({
+      adminClient,
+      conditionId,
+      newStatus: 'Received',
+      previousStatus,
+    })
+  }
 
   return { error: null }
 }

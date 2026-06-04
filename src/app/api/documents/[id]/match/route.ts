@@ -45,10 +45,12 @@ export async function PATCH(
     if (!condition || condition.loan_id !== doc.loan_id) {
       return NextResponse.json({ error: 'Condition not on this loan' }, { status: 400 })
     }
-    // Flip condition status from Outstanding/Rejected to Received, matching existing upload-record behavior.
-    // setConditionReceived also fires the urgent-received email when applicable.
+    // Flip condition status from Outstanding/Rejected to Received,
+    // matching existing upload-record behavior. The UW notification
+    // is suppressed here too — bulk-matching uploaded docs to
+    // conditions is downstream of an upload, same trigger event.
     if (condition.status === 'Outstanding' || condition.status === 'Rejected') {
-      await setConditionReceived({ adminClient, conditionId: condition.id })
+      await setConditionReceived({ adminClient, conditionId: condition.id, notifyUwOnUrgentReceived: false })
     }
   }
 

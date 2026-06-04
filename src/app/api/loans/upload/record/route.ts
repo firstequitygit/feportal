@@ -78,10 +78,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Flip the condition into the underwriter review queue when it was outstanding.
-  // setConditionReceived also fires the urgent-received notification when
-  // applicable, so we don't have to thread it manually.
+  // Document uploads intentionally do NOT nudge the UW per file — the
+  // status change is enough; UW reviews their own queue. Manual status
+  // changes from staff still email the UW via their dedicated routes.
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
-    await setConditionReceived({ adminClient, conditionId })
+    await setConditionReceived({ adminClient, conditionId, notifyUwOnUrgentReceived: false })
   }
 
   // One event row per batch (lists every file name) so the activity feed

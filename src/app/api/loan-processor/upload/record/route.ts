@@ -60,9 +60,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: 'Could not save documents: ' + error.message }, { status: 500 })
 
-  // Flip into Received + fire urgent-received email when applicable.
+  // Flip into Received. Document uploads intentionally do NOT nudge
+  // the UW per file — the status change is enough; UW reviews their
+  // own queue.
   if (condition?.status === 'Outstanding' || condition?.status === 'Rejected') {
-    await setConditionReceived({ adminClient, conditionId })
+    await setConditionReceived({ adminClient, conditionId, notifyUwOnUrgentReceived: false })
   }
 
   try {
