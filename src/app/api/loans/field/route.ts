@@ -97,6 +97,8 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // ===== loan_details table (portal-only, no Pipedrive sync) =====
   // Loan / Deal Overview
   investor_loan_number:    { type: 'text',     table: 'loan_details' },
+  min_number:              { type: 'text',     table: 'loan_details' },
+  funded_date:             { type: 'date',     table: 'loan_details' },
   loan_application:        { type: 'text',     table: 'loan_details' },
   submitted_at:            { type: 'date',     table: 'loan_details' },
   urgency:                 { type: 'enum',     table: 'loan_details', validValues: URGENCY_OPTIONS },

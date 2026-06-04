@@ -226,12 +226,7 @@ export default async function UnderwriterLoanPage({
               <FieldRow label="Term">
                 <EditableLoanField loanId={id} field="term_months" type="number" currentValue={loan.term_months} display={loan.term_months ? `${loan.term_months} months` : '—'} placeholder="360" step="1" />
               </FieldRow>
-              <FieldRow label="Origination Date">
-                <EditableLoanField loanId={id} field="origination_date" type="date" currentValue={loan.origination_date} display={formatDate(loan.origination_date)} />
-              </FieldRow>
-              <FieldRow label="Maturity Date">
-                <EditableLoanField loanId={id} field="maturity_date" type="date" currentValue={loan.maturity_date} display={formatDate(loan.maturity_date)} />
-              </FieldRow>
+              {/* Origination Date + Maturity Date moved to Loan / Deal Overview inside the Loan Details card. */}
               <FieldRow label="Entity Name">
                 <EditableLoanField loanId={id} field="entity_name" type="text" currentValue={loan.entity_name} display={loan.entity_name ?? '—'} inputWidthClass="w-48" />
               </FieldRow>
@@ -323,6 +318,8 @@ export default async function UnderwriterLoanPage({
             termMonths={loan.term_months}
             interestOnly={loan.interest_only}
             loanArv={loan.arv}
+            originationDate={loan.origination_date}
+            maturityDate={loan.maturity_date}
           />
         </div>
 

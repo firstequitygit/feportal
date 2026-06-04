@@ -11,6 +11,8 @@ Loan Overview,origination_date,loans,Closing Date,Bidirectional,Direct
 Loan Overview,maturity_date,loans,Maturity Date (trailing space),Bidirectional,"Airtable field literally has a trailing space"
 Loan Overview,entity_name,loans,Entity,Bidirectional,Direct
 Loan / Deal Overview,investor_loan_number,loan_details,Investor Loan Number,Bidirectional,Direct
+Loan / Deal Overview,min_number,loan_details,Min #,Bidirectional,Direct
+Loan / Deal Overview,funded_date,loan_details,Funding Date,Bidirectional,Direct
 Loan / Deal Overview,submitted_at,loan_details,Submitted,Bidirectional,Direct
 Loan / Deal Overview,urgency,loan_details,Urgency,Bidirectional,Direct
 Loan / Deal Overview,investor,loan_details,Investor,Bidirectional,Direct

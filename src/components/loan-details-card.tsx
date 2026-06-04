@@ -10,6 +10,8 @@ import { formatDate } from '@/lib/format-date'
 export interface LoanDetails {
   // Loan / Deal Overview
   investor_loan_number?: string | null
+  min_number?: string | null
+  funded_date?: string | null
   loan_application?: string | null
   submitted_at?: string | null
   urgency?: string | null
@@ -151,6 +153,11 @@ interface Props {
   interestOnly?: string | null
   /** From the loans table — mirrored under Valuation / Collateral as Value (ARV). */
   loanArv?: number | null
+  /** From the loans table — shown in the Loan / Deal Overview section
+   *  alongside the loan_details-owned dates. The underlying columns
+   *  live on `loans`, not `loan_details`, but the UI groups them here. */
+  originationDate?: string | null
+  maturityDate?: string | null
   /** Default-open behavior for the whole card. Defaults to false (collapsed). */
   defaultOpen?: boolean
 }
@@ -316,6 +323,8 @@ export function LoanDetailsCard({
   termMonths,
   interestOnly,
   loanArv,
+  originationDate,
+  maturityDate,
   defaultOpen = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen)
@@ -362,6 +371,37 @@ export function LoanDetailsCard({
                 display={formatDate(d.submitted_at)}
               />
             </DetailRow>
+            {/* Origination + Maturity used to live in the Loan Summary
+                card; staff find them more useful here next to the
+                other deal-level dates. Columns still live on the
+                loans table — the values come in through props. */}
+            <DetailRow label="Origination Date">
+              <EditableLoanField
+                loanId={loanId}
+                field="origination_date"
+                type="date"
+                currentValue={originationDate ?? null}
+                display={formatDate(originationDate)}
+              />
+            </DetailRow>
+            <DetailRow label="Maturity Date">
+              <EditableLoanField
+                loanId={loanId}
+                field="maturity_date"
+                type="date"
+                currentValue={maturityDate ?? null}
+                display={formatDate(maturityDate)}
+              />
+            </DetailRow>
+            <DetailRow label="Funded Date">
+              <EditableLoanField
+                loanId={loanId}
+                field="funded_date"
+                type="date"
+                currentValue={d.funded_date ?? null}
+                display={formatDate(d.funded_date)}
+              />
+            </DetailRow>
             <DetailRow label="Investor Loan Number">
               <EditableLoanField
                 loanId={loanId}
@@ -369,6 +409,15 @@ export function LoanDetailsCard({
                 type="text"
                 currentValue={d.investor_loan_number ?? null}
                 display={d.investor_loan_number ?? '—'}
+              />
+            </DetailRow>
+            <DetailRow label="MIN #">
+              <EditableLoanField
+                loanId={loanId}
+                field="min_number"
+                type="text"
+                currentValue={d.min_number ?? null}
+                display={d.min_number ?? '—'}
               />
             </DetailRow>
             <DetailRow label="Loan Application">

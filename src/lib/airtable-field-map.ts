@@ -306,6 +306,8 @@ export const FIELD_MAP: FieldMapping[] = [
 
   // ---- Loan / Deal Overview ----
   s('investor_loan_number', 'loan_details', 'Investor Loan Number'),
+  s('min_number',           'loan_details', 'Min #'),
+  s('funded_date',          'loan_details', 'Funding Date'),
   s('submitted_at', 'loan_details', 'Submitted'),
   s('urgency', 'loan_details', 'Urgency'),
   s('investor', 'loan_details', 'Investor'),
