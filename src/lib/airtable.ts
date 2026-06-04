@@ -49,7 +49,7 @@ import {
 // Re-enabling: flip the constant + ship. No backfill needed — the
 // field map's "portal wins, Airtable backfills" rule is stateless
 // and reconciles whatever drift accumulated on the next sync.
-export const AIRTABLE_SYNC_PAUSED = true
+export const AIRTABLE_SYNC_PAUSED = false
 
 function pausedNoop(): boolean {
   return AIRTABLE_SYNC_PAUSED
