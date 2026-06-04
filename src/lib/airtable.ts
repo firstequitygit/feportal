@@ -35,6 +35,27 @@ import {
 } from '@/lib/airtable-field-map'
 
 // ============================================================
+// Global pause switch
+// ============================================================
+//
+// Flip to `false` to restore syncing. While paused:
+//   - the hourly /api/cron/sync-airtable cron returns early with a
+//     paused summary and pushes nothing
+//   - the admin sidebar "Sync Next Batch" button reports paused
+//   - the per-loan "Sync to Airtable" button reports paused
+//   - inline pushes triggered by stage / status changes no-op so
+//     the underlying portal write still succeeds
+//
+// Re-enabling: flip the constant + ship. No backfill needed — the
+// field map's "portal wins, Airtable backfills" rule is stateless
+// and reconciles whatever drift accumulated on the next sync.
+export const AIRTABLE_SYNC_PAUSED = true
+
+function pausedNoop(): boolean {
+  return AIRTABLE_SYNC_PAUSED
+}
+
+// ============================================================
 // Low-level fetch with retry/backoff
 // ============================================================
 
@@ -249,7 +270,8 @@ const AIRTABLE_LOAN_STATUS_FIELD = 'Loan Status'
 export async function pushLoanStatusToAirtable(
   pipedriveDealId: string,
   statusLabel: 'Canceled' | 'On Hold' | null,
-): Promise<{ updated: boolean; recordId?: string }> {
+): Promise<{ updated: boolean; recordId?: string; paused?: boolean }> {
+  if (pausedNoop()) return { updated: false, paused: true }
   const dealRecord = await findDealByPipedriveId(pipedriveDealId)
   if (!dealRecord) return { updated: false }
 
@@ -277,7 +299,7 @@ export interface FieldDelta {
 
 export interface SyncResult {
   loanId: string
-  status: 'reconciled' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'error'
+  status: 'reconciled' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'paused' | 'error'
   airtableRecordId?: string
   pushedToAirtable: number      // number of Airtable fields filled in
   pulledToPortal: number        // number of portal columns filled in
@@ -286,6 +308,9 @@ export interface SyncResult {
 }
 
 export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?: boolean } = {}): Promise<SyncResult> {
+  if (pausedNoop()) {
+    return { loanId, status: 'paused', pushedToAirtable: 0, pulledToPortal: 0 }
+  }
   const supa = createAdminClient()
   const collectDeltas = opts.collectDeltas ?? false
 
@@ -612,6 +637,9 @@ export interface BatchSyncSummary {
   skippedNoAirtableRow: number
   errors: number
   errorSample: Array<{ loanId: string; error: string }>
+  /** Set when AIRTABLE_SYNC_PAUSED is on — every other field is 0 and
+   *  callers should toast a paused state instead of a success summary. */
+  paused?: boolean
 }
 
 /**
@@ -633,6 +661,19 @@ export interface BatchSyncSummary {
 export async function syncAllLoansToAirtable(
   opts: { limit?: number; oldestFirst?: boolean } = {},
 ): Promise<BatchSyncSummary> {
+  if (pausedNoop()) {
+    return {
+      total: 0,
+      reconciled: 0,
+      pushedFieldsTotal: 0,
+      pulledFieldsTotal: 0,
+      skippedNoDealId: 0,
+      skippedNoAirtableRow: 0,
+      errors: 0,
+      errorSample: [],
+      paused: true,
+    }
+  }
   const supa = createAdminClient()
   const { limit, oldestFirst = false } = opts
 

@@ -31,6 +31,7 @@ interface BatchSummary {
   skippedNoAirtableRow: number
   errors: number
   errorSample?: Array<{ loanId: string; error: string }>
+  paused?: boolean
 }
 
 /**
@@ -68,6 +69,11 @@ export function AirtableSyncButton({ collapsed = false }: { collapsed?: boolean 
 
       if (d.ok && d.summary) {
         const s = d.summary as BatchSummary
+        if (s.paused) {
+          // Global pause switch flipped on (src/lib/airtable.ts).
+          toast.info('Airtable sync is paused — nothing was sent', { id: toastId, duration: 8000 })
+          return
+        }
         const headline = `Synced ${s.reconciled} of ${s.total} loans · pushed ${s.pushedFieldsTotal} → Airtable · pulled ${s.pulledFieldsTotal} → portal · ${s.skippedNoAirtableRow} no match · ${s.errors} errors`
         if (s.errors > 0 && s.errorSample && s.errorSample.length > 0) {
           console.error('Airtable sync errors (sample):', s.errorSample)

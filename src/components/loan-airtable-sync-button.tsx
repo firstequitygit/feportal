@@ -18,7 +18,7 @@ import { useImpersonation } from '@/components/impersonation-provider'
  */
 interface SyncResult {
   loanId: string
-  status: 'reconciled' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'error'
+  status: 'reconciled' | 'skipped-no-deal-id' | 'skipped-no-airtable-row' | 'paused' | 'error'
   pushedToAirtable: number
   pulledToPortal: number
   error?: string
@@ -50,6 +50,9 @@ export function LoanAirtableSyncButton({ loanId }: { loanId: string }) {
           `Synced · pushed ${r.pushedToAirtable} → Airtable · pulled ${r.pulledToPortal} → portal`,
           { id: toastId, duration: 8000 },
         )
+      } else if (r.status === 'paused') {
+        // Global pause switch flipped on (src/lib/airtable.ts).
+        toast.info('Airtable sync is paused — nothing was sent', { id: toastId, duration: 8000 })
       } else if (r.status === 'skipped-no-deal-id') {
         toast.error('Loan has no Pipedrive Deal ID — nothing to sync', { id: toastId })
       } else if (r.status === 'skipped-no-airtable-row') {
