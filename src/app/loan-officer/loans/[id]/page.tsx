@@ -25,6 +25,7 @@ import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
+import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
@@ -124,6 +125,10 @@ export default async function LoanOfficerLoanPage({
   }
 
   const mentionableStaff = await fetchMentionableStaff()
+
+  // This staff user's saved Loan Details views — drives the in-card
+  // picker and the manage-views modal.
+  const detailViewBundle = await fetchLoanDetailViews(adminClient, user.id)
 
   const borrower = loan.borrowers as { full_name: string | null; email: string; phone: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
@@ -394,6 +399,9 @@ export default async function LoanOfficerLoanPage({
             loanArv={loan.arv}
             originationDate={loan.origination_date}
             maturityDate={loan.maturity_date}
+            views={detailViewBundle.views}
+            defaultViewId={detailViewBundle.defaultViewId}
+            initialHiddenFields={detailViewBundle.initialHiddenFields}
           />
         </div>
 

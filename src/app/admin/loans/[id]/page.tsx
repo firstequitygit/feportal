@@ -13,6 +13,7 @@ import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
+import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { LoanType } from '@/lib/types'
@@ -107,6 +108,12 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   // Staff directory for @mention autocomplete in Staff Notes / condition
   // notes. Includes admins, which fetchStaffDirectory doesn't.
   const mentionableStaff = await fetchMentionableStaff()
+
+  // This staff user's saved Loan Details views — drives the in-card
+  // picker and the manage-views modal. Empty list = no views saved
+  // yet, picker still renders so they can open the manager to create
+  // their first one.
+  const detailViewBundle = await fetchLoanDetailViews(adminClient, user.id)
 
   const isArchived = (archivedIds ?? []).some((r: { loan_id: string }) => r.loan_id === id)
 
@@ -317,6 +324,9 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
             loanArv={loan.arv}
             originationDate={loan.origination_date}
             maturityDate={loan.maturity_date}
+            views={detailViewBundle.views}
+            defaultViewId={detailViewBundle.defaultViewId}
+            initialHiddenFields={detailViewBundle.initialHiddenFields}
           />
         </div>
 

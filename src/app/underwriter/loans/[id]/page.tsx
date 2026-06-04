@@ -22,6 +22,7 @@ import { FieldRow } from '@/components/field-row'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
+import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
 import { UnclaimButton } from '@/components/unclaim-button'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
@@ -110,6 +111,10 @@ export default async function UnderwriterLoanPage({
   const loanProcessors = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string; email: string | null; phone: string | null } => !!p)
 
   const mentionableStaff = await fetchMentionableStaff()
+
+  // This staff user's saved Loan Details views — drives the in-card
+  // picker and the manage-views modal.
+  const detailViewBundle = await fetchLoanDetailViews(adminClient, user.id)
 
   return (
     <PortalShell userName={uw.full_name} userRole="Underwriter" dashboardHref="/underwriter/inbox" variant="underwriter" impersonation={isImpersonating ? {
@@ -320,6 +325,9 @@ export default async function UnderwriterLoanPage({
             loanArv={loan.arv}
             originationDate={loan.origination_date}
             maturityDate={loan.maturity_date}
+            views={detailViewBundle.views}
+            defaultViewId={detailViewBundle.defaultViewId}
+            initialHiddenFields={detailViewBundle.initialHiddenFields}
           />
         </div>
 
