@@ -6,11 +6,19 @@
 //   - pipeline_stage != 'New Application'
 //   - pipeline_stage IS NOT NULL  ("Empty" in Alicyn's view)
 //
+// Scale guard: capped at MAX_ROWS most-recent loans because the
+// joined+denormalized payload of ~50 columns × 2k+ loans easily
+// exceeds Vercel's per-response size cap (4.5 MB). The data-tape UI
+// surfaces the cap in a banner when we hit it. Adjust the constant
+// once we move to a paginated/streaming surface.
+//
 // The column set deliberately matches docs/airtable-field-map.csv —
 // those are the fields already chosen as the source of truth between
 // portal and Alicyn's base, so the data tape mirrors them 1:1.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+
+export const DATA_TAPE_MAX_ROWS = 1000
 
 export interface DataTapeRow {
   // ---- Identifiers ----
@@ -117,54 +125,94 @@ export interface DataTapeRow {
   underwriter_notes: string | null
 }
 
-export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTapeRow[]> {
-  // Single round trip. Supabase's nested select pulls the joined
-  // loan_details + role-staff names in one query rather than N+1.
-  const { data, error } = await adminClient
-    .from('loans')
-    .select(`
-      id, property_address, loan_number, pipeline_stage, loan_status,
-      loan_type, loan_amount, interest_rate, ltv, arv, rehab_budget,
-      term_months, interest_only, rate_locked_days, rate_lock_expiration_date,
-      rate_lock_extended, origination_date, maturity_date, entity_name,
-      estimated_closing_date,
-      borrowers!borrower_id ( full_name ),
-      brokers!broker_id ( full_name, company_name ),
-      loan_officers!loan_officer_id ( full_name ),
-      loan_processors!loan_processor_id ( full_name ),
-      underwriters!underwriter_id ( full_name ),
-      loan_details (
-        investor_loan_number, min_number, submitted_at, funded_date,
-        urgency, investor, cross_collateralization, foreign_national,
-        property_state, property_type, number_of_units, flood_zone,
-        square_footage,
-        loan_type_one, initial_loan_amount, cash_out_amount,
-        rate_type, points, broker_points, broker_ysp,
-        amortization_schedule, prepayment_penalty, first_payment_date,
-        underwriting_fee, legal_doc_prep_fee, desk_review_fee,
-        small_balance_fee, feasibility_fee, additional_fees,
-        purchase_price, acquisition_date, value_as_is, value_bpo,
-        construction_holdback, qualifying_rent,
-        annual_property_tax, annual_insurance_premium,
-        annual_flood_insurance, annual_hoa_dues,
-        number_of_properties, verified_assets,
-        credit_score, credit_report_date,
-        appraisal_paid_date, appraisal_received_date, appraisal_effective_date,
-        title_company, insurance_company, appraisal_company,
-        exceptions, underwriter_notes
-      )
-    `)
-    .eq('archived', false)
-    .neq('pipeline_stage', 'New Application')
-    .not('pipeline_stage', 'is', null)
-    .order('created_at', { ascending: false })
+export interface DataTapeResult {
+  rows: DataTapeRow[]
+  /** Total matching loans in the DB, even if we capped the returned
+   *  rows. Drives the "Showing N of M" banner in the UI. */
+  totalMatching: number
+  /** True when the result was clipped at DATA_TAPE_MAX_ROWS. */
+  capped: boolean
+  /** Set when the query itself errored — the page still renders the
+   *  empty-state shell instead of a 500. */
+  errorMessage: string | null
+}
 
-  if (error) {
-    console.error('fetchDataTape error:', error)
-    return []
+export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTapeResult> {
+  try {
+    // Headcount query — small and cheap, so we know whether to flag
+    // the capped state in the UI.
+    const { count } = await adminClient
+      .from('loans')
+      .select('id', { count: 'exact', head: true })
+      .eq('archived', false)
+      .neq('pipeline_stage', 'New Application')
+      .not('pipeline_stage', 'is', null)
+
+    const totalMatching = count ?? 0
+
+    // Main fetch — single round trip with nested role-staff names and
+    // the full loan_details row. .range() pulls the most recent
+    // DATA_TAPE_MAX_ROWS so the response stays under Vercel's size
+    // ceiling. Closed loans come back in this set too (they're not
+    // archived yet) so the UI's stage filter handles "active only"
+    // toggling.
+    const { data, error } = await adminClient
+      .from('loans')
+      .select(`
+        id, property_address, loan_number, pipeline_stage, loan_status,
+        loan_type, loan_amount, interest_rate, ltv, arv, rehab_budget,
+        term_months, interest_only, rate_locked_days, rate_lock_expiration_date,
+        rate_lock_extended, origination_date, maturity_date, entity_name,
+        estimated_closing_date,
+        borrowers!borrower_id ( full_name ),
+        brokers!broker_id ( full_name, company_name ),
+        loan_officers!loan_officer_id ( full_name ),
+        loan_processors!loan_processor_id ( full_name ),
+        underwriters!underwriter_id ( full_name ),
+        loan_details (
+          investor_loan_number, min_number, submitted_at, funded_date,
+          urgency, investor, cross_collateralization, foreign_national,
+          property_state, property_type, number_of_units, flood_zone,
+          square_footage,
+          loan_type_one, initial_loan_amount, cash_out_amount,
+          rate_type, points, broker_points, broker_ysp,
+          amortization_schedule, prepayment_penalty, first_payment_date,
+          underwriting_fee, legal_doc_prep_fee, desk_review_fee,
+          small_balance_fee, feasibility_fee, additional_fees,
+          purchase_price, acquisition_date, value_as_is, value_bpo,
+          construction_holdback, qualifying_rent,
+          annual_property_tax, annual_insurance_premium,
+          annual_flood_insurance, annual_hoa_dues,
+          number_of_properties, verified_assets,
+          credit_score, credit_report_date,
+          appraisal_paid_date, appraisal_received_date, appraisal_effective_date,
+          title_company, insurance_company, appraisal_company,
+          exceptions, underwriter_notes
+        )
+      `)
+      .eq('archived', false)
+      .neq('pipeline_stage', 'New Application')
+      .not('pipeline_stage', 'is', null)
+      .order('created_at', { ascending: false })
+      .range(0, DATA_TAPE_MAX_ROWS - 1)
+
+    if (error) {
+      console.error('fetchDataTape query error:', error)
+      return { rows: [], totalMatching, capped: false, errorMessage: error.message }
+    }
+
+    const rows = (data ?? []).map(flatten)
+    return {
+      rows,
+      totalMatching,
+      capped: totalMatching > rows.length,
+      errorMessage: null,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('fetchDataTape failed:', msg)
+    return { rows: [], totalMatching: 0, capped: false, errorMessage: msg }
   }
-
-  return (data ?? []).map(flatten)
 }
 
 interface RawLoan {

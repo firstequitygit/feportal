@@ -7,8 +7,15 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
 import { DataTape } from '@/components/data-tape'
-import { fetchDataTape } from '@/lib/fetch-data-tape'
+import { fetchDataTape, DATA_TAPE_MAX_ROWS } from '@/lib/fetch-data-tape'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
+
+// 1-2k loans × 50 columns can run long on the joined fetch. The default
+// 10s function ceiling sometimes wasn't enough; 60 gives plenty of room.
+export const maxDuration = 60
+// Always render fresh — the underlying loans table changes constantly
+// and a stale build cache would show old assignments.
+export const dynamic = 'force-dynamic'
 
 export default async function UnderwriterDataTapePage({
   searchParams,
@@ -31,7 +38,7 @@ export default async function UnderwriterDataTapePage({
   )
   if (!uw) redirect('/login')
 
-  const rows = await fetchDataTape(adminClient)
+  const result = await fetchDataTape(adminClient)
 
   return (
     <PortalShell
@@ -51,8 +58,21 @@ export default async function UnderwriterDataTapePage({
           Pipeline-wide loan view — same fields Alicyn tracks in Airtable.
           Excludes archived loans and New Application stage.
         </p>
+        {result.errorMessage && (
+          <div className="mt-3 text-sm rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2">
+            Could not load loans: {result.errorMessage}
+          </div>
+        )}
+        {result.capped && !result.errorMessage && (
+          <div className="mt-3 text-sm rounded-md border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2">
+            Showing the {DATA_TAPE_MAX_ROWS} most recently created loans of{' '}
+            <strong>{result.totalMatching}</strong> matching loans. Use the
+            search and filters below to narrow further; the CSV export
+            covers everything currently visible.
+          </div>
+        )}
       </div>
-      <DataTape rows={rows} loanDetailHref={id => `/underwriter/loans/${id}`} />
+      <DataTape rows={result.rows} loanDetailHref={id => `/underwriter/loans/${id}`} />
     </PortalShell>
   )
 }
