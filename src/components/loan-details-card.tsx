@@ -785,7 +785,7 @@ export function LoanDetailsCard({
                   type="currency"
                   currentValue={d.underwriting_fee ?? null}
                   display={formatCurrency(d.underwriting_fee)}
-                  placeholder="1500"
+                  placeholder="1695"
                 />
               </DetailRow>
               <DetailRow fieldKey="legal_doc_prep_fee" label="Legal/Doc Prep Fee">
@@ -795,7 +795,7 @@ export function LoanDetailsCard({
                   type="currency"
                   currentValue={d.legal_doc_prep_fee ?? null}
                   display={formatCurrency(d.legal_doc_prep_fee)}
-                  placeholder="850"
+                  placeholder="995"
                 />
               </DetailRow>
               {/* Desk Review Fee + Small Balance Fee mirror Airtable
