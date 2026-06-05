@@ -378,7 +378,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: `Invalid value for ${field}` }, { status: 400 })
     }
     dbValue = value
-    if (table === 'loans') {
+    // Only require a Pipedrive option mapping when the field actually
+    // syncs to Pipedrive. Portal-only loans-table enums (e.g.
+    // rate_lock_extended, which syncs with Airtable but not Pipedrive)
+    // have no pdKey and no optionMap — skip the Pipedrive value resolution
+    // entirely; the write path below already gates on config.pdKey.
+    if (table === 'loans' && config.pdKey) {
       const optionId = config.optionMap?.[value]
       if (optionId === undefined) return NextResponse.json({ error: `No Pipedrive option mapped for "${value}"` }, { status: 500 })
       pdValue = optionId
