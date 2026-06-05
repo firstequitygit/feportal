@@ -376,10 +376,19 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
     reconcileScalar(m, loan, detailRow, airtableFields, airtablePatch, portalLoanPatch, portalDetailPatch, deltas, collectDeltas, schema)
   }
 
-  // 4. Reconcile each vendor mapping (linked-table)
+  // 4. Reconcile each vendor mapping (linked-table). Per-vendor
+  //    try/catch so a single bad vendor row (e.g., the linked-record
+  //    field on Deals drifted to a non-link type) doesn't abort the
+  //    whole sync — we just skip that vendor's link and let every
+  //    other field push through.
   for (const m of FIELD_MAP) {
     if (m.kind !== 'vendor') continue
-    await reconcileVendor(m, detailRow, airtableFields, airtablePatch, portalDetailPatch, deltas, collectDeltas)
+    try {
+      await reconcileVendor(m, detailRow, airtableFields, airtablePatch, portalDetailPatch, deltas, collectDeltas)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`[airtable] vendor reconcile failed for ${m.airtableLinkField} — skipping: ${msg.slice(0, 240)}`)
+    }
   }
 
   // 5. Apply Airtable changes (PATCH the Deal — typecast lets Airtable coerce
@@ -422,13 +431,15 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
           continue
         }
 
-        // 422 INVALID_VALUE_FOR_COLUMN example body:
-        //   {"error":{"type":"INVALID_VALUE_FOR_COLUMN","message":"Field
-        //    \"Additional Fees\" cannot accept the provided value"}}
-        // Quotes around the field name are JSON-escaped (\") in the raw
-        // body text, so the regex allows either form.
-        const valueMatch = /INVALID_VALUE_FOR_COLUMN[\s\S]*?Field \\?"([^"\\]+)\\?"/.exec(msg)
-        const valueField = valueMatch?.[1]?.trim()
+        // 422 INVALID_VALUE_FOR_COLUMN ships in at least two message
+        // shapes — Airtable phrases it differently depending on which
+        // validator caught the bad value:
+        //   "Field \"Additional Fees\" cannot accept the provided value"
+        //   "Cannot parse value for field Title"
+        // Both end up as INVALID_VALUE_FOR_COLUMN; the regex captures
+        // whichever form Airtable used.
+        const valueMatch = /INVALID_VALUE_FOR_COLUMN[\s\S]*?(?:Field \\"([^"\\]+)\\"|field ([^"]+?)")/.exec(msg)
+        const valueField = (valueMatch?.[1] ?? valueMatch?.[2])?.trim()
         if (valueField && airtablePatch[valueField] !== undefined) {
           const rejected = airtablePatch[valueField]
           console.warn(`[airtable] field "${valueField}" rejected value ${JSON.stringify(rejected)} — dropping from this sync; investigate Airtable schema (likely formula / read-only / type changed)`)
