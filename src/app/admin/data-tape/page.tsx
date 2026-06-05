@@ -1,14 +1,17 @@
-// Admin data tape — same wide pipeline view UW gets, useful for
+// Admin data tape — same pipeline view UW gets, useful for
 // portfolio review and CSV exports from the admin side.
+//
+// SSR is intentionally tiny (auth check + shell). Table data is
+// fetched client-side via /api/data-tape — see the UW page header
+// comment for the full rationale.
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal-shell'
-import { DataTape } from '@/components/data-tape'
-import { fetchDataTape, DATA_TAPE_MAX_ROWS } from '@/lib/fetch-data-tape'
+import { DataTapeClient } from '@/components/data-tape-client'
+import { DATA_TAPE_MAX_ROWS } from '@/lib/fetch-data-tape'
 
-export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 export default async function AdminDataTapePage() {
@@ -24,8 +27,6 @@ export default async function AdminDataTapePage() {
     .single()
   if (!admin) redirect('/login')
 
-  const result = await fetchDataTape(adminClient)
-
   return (
     <PortalShell
       userName={admin.full_name}
@@ -39,21 +40,11 @@ export default async function AdminDataTapePage() {
           Pipeline-wide loan view — same fields Alicyn tracks in Airtable.
           Excludes archived loans and New Application stage.
         </p>
-        {result.errorMessage && (
-          <div className="mt-3 text-sm rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2">
-            Could not load loans: {result.errorMessage}
-          </div>
-        )}
-        {result.capped && !result.errorMessage && (
-          <div className="mt-3 text-sm rounded-md border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2">
-            Showing the {DATA_TAPE_MAX_ROWS} most recently created loans of{' '}
-            <strong>{result.totalMatching}</strong> matching loans. Use the
-            search and filters below to narrow further; the CSV export
-            covers everything currently visible.
-          </div>
-        )}
       </div>
-      <DataTape rows={result.rows} loanDetailHref={id => `/admin/loans/${id}`} />
+      <DataTapeClient
+        loanDetailHref={id => `/admin/loans/${id}`}
+        maxRows={DATA_TAPE_MAX_ROWS}
+      />
     </PortalShell>
   )
 }

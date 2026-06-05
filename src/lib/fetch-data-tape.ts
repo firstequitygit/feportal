@@ -18,7 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export const DATA_TAPE_MAX_ROWS = 1000
+export const DATA_TAPE_MAX_ROWS = 500
 
 export interface DataTapeRow {
   // ---- Identifiers ----
@@ -201,7 +201,17 @@ export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTa
       return { rows: [], totalMatching, capped: false, errorMessage: error.message }
     }
 
-    const rows = (data ?? []).map(flatten)
+    // Per-row try/catch so a single malformed loan can't take down the
+    // whole tape. Bad rows are skipped + logged; the rest still render.
+    const rows: DataTapeRow[] = []
+    for (const raw of data ?? []) {
+      try {
+        rows.push(flatten(raw))
+      } catch (err) {
+        const id = (raw as { id?: unknown })?.id
+        console.error(`flatten failed for loan ${String(id ?? 'unknown')}:`, err)
+      }
+    }
     return {
       rows,
       totalMatching,
