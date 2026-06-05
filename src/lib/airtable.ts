@@ -385,12 +385,16 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
   // 5. Apply Airtable changes (PATCH the Deal — typecast lets Airtable coerce
   //    text into enum choices when values match).
   //
-  // Some Airtable bases have field-level permissions that the Metadata API
-  // doesn't expose (enterprise feature). When a write hits one, Airtable
-  // returns 403 INVALID_PERMISSIONS naming the field. We extract that name,
-  // add it to runtimeReadOnlyFields so future syncs in this process skip
-  // it automatically, drop it from the current patch, and retry once.
-  // Bounded retry — at most a handful of iterations, then give up.
+  // Two retryable per-field rejections handled here:
+  //   - 403 INVALID_PERMISSIONS — enterprise field-level lock the
+  //     Metadata API doesn't expose. Drop the field, add it to
+  //     runtimeReadOnlyFields so future syncs in this process skip
+  //     it automatically, retry.
+  //   - 422 INVALID_VALUE_FOR_COLUMN — Airtable's type/constraint
+  //     rejection (currency cell that flipped to a formula, value
+  //     out of range, etc.). Drop the field for THIS sync but don't
+  //     cache permanently — the value or schema might be correctable
+  //     later. Bounded retry — at most 6 iterations, then give up.
   let pushedToAirtable = 0
   if (Object.keys(airtablePatch).length > 0) {
     let attempts = 0
@@ -405,18 +409,34 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
         break
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        // Parse the field name out of Airtable's 403 message. Example:
-        //   Airtable 403 on /...: {"error":{"type":"INVALID_PERMISSIONS",
-        //   "message":"You are not permitted to write cell values in field Closing Date (fldWOrNQRRydluK9I)"}}
-        const match = /INVALID_PERMISSIONS[\s\S]*?in field ([^"(]+?)(?:\s*\([^)]*\))?(?:["\\])/.exec(msg)
-        const offendingField = match?.[1]?.trim()
-        if (offendingField && airtablePatch[offendingField] !== undefined) {
-          console.warn(`[airtable] field "${offendingField}" is not writable for this token — skipping for the rest of this process`)
-          runtimeReadOnlyFields.add(offendingField)
-          delete airtablePatch[offendingField]
-          continue  // retry without it
+
+        // 403 INVALID_PERMISSIONS example body:
+        //   {"error":{"type":"INVALID_PERMISSIONS","message":"You are not
+        //    permitted to write cell values in field Closing Date (fldWOrNQRRydluK9I)"}}
+        const permMatch = /INVALID_PERMISSIONS[\s\S]*?in field ([^"(]+?)(?:\s*\([^)]*\))?(?:["\\])/.exec(msg)
+        const permField = permMatch?.[1]?.trim()
+        if (permField && airtablePatch[permField] !== undefined) {
+          console.warn(`[airtable] field "${permField}" is not writable for this token — skipping for the rest of this process`)
+          runtimeReadOnlyFields.add(permField)
+          delete airtablePatch[permField]
+          continue
         }
-        throw e  // not an INVALID_PERMISSIONS we can recover from
+
+        // 422 INVALID_VALUE_FOR_COLUMN example body:
+        //   {"error":{"type":"INVALID_VALUE_FOR_COLUMN","message":"Field
+        //    \"Additional Fees\" cannot accept the provided value"}}
+        // Quotes around the field name are JSON-escaped (\") in the raw
+        // body text, so the regex allows either form.
+        const valueMatch = /INVALID_VALUE_FOR_COLUMN[\s\S]*?Field \\?"([^"\\]+)\\?"/.exec(msg)
+        const valueField = valueMatch?.[1]?.trim()
+        if (valueField && airtablePatch[valueField] !== undefined) {
+          const rejected = airtablePatch[valueField]
+          console.warn(`[airtable] field "${valueField}" rejected value ${JSON.stringify(rejected)} — dropping from this sync; investigate Airtable schema (likely formula / read-only / type changed)`)
+          delete airtablePatch[valueField]
+          continue
+        }
+
+        throw e  // not a per-field error we can recover from
       }
     }
   }
