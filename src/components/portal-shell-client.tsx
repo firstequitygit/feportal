@@ -16,7 +16,7 @@ import type { StaffContext } from '@/lib/types'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings, Eye,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings, Eye, Table,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -67,6 +67,7 @@ const IMPERSONATION_KIND_LABEL = {
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/admin',                  label: 'Overview',            icon: LayoutDashboard, exact: true },
+  { href: '/admin/data-tape',        label: 'Data Tape',           icon: Table },
   { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
@@ -100,6 +101,7 @@ const LP_NAV: NavItem[] = [
 
 const UW_NAV: NavItem[] = [
   { href: '/underwriter/loans',      label: 'Loans',               icon: Building2 },
+  { href: '/underwriter/data-tape',  label: 'Data Tape',           icon: Table },
   { href: '/underwriter/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/underwriter/templates',  label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
