@@ -303,6 +303,9 @@ export const FIELD_MAP: FieldMapping[] = [
   s('origination_date', 'loans', 'Closing Date'),
   s('maturity_date', 'loans', 'Maturity Date '),  // trailing space — actual name
   s('entity_name', 'loans', 'Entity'),
+  // Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'.
+  // Direct passthrough — no transform needed.
+  s('rate_lock_extended', 'loans', 'Rate Lock Extended'),
 
   // ---- Loan / Deal Overview ----
   s('investor_loan_number', 'loan_details', 'Investor Loan Number'),

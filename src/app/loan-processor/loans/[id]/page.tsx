@@ -220,6 +220,16 @@ export default async function LoanProcessorLoanPage({
               <FieldRow label="Rate Lock Expiration">
                 <EditableLoanField loanId={loan.id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
               </FieldRow>
+              <FieldRow label="Rate Lock Extended">
+                <EditableLoanField loanId={loan.id} field="rate_lock_extended" type="enum" options={['Yes', 'No']} currentValue={loan.rate_lock_extended} display={loan.rate_lock_extended ?? '—'} />
+              </FieldRow>
+              {loan.rate_lock_extended === 'Yes' && (
+                // Soft hint pointing staff at where to record the cost
+                // breakdown — the points fields live on loan_details.
+                <p className="text-[11px] text-gray-400 italic -mt-1">
+                  Extension costs are tracked in Loan Details → Loan Terms below.
+                </p>
+              )}
               <FieldRow label="Value (As-Is)">
                 <EditableLoanField
                   loanId={loan.id}

@@ -53,6 +53,11 @@ const LOAN_TYPES: LoanType[] = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Con
 const INTEREST_ONLY_OPTIONS = ['Yes', 'No'] as const
 const INTEREST_ONLY_OPTION_MAP: Record<string, number | null> = { Yes: 269, No: 270 }
 
+// Rate Lock Extended is portal + Airtable only (no Pipedrive equivalent).
+// Stored as text on loans to mirror Airtable's "Yes" / "No" singleSelect
+// directly — no transform needed.
+const RATE_LOCK_EXTENDED_OPTIONS = ['Yes', 'No'] as const
+
 // "Locked?" is a Pipedrive yes-only enum (only one option id: 148 = "Yes").
 // Portal stores granularity (No / 15 / 30 / 45 days). Push "Yes" for any
 // locked value, null when "No" — and avoid clobbering on pull (see
@@ -93,6 +98,10 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   interest_only:    { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.interestOnly, optionMap: INTEREST_ONLY_OPTION_MAP, validValues: INTEREST_ONLY_OPTIONS },
   rate_locked_days: { type: 'enum',   pdKey: PIPEDRIVE_FIELDS.rateLocked,   optionMap: RATE_LOCK_OPTION_MAP,     validValues: RATE_LOCK_OPTIONS },
   rate_lock_expiration_date: { type: 'date', pdKey: PIPEDRIVE_FIELDS.rateLockExpiration },
+  // Portal + Airtable only — no Pipedrive sync, so no pdKey. Field
+  // route still writes to the loans table; the Airtable cron picks
+  // it up via the FIELD_MAP entry in airtable-field-map.ts.
+  rate_lock_extended: { type: 'enum',   validValues: RATE_LOCK_EXTENDED_OPTIONS },
 
   // ===== loan_details table (portal-only, no Pipedrive sync) =====
   // Loan / Deal Overview
