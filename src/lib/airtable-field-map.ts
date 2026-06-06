@@ -303,6 +303,11 @@ export const FIELD_MAP: FieldMapping[] = [
   s('origination_date', 'loans', 'Closing Date'),
   s('maturity_date', 'loans', 'Maturity Date '),  // trailing space — actual name
   s('entity_name', 'loans', 'Entity'),
+  // Rate-lock fields. Both live on the loans table and sync with
+  // Pipedrive too — adding them here closes the gap that left the
+  // portal updating Pipedrive but never propagating to Airtable.
+  s('rate_locked_days', 'loans', 'Rate Locked'),
+  s('rate_lock_expiration_date', 'loans', 'Rate Lock Expiration'),
   // Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'.
   // Direct passthrough — no transform needed.
   s('rate_lock_extended', 'loans', 'Rate Lock Extended'),
