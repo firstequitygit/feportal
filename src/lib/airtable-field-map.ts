@@ -307,7 +307,7 @@ export const FIELD_MAP: FieldMapping[] = [
   // Pipedrive too — adding them here closes the gap that left the
   // portal updating Pipedrive but never propagating to Airtable.
   s('rate_locked_days', 'loans', 'Rate Locked'),
-  s('rate_lock_expiration_date', 'loans', 'Rate Lock Expiration'),
+  s('rate_lock_expiration_date', 'loans', 'Lock Expiration Date'),
   // Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'.
   // Direct passthrough — no transform needed.
   s('rate_lock_extended', 'loans', 'Rate Lock Extended'),

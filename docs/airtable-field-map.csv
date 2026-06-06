@@ -11,7 +11,7 @@ Loan Overview,origination_date,loans,Closing Date,Bidirectional,Direct
 Loan Overview,maturity_date,loans,Maturity Date (trailing space),Bidirectional,"Airtable field literally has a trailing space"
 Loan Overview,entity_name,loans,Entity,Bidirectional,Direct
 Loan Overview,rate_locked_days,loans,Rate Locked,Bidirectional,"Portal enum 'No' / '15 days' / '30 days' / '45 days' passed through as text"
-Loan Overview,rate_lock_expiration_date,loans,Rate Lock Expiration,Bidirectional,Direct
+Loan Overview,rate_lock_expiration_date,loans,Lock Expiration Date,Bidirectional,Direct
 Loan Overview,rate_lock_extended,loans,Rate Lock Extended,Bidirectional,"Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'. Portal-only on the Loan Summary card; no Pipedrive equivalent."
 Loan / Deal Overview,investor_loan_number,loan_details,Investor Loan Number,Bidirectional,Direct
 Loan / Deal Overview,min_number,loan_details,Min #,Bidirectional,Direct
