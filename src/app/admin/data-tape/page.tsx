@@ -42,7 +42,7 @@ export default async function AdminDataTapePage() {
         </p>
       </div>
       <DataTapeClient
-        loanDetailHref={id => `/admin/loans/${id}`}
+        loanDetailHrefPrefix="/admin/loans"
         maxRows={DATA_TAPE_MAX_ROWS}
       />
     </PortalShell>

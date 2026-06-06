@@ -55,7 +55,7 @@ export default async function UnderwriterDataTapePage({
         </p>
       </div>
       <DataTapeClient
-        loanDetailHref={id => `/underwriter/loans/${id}`}
+        loanDetailHrefPrefix="/underwriter/loans"
         maxRows={DATA_TAPE_MAX_ROWS}
       />
     </PortalShell>

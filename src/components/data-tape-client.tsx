@@ -21,13 +21,18 @@ interface ApiResult {
 }
 
 interface Props {
-  loanDetailHref: (loanId: string) => string
+  /** Server pages pass a STRING (not a function) — functions aren't
+   *  serializable across the Server-Component → Client-Component
+   *  boundary and Next.js will 500 the route if you try. The href
+   *  builder lives inside this client component instead. */
+  loanDetailHrefPrefix: string
   /** Cap from the server — surfaced in the banner so the user knows
    *  when results were clipped. */
   maxRows: number
 }
 
-export function DataTapeClient({ loanDetailHref, maxRows }: Props) {
+export function DataTapeClient({ loanDetailHrefPrefix, maxRows }: Props) {
+  const loanDetailHref = (loanId: string) => `${loanDetailHrefPrefix}/${loanId}`
   const [data, setData] = useState<ApiResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
