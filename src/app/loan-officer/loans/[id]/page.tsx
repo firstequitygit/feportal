@@ -213,6 +213,9 @@ export default async function LoanOfficerLoanPage({
               <FieldRow label="Rate Locked / Days">
                 <EditableLoanField loanId={id} field="rate_locked_days" type="enum" options={['No', '15 days', '30 days', '45 days']} currentValue={loan.rate_locked_days} display={loan.rate_locked_days ?? '—'} />
               </FieldRow>
+              <FieldRow label="Rate Lock Date">
+                <EditableLoanField loanId={id} field="rate_lock_date" type="date" currentValue={loan.rate_lock_date} display={formatDate(loan.rate_lock_date)} />
+              </FieldRow>
               <FieldRow label="Rate Lock Expiration">
                 <EditableLoanField loanId={id} field="rate_lock_expiration_date" type="date" currentValue={loan.rate_lock_expiration_date} display={formatDate(loan.rate_lock_expiration_date)} />
               </FieldRow>

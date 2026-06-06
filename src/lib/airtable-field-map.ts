@@ -303,10 +303,12 @@ export const FIELD_MAP: FieldMapping[] = [
   s('origination_date', 'loans', 'Closing Date'),
   s('maturity_date', 'loans', 'Maturity Date '),  // trailing space — actual name
   s('entity_name', 'loans', 'Entity'),
-  // Rate-lock fields. Both live on the loans table and sync with
-  // Pipedrive too — adding them here closes the gap that left the
-  // portal updating Pipedrive but never propagating to Airtable.
-  s('rate_locked_days', 'loans', 'Rate Locked'),
+  // rate_locked_days lives on the loans table + syncs with Pipedrive,
+  // but Alicyn's Airtable base doesn't have a matching column — left
+  // unmapped intentionally. The lock STATUS shows up via Lock
+  // Expiration Date and DSCR Lock Date instead. If a column appears
+  // later, add a scalar mapping here.
+  s('rate_lock_date', 'loans', 'DSCR Lock Date'),
   s('rate_lock_expiration_date', 'loans', 'Lock Expiration Date'),
   // Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'.
   // Direct passthrough — no transform needed.

@@ -101,6 +101,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // Portal + Airtable only — no Pipedrive sync, so no pdKey. Field
   // route still writes to the loans table; the Airtable cron picks
   // it up via the FIELD_MAP entry in airtable-field-map.ts.
+  rate_lock_date:     { type: 'date' },
   rate_lock_extended: { type: 'enum',   validValues: RATE_LOCK_EXTENDED_OPTIONS },
 
   // ===== loan_details table (portal-only, no Pipedrive sync) =====

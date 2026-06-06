@@ -447,6 +447,23 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
           continue
         }
 
+        // 422 UNKNOWN_FIELD_NAME — our mapping references an Airtable
+        // column that doesn't (or no longer) exists in Alicyn's base.
+        // Drop the field for THIS sync; the runtime cache prevents
+        // re-trying it in this process. Long-term fix is to rename
+        // the field map entry (or delete it) to match the Airtable
+        // schema.
+        //   {"error":{"type":"UNKNOWN_FIELD_NAME","message":"Unknown
+        //    field name: \"Rate Locked\""}}
+        const unknownMatch = /UNKNOWN_FIELD_NAME[\s\S]*?Unknown field name: \\"([^"\\]+)\\"/.exec(msg)
+        const unknownField = unknownMatch?.[1]?.trim()
+        if (unknownField && airtablePatch[unknownField] !== undefined) {
+          console.warn(`[airtable] field "${unknownField}" does not exist in this Airtable base — dropping; update src/lib/airtable-field-map.ts to remove or rename the mapping`)
+          runtimeReadOnlyFields.add(unknownField)
+          delete airtablePatch[unknownField]
+          continue
+        }
+
         throw e  // not a per-field error we can recover from
       }
     }
