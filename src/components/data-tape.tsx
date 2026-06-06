@@ -22,7 +22,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, Download } from 'lucide-react'
+import { Search, Download, ChevronRight, ChevronDown, Minimize2 } from 'lucide-react'
 import { formatDate } from '@/lib/format-date'
 import type { DataTapeRow } from '@/lib/fetch-data-tape'
 
@@ -196,6 +196,24 @@ export function DataTape({ rows, loanDetailHref }: Props) {
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [loanTypeFilter, setLoanTypeFilter] = useState<string>('all')
   const [investorFilter, setInvestorFilter] = useState<string>('all')
+  // Rows are single-line + truncated by default — long property
+  // addresses / borrower names / UW notes used to wrap and balloon
+  // row height. Click the chevron in the property cell to flip a
+  // single row into wrap mode for full content.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  function toggleExpand(loanId: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(loanId)) next.delete(loanId)
+      else next.add(loanId)
+      return next
+    })
+  }
+
+  function collapseAll() {
+    setExpandedIds(new Set())
+  }
 
   // Derive the dropdown option sets from the data — keeps the UI from
   // showing a filter for a stage / investor that no loan currently has.
@@ -290,6 +308,17 @@ export function DataTape({ rows, loanDetailHref }: Props) {
         <span className="text-xs text-gray-500 whitespace-nowrap">
           <strong className="text-gray-900">{filtered.length}</strong> of {rows.length} loans
         </span>
+        {expandedIds.size > 0 && (
+          <button
+            type="button"
+            onClick={collapseAll}
+            title="Collapse every expanded row back to single-line"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50"
+          >
+            <Minimize2 className="w-3.5 h-3.5" />
+            Collapse {expandedIds.size}
+          </button>
+        )}
         <button
           type="button"
           onClick={downloadCsv}
@@ -334,51 +363,99 @@ export function DataTape({ rows, loanDetailHref }: Props) {
                 </td>
               </tr>
             ) : (
-              filtered.map(row => (
-                <tr key={row.id} className="hover:bg-gray-50 border-b border-gray-100">
-                  {COLUMNS.map((c, i) => {
-                    const value = row[c.key]
-                    const text = formatCell(value, c.format)
-                    const cellClasses = `px-2.5 py-1.5 align-top ${c.widthClass ?? 'whitespace-nowrap'}`
-                    if (i === 0) {
-                      // Sticky property column — also a link to the loan.
-                      return (
-                        <td
-                          key={c.key}
-                          className={`${cellClasses} sticky left-0 bg-white hover:bg-gray-50 z-10 border-r border-gray-200`}
-                        >
-                          <Link
-                            href={loanDetailHref(row.id)}
-                            className="text-primary hover:underline font-medium"
+              filtered.map(row => {
+                const isExpanded = expandedIds.has(row.id)
+                // truncate gives overflow-hidden + text-overflow-ellipsis +
+                // whitespace-nowrap in one class; flip to wrap when the row
+                // is expanded.
+                const wrapClass = isExpanded ? 'whitespace-normal break-words' : 'truncate'
+                // Fallback max-width for unwidth'd columns so truncate has
+                // something to clip against. Columns with widthClass keep
+                // their own width.
+                const defaultWidthClass = 'max-w-[180px]'
+                return (
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-gray-50 border-b border-gray-100 ${isExpanded ? 'bg-blue-50/40' : ''}`}
+                  >
+                    {COLUMNS.map((c, i) => {
+                      const value = row[c.key]
+                      const text = formatCell(value, c.format)
+                      const tdClasses = 'px-2.5 py-1.5 align-top'
+
+                      if (i === 0) {
+                        // Sticky property column — also holds the expand
+                        // toggle so it's always visible (sticky-left =
+                        // anchored even when scrolled horizontally).
+                        return (
+                          <td
+                            key={c.key}
+                            className={`${tdClasses} sticky left-0 bg-white hover:bg-gray-50 z-10 border-r border-gray-200`}
                           >
-                            {text || '(no address)'}
-                          </Link>
-                        </td>
-                      )
-                    }
-                    if (c.format === 'stage' && value) {
-                      return (
-                        <td key={c.key} className={cellClasses}>
-                          <span className={`inline-block px-1.5 py-0.5 rounded border text-[11px] font-medium ${stageColor(String(value))}`}>
-                            {text}
-                          </span>
-                        </td>
-                      )
-                    }
-                    if (c.format === 'boolean') {
-                      if (value === null || value === undefined) {
-                        return <td key={c.key} className={`${cellClasses} text-gray-300`}>—</td>
+                            <div className="flex items-start gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpand(row.id)}
+                                className="text-gray-400 hover:text-gray-700 mt-0.5 shrink-0"
+                                aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+                                title={isExpanded ? 'Collapse row' : 'Expand row to see full content'}
+                              >
+                                {isExpanded
+                                  ? <ChevronDown className="w-3.5 h-3.5" />
+                                  : <ChevronRight className="w-3.5 h-3.5" />}
+                              </button>
+                              <div className={`${c.widthClass ?? defaultWidthClass} ${wrapClass}`} title={text}>
+                                <Link
+                                  href={loanDetailHref(row.id)}
+                                  className="text-primary hover:underline font-medium"
+                                >
+                                  {text || '(no address)'}
+                                </Link>
+                              </div>
+                            </div>
+                          </td>
+                        )
                       }
-                      const cls = value ? 'text-emerald-700' : 'text-gray-500'
-                      return <td key={c.key} className={`${cellClasses} ${cls}`}>{text}</td>
-                    }
-                    if (!text) {
-                      return <td key={c.key} className={`${cellClasses} text-gray-300`}>—</td>
-                    }
-                    return <td key={c.key} className={cellClasses}>{text}</td>
-                  })}
-                </tr>
-              ))
+
+                      if (c.format === 'stage' && value) {
+                        // Pills don't need wrap logic — they're tiny.
+                        return (
+                          <td key={c.key} className={tdClasses}>
+                            <span className={`inline-block px-1.5 py-0.5 rounded border text-[11px] font-medium whitespace-nowrap ${stageColor(String(value))}`}>
+                              {text}
+                            </span>
+                          </td>
+                        )
+                      }
+
+                      if (c.format === 'boolean') {
+                        if (value === null || value === undefined) {
+                          return <td key={c.key} className={`${tdClasses} text-gray-300`}>—</td>
+                        }
+                        const cls = value ? 'text-emerald-700' : 'text-gray-500'
+                        return <td key={c.key} className={`${tdClasses} ${cls}`}>{text}</td>
+                      }
+
+                      if (!text) {
+                        return <td key={c.key} className={`${tdClasses} text-gray-300`}>—</td>
+                      }
+
+                      // Standard text/currency/date cell — single-line with
+                      // ellipsis when collapsed, wraps when expanded.
+                      return (
+                        <td key={c.key} className={tdClasses}>
+                          <div
+                            className={`${c.widthClass ?? defaultWidthClass} ${wrapClass}`}
+                            title={text}
+                          >
+                            {text}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
