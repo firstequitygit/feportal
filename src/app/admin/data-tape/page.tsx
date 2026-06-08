@@ -38,7 +38,7 @@ export default async function AdminDataTapePage() {
         <h2 className="text-2xl font-bold text-gray-900">Data Tape</h2>
         <p className="text-sm text-gray-500 mt-1">
           Pipeline-wide loan view — same fields Alicyn tracks in Airtable.
-          Excludes archived loans and New Application stage.
+          Excludes archived loans, New Application stage, and loans on hold.
         </p>
       </div>
       <DataTapeClient

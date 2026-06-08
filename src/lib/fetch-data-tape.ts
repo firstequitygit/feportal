@@ -5,6 +5,7 @@
 //   - archived = false        (closed-and-archived loans drop off)
 //   - pipeline_stage != 'New Application'
 //   - pipeline_stage IS NOT NULL  ("Empty" in Alicyn's view)
+//   - loan_status != 'on_hold'   (paused deals not actively underwriting)
 //
 // Scale guard: capped at MAX_ROWS most-recent loans because the
 // joined+denormalized payload of ~50 columns × 2k+ loans easily
@@ -147,6 +148,12 @@ export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTa
       .eq('archived', false)
       .neq('pipeline_stage', 'New Application')
       .not('pipeline_stage', 'is', null)
+      // SQL 3-value logic: `loan_status <> 'on_hold'` is NULL (not
+      // TRUE) when loan_status IS NULL, so a plain .neq() would
+      // exclude rows with a NULL status. The OR clause keeps those
+      // (NULL means "active" by convention) while still excluding
+      // explicit on_hold rows.
+      .or('loan_status.is.null,loan_status.neq.on_hold')
 
     const totalMatching = count ?? 0
 
@@ -193,6 +200,12 @@ export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTa
       .eq('archived', false)
       .neq('pipeline_stage', 'New Application')
       .not('pipeline_stage', 'is', null)
+      // SQL 3-value logic: `loan_status <> 'on_hold'` is NULL (not
+      // TRUE) when loan_status IS NULL, so a plain .neq() would
+      // exclude rows with a NULL status. The OR clause keeps those
+      // (NULL means "active" by convention) while still excluding
+      // explicit on_hold rows.
+      .or('loan_status.is.null,loan_status.neq.on_hold')
       .order('created_at', { ascending: false })
       .range(0, DATA_TAPE_MAX_ROWS - 1)
 
