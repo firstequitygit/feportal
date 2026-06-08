@@ -8,6 +8,7 @@ import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { PortalShell } from '@/components/portal-shell'
 import { ConditionsList } from '@/components/conditions-list'
+import { formatLoanName } from '@/lib/format-loan-name'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
@@ -120,7 +121,11 @@ export default async function BrokerLoanPage({
       </Link>
 
       <h2 className="text-2xl font-bold text-gray-900 mt-2 mb-6">
-        {loan.property_address ?? 'Loan Details'}
+        {formatLoanName({
+          borrowerName: (loan.borrowers as { full_name: string | null } | null)?.full_name ?? null,
+          propertyAddress: loan.property_address,
+          loanNumber: loan.loan_number,
+        })}
       </h2>
 
       <LoanProgressTracker

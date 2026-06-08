@@ -26,6 +26,7 @@ import { Search, Download, ChevronRight, ChevronDown, Minimize2 } from 'lucide-r
 import { formatDate } from '@/lib/format-date'
 import type { DataTapeRow } from '@/lib/fetch-data-tape'
 import { DataTapeCell, type EditCellFormat } from '@/components/data-tape-cell'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 interface Props {
   rows: DataTapeRow[]
@@ -87,7 +88,7 @@ const INVESTOR_OPTIONS = ['Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', '
 //   - exceptions / underwriter_notes — long textareas, won't fit a cell
 const COLUMNS: ColumnDef[] = [
   // Identifiers
-  { key: 'property_address',          label: 'Property',                 format: 'text',     group: 'ID', widthClass: 'w-72' },
+  { key: 'property_address',          label: 'Loan',                     format: 'text',     group: 'ID', widthClass: 'w-72' },
   { key: 'loan_number',               label: 'Loan #',                   format: 'text',     group: 'ID', edit: { format: 'text' } },
   { key: 'investor_loan_number',      label: 'Investor Loan #',          format: 'text',     group: 'ID', edit: { format: 'text' } },
   { key: 'min_number',                label: 'MIN #',                    format: 'text',     group: 'ID', edit: { format: 'text' } },
@@ -433,9 +434,16 @@ export function DataTape({ rows, loanDetailHref, canEdit = false }: Props) {
                       const tdClasses = 'px-2.5 py-1.5 align-top'
 
                       if (i === 0) {
-                        // Sticky property column — also holds the expand
-                        // toggle so it's always visible (sticky-left =
-                        // anchored even when scrolled horizontally).
+                        // Sticky "Loan" column — primary identifier of
+                        // each loan, in the new "Borrower — Street"
+                        // format. Also holds the expand toggle so it's
+                        // always visible (sticky-left = anchored even
+                        // when scrolled horizontally).
+                        const loanName = formatLoanName({
+                          borrowerName: row.borrower_name,
+                          propertyAddress: row.property_address,
+                          loanNumber: row.loan_number,
+                        })
                         return (
                           <td
                             key={c.key}
@@ -453,12 +461,12 @@ export function DataTape({ rows, loanDetailHref, canEdit = false }: Props) {
                                   ? <ChevronDown className="w-3.5 h-3.5" />
                                   : <ChevronRight className="w-3.5 h-3.5" />}
                               </button>
-                              <div className={`${c.widthClass ?? defaultWidthClass} ${wrapClass}`} title={text}>
+                              <div className={`${c.widthClass ?? defaultWidthClass} ${wrapClass}`} title={loanName}>
                                 <Link
                                   href={loanDetailHref(row.id)}
                                   className="text-primary hover:underline font-medium"
                                 >
-                                  {text || '(no address)'}
+                                  {loanName}
                                 </Link>
                               </div>
                             </div>

@@ -21,6 +21,7 @@
 import { createAdminClient } from './supabase/admin'
 import { getTransporter } from './email'
 import { PORTAL_URL, PORTAL_DOMAIN } from './portal-url'
+import { formatLoanName } from './format-loan-name'
 
 export type ReminderParty = 'borrower' | 'broker'
 
@@ -148,9 +149,18 @@ export async function sendConditionReminderEmail(loanId: string): Promise<Remind
   const loanOfficerName =
     (loan.loan_officers as unknown as { full_name: string | null } | null)?.full_name ?? null
 
+  // Primary borrower's name powers the standard "Borrower — Street"
+  // label used in the subject line.
+  const primaryBorrowerName = (loan.borrowers as unknown as { full_name: string | null } | null)?.full_name ?? null
+  const loanName = formatLoanName({
+    borrowerName: primaryBorrowerName,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
+
   const subject = conditions.length === 1
-    ? `Reminder — outstanding item on your loan (${property})`
-    : `Reminder — ${conditions.length} outstanding items on your loan (${property})`
+    ? `Reminder — outstanding item (${loanName})`
+    : `Reminder — ${conditions.length} outstanding items (${loanName})`
 
   // Per-party intro copy. Broker version reframes the same list as
   // "items your borrower still owes" so the broker can chase them;

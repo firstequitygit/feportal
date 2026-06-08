@@ -10,6 +10,7 @@ import { PortalShell } from '@/components/portal-shell'
 import { ConditionsList } from '@/components/conditions-list'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
+import { formatLoanName } from '@/lib/format-loan-name'
 import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
 function formatCurrency(val: number | null): string {
@@ -130,9 +131,16 @@ export default async function LoanPage({
           ← Back to My Loans
         </Link>
 
-        {/* Property title */}
+        {/* Loan name title — Borrower — Street format. The borrower
+            viewing the page is the one whose name appears (they may
+            be the primary or a co-borrower; either way they're a
+            borrower on this loan). */}
         <h2 className="text-2xl font-bold text-gray-900 mt-2 mb-6">
-          {loan.property_address ?? 'Loan Details'}
+          {formatLoanName({
+            borrowerName: borrower.full_name,
+            propertyAddress: loan.property_address,
+            loanNumber: loan.loan_number,
+          })}
         </h2>
 
         <LoanProgressTracker

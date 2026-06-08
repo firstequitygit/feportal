@@ -14,6 +14,7 @@ import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
 import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
+import { formatLoanName } from '@/lib/format-loan-name'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { LoanType } from '@/lib/types'
@@ -143,7 +144,11 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
         <div className="flex items-start justify-between gap-4 mt-2 mb-2">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {loan.property_address ?? 'Loan Details'}
+              {formatLoanName({
+                borrowerName: (loan.borrowers as { full_name: string | null } | null)?.full_name ?? null,
+                propertyAddress: loan.property_address,
+                loanNumber: loan.loan_number,
+              })}
             </h2>
             <div className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
               <span>Stage:</span>

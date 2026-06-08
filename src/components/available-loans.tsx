@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { type Loan, type PipelineStage } from '@/lib/types'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 type LoanRow = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
@@ -101,10 +102,22 @@ export function AvailableLoans({ loans, claimEndpoint, role }: Props) {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 truncate">
-                        {loan.property_address ?? 'Address not set'}
+                        {formatLoanName({
+                          borrowerName: loan.borrowers?.full_name,
+                          propertyAddress: loan.property_address,
+                          loanNumber: loan.loan_number,
+                        })}
                       </p>
                       <p className="text-sm text-gray-500 mt-0.5">
-                        {loan.borrowers?.full_name ?? 'No borrower assigned'}
+                        {/* City/state/ZIP from the address (borrower name
+                            is already in the title above), then type +
+                            amount. */}
+                        {(() => {
+                          const addr = loan.property_address?.trim() ?? ''
+                          const i = addr.indexOf(',')
+                          const rest = i >= 0 ? addr.slice(i + 1).trim() : ''
+                          return rest || (loan.borrowers?.full_name ? 'No city set' : 'No borrower assigned')
+                        })()}
                         {loan.loan_type ? ` · ${loan.loan_type}` : ''}
                         {' · '}{formatCurrency(loan.loan_amount)}
                       </p>

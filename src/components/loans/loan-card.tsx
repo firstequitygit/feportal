@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, MapPin, MessageSquareText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type PipelineStage, type OutstandingCounts } from '@/lib/types'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 type LoanCardLoan = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
@@ -93,11 +94,28 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNot
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                 <p className="font-semibold text-gray-900 truncate text-sm leading-tight">
-                  {loan.property_address ?? 'Address not set'}
+                  {formatLoanName({
+                    borrowerName: loan.borrowers?.full_name,
+                    propertyAddress: loan.property_address,
+                    loanNumber: loan.loan_number,
+                  })}
                 </p>
               </div>
+              {/* Subtitle: city/state/ZIP from the address (skip the
+                  street since it's already in the title), then loan
+                  type + amount + dates. Borrower name is intentionally
+                  not repeated here — it's in the title above. */}
               <p className="text-xs text-gray-500 mt-px ml-5 truncate">
-                {loan.borrowers?.full_name ?? 'No borrower assigned'}
+                {(() => {
+                  // Everything after the first comma in property_address,
+                  // trimmed. Falls back to '—' when only the street was
+                  // entered (no city/state) so the row's height stays
+                  // consistent.
+                  const addr = loan.property_address?.trim() ?? ''
+                  const i = addr.indexOf(',')
+                  const rest = i >= 0 ? addr.slice(i + 1).trim() : ''
+                  return rest ? rest : (loan.borrowers?.full_name ? 'No city set' : 'No borrower assigned')
+                })()}
                 {loan.loan_type ? <span className="text-gray-300"> · </span> : null}
                 {loan.loan_type}
                 <span className="text-gray-300"> · </span>

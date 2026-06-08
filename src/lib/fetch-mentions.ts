@@ -5,6 +5,7 @@
 // the caller is admin / LO / LP / UW.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 type AdminClient = SupabaseClient
 
@@ -22,7 +23,10 @@ export interface MentionInboxRow {
   mentioned_by_name: string | null
   read_at: string | null
   created_at: string
-  property_address: string | null
+  /** Pre-formatted "Borrower — Street" label for the loan; falls
+   *  back to the raw property_address / loan number / "Unnamed loan"
+   *  via formatLoanName. */
+  loan_name: string
 }
 
 /**
@@ -54,7 +58,7 @@ export async function fetchMentionsForRole(
   const { limit = 50, includeRead = false } = opts
   let q = adminClient
     .from('mentions')
-    .select('id, loan_id, condition_id, source_kind, excerpt, mentioned_by_name, read_at, created_at, loans!loan_id(property_address)')
+    .select('id, loan_id, condition_id, source_kind, excerpt, mentioned_by_name, read_at, created_at, loans!loan_id(property_address, loan_number, borrowers!borrower_id(full_name))')
     .eq('mentioned_user_kind', ident.kind)
     .eq('mentioned_user_id', ident.id)
     .order('created_at', { ascending: false })
@@ -62,7 +66,7 @@ export async function fetchMentionsForRole(
   if (!includeRead) q = q.is('read_at', null)
   const { data } = await q
   return (data ?? []).map(r => {
-    const loan = (r as unknown as { loans?: { property_address: string | null } | null }).loans ?? null
+    const loan = (r as unknown as { loans?: { property_address: string | null; loan_number: string | null; borrowers?: { full_name: string | null } | null } | null }).loans ?? null
     return {
       id: r.id as string,
       loan_id: r.loan_id as string,
@@ -72,7 +76,11 @@ export async function fetchMentionsForRole(
       mentioned_by_name: (r.mentioned_by_name as string | null) ?? null,
       read_at: (r.read_at as string | null) ?? null,
       created_at: r.created_at as string,
-      property_address: loan?.property_address ?? null,
+      loan_name: formatLoanName({
+        borrowerName: loan?.borrowers?.full_name ?? null,
+        propertyAddress: loan?.property_address ?? null,
+        loanNumber: loan?.loan_number ?? null,
+      }),
     }
   })
 }

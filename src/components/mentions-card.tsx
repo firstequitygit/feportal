@@ -122,7 +122,7 @@ export function MentionsCard({ initial, linkPrefix }: Props) {
                     <span className="font-medium text-gray-700">{r.mentioned_by_name ?? 'Someone'}</span>
                     {' mentioned you in a '}
                     {sourceLabel(r.source_kind)}
-                    {r.property_address ? <> on <span className="font-medium text-gray-700">{r.property_address}</span></> : null}
+                    {r.loan_name ? <> on <span className="font-medium text-gray-700">{r.loan_name}</span></> : null}
                     {' · '}
                     {formatWhen(r.created_at)}
                   </p>

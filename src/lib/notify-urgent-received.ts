@@ -17,6 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/mailer'
 import { PORTAL_URL } from '@/lib/portal-url'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 type AdminClient = SupabaseClient
 
@@ -41,7 +42,7 @@ export async function notifyUwIfUrgentReceived({
   try {
     const { data: row } = await adminClient
       .from('conditions')
-      .select('id, title, description, is_urgent, loan_id, loans!loan_id(property_address, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name), underwriters!underwriter_id(full_name, email))')
+      .select('id, title, description, is_urgent, loan_id, loans!loan_id(property_address, loan_number, borrowers!borrower_id(full_name), loan_officers!loan_officer_id(full_name), underwriters!underwriter_id(full_name, email))')
       .eq('id', conditionId)
       .single()
 
@@ -50,6 +51,7 @@ export async function notifyUwIfUrgentReceived({
     const loan = (row as unknown as {
       loans?: {
         property_address: string | null
+        loan_number: string | null
         borrowers?: { full_name: string | null } | null
         loan_officers?: { full_name: string | null } | null
         underwriters?: { full_name: string | null; email: string | null } | null
@@ -66,10 +68,15 @@ export async function notifyUwIfUrgentReceived({
       borrowerName: loan?.borrowers?.full_name ?? null,
       loanOfficerName: loan?.loan_officers?.full_name ?? null,
     })
+    const loanName = formatLoanName({
+      borrowerName: loan?.borrowers?.full_name ?? null,
+      propertyAddress: loan?.property_address ?? null,
+      loanNumber: loan?.loan_number ?? null,
+    })
 
     await sendEmail({
       to: uw.email,
-      subject: `URGENT condition received — ${propertyAddress}`,
+      subject: `URGENT condition received — ${loanName}`,
       html: `
         <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">Hi ${uw.full_name ?? 'there'},</p>
         <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">

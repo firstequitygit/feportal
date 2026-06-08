@@ -3,6 +3,7 @@ import { PORTAL_URL, PORTAL_DOMAIN } from './portal-url'
 import { getLoanContacts } from './loan-contact'
 import { sendEmail } from './mailer'
 import { loanContextBlockHtml } from './email-loan-context'
+import { formatLoanName } from './format-loan-name'
 
 /**
  * Back-compat shim. Earlier this file exposed a nodemailer transporter via
@@ -53,7 +54,7 @@ export async function sendStageUpdateEmail(
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_number, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
@@ -70,6 +71,11 @@ export async function sendStageUpdateEmail(
   if (recipients.length === 0) return
 
   const property = loan.property_address ?? 'this property'
+  const loanName = formatLoanName({
+    borrowerName: borrower?.full_name ?? null,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
   const fromLabel = shortStage(fromStage)
   const toLabel = shortStage(toStage)
   const contextBlock = loanContextBlockHtml({
@@ -77,7 +83,7 @@ export async function sendStageUpdateEmail(
     loanOfficerName: lo?.full_name ?? null,
   })
 
-  const subject = `Loan stage updated — ${property}`
+  const subject = `Loan stage updated — ${loanName}`
   const bodyHtml = (greeting: string) => `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
       <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
@@ -145,7 +151,7 @@ export async function sendLoanFundedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_number, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
@@ -164,8 +170,13 @@ export async function sendLoanFundedEmail(loanId: string) {
     borrowerName: borrower?.full_name ?? null,
     loanOfficerName: lo?.full_name ?? null,
   })
+  const loanName = formatLoanName({
+    borrowerName: borrower?.full_name ?? null,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
 
-  const subject = `🏠 Loan funded — ${loan.property_address ?? 'property'}`
+  const subject = `🏠 Loan funded — ${loanName}`
   const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -216,7 +227,7 @@ export async function sendLoanApprovedEmail(loanId: string) {
 
   const { data: loan } = await adminClient
     .from('loans')
-    .select('property_address, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
+    .select('property_address, loan_number, borrowers!borrower_id(full_name), loan_officers(full_name, email), loan_processors!loan_processor_id(email), loan_processor_2:loan_processors!loan_processor_id_2(email)')
     .eq('id', loanId)
     .single()
   if (!loan) return
@@ -235,8 +246,13 @@ export async function sendLoanApprovedEmail(loanId: string) {
     borrowerName: borrower?.full_name ?? null,
     loanOfficerName: lo?.full_name ?? null,
   })
+  const loanName = formatLoanName({
+    borrowerName: borrower?.full_name ?? null,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
 
-  const subject = `🎉 Loan Approved — ${loan.property_address ?? 'property'}`
+  const subject = `🎉 Loan Approved — ${loanName}`
   const bodyHtml = (greeting: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
         <div style="background-color: #1F5D8F; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -311,9 +327,14 @@ export async function sendPreUnderwritingClaimEmail(loanId: string) {
   if (recipients.length === 0) return
 
   const property = loan.property_address ?? 'a new loan'
-  const subject = `New loan ready for underwriting — ${property}`
   const borrowerName = (loan as unknown as { borrowers?: { full_name: string | null } | null }).borrowers?.full_name ?? null
   const loanOfficerName = (loan as unknown as { loan_officers?: { full_name: string | null } | null }).loan_officers?.full_name ?? null
+  const loanName = formatLoanName({
+    borrowerName,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
+  const subject = `New loan ready for underwriting — ${loanName}`
 
   const detailRows = [
     loan.loan_number ? ['Loan #', loan.loan_number] : null,
@@ -398,7 +419,12 @@ export async function sendConditionallyApprovedAlert(loanId: string) {
   const uw = (loan.underwriters as unknown as { full_name: string | null } | null)?.full_name ?? null
 
   const property = loan.property_address ?? 'a loan'
-  const subject = `Conditionally Approved — ${property}`
+  const loanName = formatLoanName({
+    borrowerName: borrower,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
+  const subject = `Conditionally Approved — ${loanName}`
 
   const detailRows: [string, string][] = [
     ['Property', property],

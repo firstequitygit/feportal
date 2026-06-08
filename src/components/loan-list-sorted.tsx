@@ -11,6 +11,7 @@ import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
 import { useLoanListView } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
+import { formatLoanName } from '@/lib/format-loan-name'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
@@ -282,10 +283,21 @@ function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefi
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-3">
                       <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
-                        {loan.property_address ?? '—'}
+                        {formatLoanName({
+                          borrowerName: loan.borrowers?.full_name,
+                          propertyAddress: loan.property_address,
+                          loanNumber: loan.loan_number,
+                        })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1 truncate">
-                        {loan.borrowers?.full_name ?? <span className="italic">Unassigned</span>}
+                        {/* City/state/ZIP from the address; borrower name
+                            already in the title above. */}
+                        {(() => {
+                          const addr = loan.property_address?.trim() ?? ''
+                          const i = addr.indexOf(',')
+                          const rest = i >= 0 ? addr.slice(i + 1).trim() : ''
+                          return rest || <span className="italic">No city set</span>
+                        })()}
                       </p>
                       <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
                         <span className="text-xs text-gray-500">{loan.loan_type ?? '—'}</span>
