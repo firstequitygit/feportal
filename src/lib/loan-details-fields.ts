@@ -94,12 +94,15 @@ export const LOAN_DETAILS_FIELDS: LoanDetailsFieldDef[] = [
 
   // Vendors
   { key: 'title_company',          label: 'Title Company / Agent',          section: 'Vendors (Title, Insurance, Appraiser)' },
+  { key: 'title_contact_name',     label: 'Title Contact Name',             section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'title_email',            label: 'Title Email',                    section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'title_phone',            label: 'Title Phone',                    section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'insurance_company',      label: 'Insurance Company / Agent',      section: 'Vendors (Title, Insurance, Appraiser)' },
+  { key: 'insurance_contact_name', label: 'Insurance Contact Name',         section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'insurance_email',        label: 'Insurance Email',                section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'insurance_phone',        label: 'Insurance Phone',                section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'appraisal_company',      label: 'Appraiser / Appraisal Company',  section: 'Vendors (Title, Insurance, Appraiser)' },
+  { key: 'appraisal_contact_name', label: 'Appraiser Contact Name',         section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'appraisal_email',        label: 'Appraiser Email',                section: 'Vendors (Title, Insurance, Appraiser)' },
   { key: 'appraisal_phone',        label: 'Appraiser Phone',                section: 'Vendors (Title, Insurance, Appraiser)' },
 

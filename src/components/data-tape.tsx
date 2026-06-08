@@ -186,8 +186,11 @@ const COLUMNS: ColumnDef[] = [
 
   // Vendors
   { key: 'title_company',             label: 'Title',                    format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
+  { key: 'title_contact_name',        label: 'Title Contact',            format: 'text',     group: 'Vendors', widthClass: 'w-44', edit: { format: 'text' } },
   { key: 'insurance_company',         label: 'Insurance',                format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
+  { key: 'insurance_contact_name',    label: 'Insurance Contact',        format: 'text',     group: 'Vendors', widthClass: 'w-44', edit: { format: 'text' } },
   { key: 'appraisal_company',         label: 'Appraiser',                format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
+  { key: 'appraisal_contact_name',    label: 'Appraiser Contact',        format: 'text',     group: 'Vendors', widthClass: 'w-44', edit: { format: 'text' } },
 ]
 
 const currencyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })

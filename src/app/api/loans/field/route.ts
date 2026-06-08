@@ -217,15 +217,18 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   down_payment_borrowed: { type: 'boolean', table: 'loan_details' },
 
   // Title, Insurance, Appraiser contact info
-  title_company:     { type: 'text', table: 'loan_details' },
-  title_email:       { type: 'text', table: 'loan_details' },
-  title_phone:       { type: 'text', table: 'loan_details' },
-  insurance_company: { type: 'text', table: 'loan_details' },
-  insurance_email:   { type: 'text', table: 'loan_details' },
-  insurance_phone:   { type: 'text', table: 'loan_details' },
-  appraisal_company: { type: 'text', table: 'loan_details' },
-  appraisal_email:   { type: 'text', table: 'loan_details' },
-  appraisal_phone:   { type: 'text', table: 'loan_details' },
+  title_company:           { type: 'text', table: 'loan_details' },
+  title_contact_name:      { type: 'text', table: 'loan_details' },
+  title_email:             { type: 'text', table: 'loan_details' },
+  title_phone:             { type: 'text', table: 'loan_details' },
+  insurance_company:       { type: 'text', table: 'loan_details' },
+  insurance_contact_name:  { type: 'text', table: 'loan_details' },
+  insurance_email:         { type: 'text', table: 'loan_details' },
+  insurance_phone:         { type: 'text', table: 'loan_details' },
+  appraisal_company:       { type: 'text', table: 'loan_details' },
+  appraisal_contact_name:  { type: 'text', table: 'loan_details' },
+  appraisal_email:         { type: 'text', table: 'loan_details' },
+  appraisal_phone:         { type: 'text', table: 'loan_details' },
 
   // Vesting Entity (entity_name itself stays on loans table — it syncs to Pipedrive)
   vesting_in_entity:      { type: 'boolean', table: 'loan_details' },

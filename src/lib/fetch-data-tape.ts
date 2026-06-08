@@ -120,8 +120,11 @@ export interface DataTapeRow {
 
   // ---- Vendors ----
   title_company: string | null
+  title_contact_name: string | null
   insurance_company: string | null
+  insurance_contact_name: string | null
   appraisal_company: string | null
+  appraisal_contact_name: string | null
 
   // ---- UW notes / exceptions ----
   exceptions: string | null
@@ -195,7 +198,9 @@ export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTa
           number_of_properties, verified_assets,
           credit_score, credit_report_date,
           appraisal_order_date, appraisal_due_date, appraisal_paid_date, appraisal_received_date, appraisal_effective_date,
-          title_company, insurance_company, appraisal_company,
+          title_company, title_contact_name,
+          insurance_company, insurance_contact_name,
+          appraisal_company, appraisal_contact_name,
           exceptions, underwriter_notes
         )
       `)
@@ -367,8 +372,11 @@ function flatten(raw: unknown): DataTapeRow {
     appraisal_effective_date: s(details.appraisal_effective_date),
 
     title_company: s(details.title_company),
+    title_contact_name: s(details.title_contact_name),
     insurance_company: s(details.insurance_company),
+    insurance_contact_name: s(details.insurance_contact_name),
     appraisal_company: s(details.appraisal_company),
+    appraisal_contact_name: s(details.appraisal_contact_name),
 
     exceptions: s(details.exceptions),
     underwriter_notes: s(details.underwriter_notes),

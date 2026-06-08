@@ -115,12 +115,15 @@ export interface LoanDetails {
 
   // JotForm-sourced — Title, Insurance, Appraiser
   title_company?: string | null
+  title_contact_name?: string | null
   title_email?: string | null
   title_phone?: string | null
   insurance_company?: string | null
+  insurance_contact_name?: string | null
   insurance_email?: string | null
   insurance_phone?: string | null
   appraisal_company?: string | null
+  appraisal_contact_name?: string | null
   appraisal_email?: string | null
   appraisal_phone?: string | null
 
@@ -924,6 +927,16 @@ export function LoanDetailsCard({
                   inputWidthClass="w-56"
                 />
               </DetailRow>
+              <DetailRow fieldKey="title_contact_name" label="Title Contact Name">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="title_contact_name"
+                  type="text"
+                  currentValue={d.title_contact_name ?? null}
+                  display={d.title_contact_name ?? '—'}
+                  inputWidthClass="w-56"
+                />
+              </DetailRow>
               <DetailRow fieldKey="title_email" label="Title Email">
                 <EditableLoanField
                   loanId={loanId}
@@ -953,6 +966,16 @@ export function LoanDetailsCard({
                   inputWidthClass="w-56"
                 />
               </DetailRow>
+              <DetailRow fieldKey="insurance_contact_name" label="Insurance Contact Name">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="insurance_contact_name"
+                  type="text"
+                  currentValue={d.insurance_contact_name ?? null}
+                  display={d.insurance_contact_name ?? '—'}
+                  inputWidthClass="w-56"
+                />
+              </DetailRow>
               <DetailRow fieldKey="insurance_email" label="Insurance Email">
                 <EditableLoanField
                   loanId={loanId}
@@ -979,6 +1002,16 @@ export function LoanDetailsCard({
                   type="text"
                   currentValue={d.appraisal_company ?? null}
                   display={d.appraisal_company ?? '—'}
+                  inputWidthClass="w-56"
+                />
+              </DetailRow>
+              <DetailRow fieldKey="appraisal_contact_name" label="Appraiser Contact Name">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="appraisal_contact_name"
+                  type="text"
+                  currentValue={d.appraisal_contact_name ?? null}
+                  display={d.appraisal_contact_name ?? '—'}
                   inputWidthClass="w-56"
                 />
               </DetailRow>

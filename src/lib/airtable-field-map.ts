@@ -52,14 +52,23 @@ export interface VendorMapping {
   kind: 'vendor'
   /** Portal column holding the company name — required to drive the match. */
   portalCompanyCol: string           // e.g. 'title_company'
+  /** Portal column for the contact-person's name on the vendor row. */
+  portalContactNameCol?: string      // e.g. 'title_contact_name'
   portalEmailCol?: string            // e.g. 'title_email'
   portalPhoneCol?: string            // e.g. 'title_phone'
   portalTable: 'loan_details'
-  airtableLinkField: string          // 'Title' / 'Insurance' / 'Appraiser'
+  airtableLinkField: string          // 'Title Contact' / 'Insurance Contact' / 'Appraiser'
   vendorTableId: string
   vendorCompanyField: string         // 'Company'
+  /** Contact-person's name column on the vendor table. */
+  vendorNameField?: string           // 'Name'
   vendorEmailField?: string          // 'Email'
   vendorPhoneField?: string          // 'Phone'
+  /** Optional boolean column on the vendor row that marks the primary
+   *  contact for a company. When set, reconcileVendor picks the
+   *  record with this field === true; when not set (or no record is
+   *  marked), it falls back to the first-linked record on the deal. */
+  vendorPrimaryField?: string        // 'Primary'
 }
 
 export type FieldMapping = ScalarMapping | VendorMapping
@@ -393,38 +402,54 @@ export const FIELD_MAP: FieldMapping[] = [
   s('annual_hoa_dues', 'loan_details', 'Yearly HOA'),
 
   // ---- Vendors (linked tables) ----
+  // Each vendor table (Title / Insurance / Appraisers) has columns
+  // Name, Company, Phone, Email. The Deals base links to one or
+  // more vendor records via the airtableLinkField. When multiple
+  // are linked, reconcileVendor picks the one marked Primary
+  // (Airtable boolean column on the vendor row) — falls back to
+  // the first linked record when no Primary column exists yet or
+  // no record is marked.
   {
     kind: 'vendor', portalTable: 'loan_details',
     portalCompanyCol: 'title_company',
+    portalContactNameCol: 'title_contact_name',
     portalEmailCol: 'title_email',
     portalPhoneCol: 'title_phone',
     airtableLinkField: 'Title Contact',
     vendorTableId: VENDOR_TABLES.title.tableId,
     vendorCompanyField: 'Company',
+    vendorNameField: 'Name',
     vendorEmailField: 'Email',
     vendorPhoneField: 'Phone',
+    vendorPrimaryField: 'Primary',
   },
   {
     kind: 'vendor', portalTable: 'loan_details',
     portalCompanyCol: 'insurance_company',
+    portalContactNameCol: 'insurance_contact_name',
     portalEmailCol: 'insurance_email',
     portalPhoneCol: 'insurance_phone',
     airtableLinkField: 'Insurance Contact',
     vendorTableId: VENDOR_TABLES.insurance.tableId,
     vendorCompanyField: 'Company',
+    vendorNameField: 'Name',
     vendorEmailField: 'Email',
     vendorPhoneField: 'Phone',
+    vendorPrimaryField: 'Primary',
   },
   {
     kind: 'vendor', portalTable: 'loan_details',
     portalCompanyCol: 'appraisal_company',
+    portalContactNameCol: 'appraisal_contact_name',
     portalEmailCol: 'appraisal_email',
     portalPhoneCol: 'appraisal_phone',
     airtableLinkField: 'Appraiser',
     vendorTableId: VENDOR_TABLES.appraisers.tableId,
     vendorCompanyField: 'Company',
+    vendorNameField: 'Name',
     vendorEmailField: 'Email',
     vendorPhoneField: 'Phone',
+    vendorPrimaryField: 'Primary',
   },
 ]
 

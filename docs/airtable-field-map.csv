@@ -65,13 +65,16 @@ DSCR inputs,annual_insurance_premium,loan_details,HOI Premium,Bidirectional,Dire
 DSCR inputs,annual_property_tax,loan_details,Monthly Property Tax,Bidirectional,"Portal annual ↔ Airtable monthly (÷12 on push, ×12 on pull)"
 DSCR inputs,annual_flood_insurance,loan_details,Flood Insurance,Bidirectional,Direct
 DSCR inputs,annual_hoa_dues,loan_details,Yearly HOA,Bidirectional,Direct
-Vendors (linked tables),title_company,loan_details,Title Contact (linked record → Title table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),title_company,loan_details,Title Contact (linked record → Title table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Name/Email/Phone on the vendor record. Multi-link: pulls from whichever record has Primary=true; falls back to first-linked."
+Vendors (linked tables),title_contact_name,loan_details,Title vendor 'Name',Bidirectional,Contact person's name on the linked Title vendor row
 Vendors (linked tables),title_email,loan_details,Title vendor 'Email',Bidirectional,Filled on the linked Title vendor row
 Vendors (linked tables),title_phone,loan_details,Title vendor 'Phone',Bidirectional,Filled on the linked Title vendor row
-Vendors (linked tables),insurance_company,loan_details,Insurance Contact (linked record → Insurance table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),insurance_company,loan_details,Insurance Contact (linked record → Insurance table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Name/Email/Phone on the vendor record. Multi-link: pulls from whichever record has Primary=true; falls back to first-linked."
+Vendors (linked tables),insurance_contact_name,loan_details,Insurance vendor 'Name',Bidirectional,Contact person's name on the linked Insurance vendor row
 Vendors (linked tables),insurance_email,loan_details,Insurance vendor 'Email',Bidirectional,Filled on the linked Insurance vendor row
 Vendors (linked tables),insurance_phone,loan_details,Insurance vendor 'Phone',Bidirectional,Filled on the linked Insurance vendor row
-Vendors (linked tables),appraisal_company,loan_details,Appraiser (linked record → Appraisers table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),appraisal_company,loan_details,Appraiser (linked record → Appraisers table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Name/Email/Phone on the vendor record. Multi-link: pulls from whichever record has Primary=true; falls back to first-linked."
+Vendors (linked tables),appraisal_contact_name,loan_details,Appraiser vendor 'Name',Bidirectional,Contact person's name on the linked Appraisers vendor row
 Vendors (linked tables),appraisal_email,loan_details,Appraiser vendor 'Email',Bidirectional,Filled on the linked Appraisers vendor row
 Vendors (linked tables),appraisal_phone,loan_details,Appraiser vendor 'Phone',Bidirectional,Filled on the linked Appraisers vendor row
 Lifecycle (separate flow),loan_status,loans,Loan Status,Push only,"Owned by /api/loans/status, not the field map. Pushes 'Canceled' / 'On Hold' / cleared to the same Loan Status cell that pipeline_stage uses. The field map skips pipeline_stage push while loan_status is on_hold/cancelled so the two don't fight."

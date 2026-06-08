@@ -588,11 +588,12 @@ async function reconcileVendor(
   deltas: FieldDelta[],
   collectDeltas: boolean,
 ) {
-  // Portal-side trio
+  // Portal-side quartet (company / contact name / email / phone)
   const detailSrc = detail ?? {}
-  const portalCompany = pickString(detailSrc[m.portalCompanyCol])
-  const portalEmail   = m.portalEmailCol ? pickString(detailSrc[m.portalEmailCol]) : null
-  const portalPhone   = m.portalPhoneCol ? pickString(detailSrc[m.portalPhoneCol]) : null
+  const portalCompany     = pickString(detailSrc[m.portalCompanyCol])
+  const portalContactName = m.portalContactNameCol ? pickString(detailSrc[m.portalContactNameCol]) : null
+  const portalEmail       = m.portalEmailCol ? pickString(detailSrc[m.portalEmailCol]) : null
+  const portalPhone       = m.portalPhoneCol ? pickString(detailSrc[m.portalPhoneCol]) : null
 
   // Airtable-side: the Deal's link field (array of record IDs)
   const linkRaw = airtableFields[m.airtableLinkField]
@@ -601,18 +602,26 @@ async function reconcileVendor(
 
   if (airtableEmpty && !portalCompany) return  // nothing to do
   if (!airtableEmpty) {
-    // Airtable has a linked vendor → pull its Company/Email/Phone into portal
-    // for any portal column currently empty. Do NOT modify the vendor row
-    // (that would feel like overwriting Airtable from portal data).
-    const linkedVendor = await fetchVendorRecord(m.vendorTableId, linkedIds[0])
-    const v = linkedVendor.fields
-    const vendorCompany = pickString(v[m.vendorCompanyField])
-    const vendorEmail = m.vendorEmailField ? pickString(v[m.vendorEmailField]) : null
-    const vendorPhone = m.vendorPhoneField ? pickString(v[m.vendorPhoneField]) : null
+    // Airtable has one or more linked vendors → fetch each, pick the
+    // primary (or fall back to first linked), pull its fields into
+    // any empty portal column. Do NOT modify the vendor row from
+    // portal data on the pull side.
+    const linkedVendors = await Promise.all(
+      linkedIds.map(id => fetchVendorRecord(m.vendorTableId, id)),
+    )
+    const chosen = (m.vendorPrimaryField
+      ? linkedVendors.find(rec => rec.fields[m.vendorPrimaryField!] === true)
+      : null) ?? linkedVendors[0]
+    const v = chosen.fields
+    const vendorCompany     = pickString(v[m.vendorCompanyField])
+    const vendorContactName = m.vendorNameField  ? pickString(v[m.vendorNameField])  : null
+    const vendorEmail       = m.vendorEmailField ? pickString(v[m.vendorEmailField]) : null
+    const vendorPhone       = m.vendorPhoneField ? pickString(v[m.vendorPhoneField]) : null
 
     pullIfEmpty(detailSrc, m.portalCompanyCol, vendorCompany, portalDetailPatch, deltas, collectDeltas)
-    if (m.portalEmailCol) pullIfEmpty(detailSrc, m.portalEmailCol, vendorEmail, portalDetailPatch, deltas, collectDeltas)
-    if (m.portalPhoneCol) pullIfEmpty(detailSrc, m.portalPhoneCol, vendorPhone, portalDetailPatch, deltas, collectDeltas)
+    if (m.portalContactNameCol) pullIfEmpty(detailSrc, m.portalContactNameCol, vendorContactName, portalDetailPatch, deltas, collectDeltas)
+    if (m.portalEmailCol)       pullIfEmpty(detailSrc, m.portalEmailCol,       vendorEmail,       portalDetailPatch, deltas, collectDeltas)
+    if (m.portalPhoneCol)       pullIfEmpty(detailSrc, m.portalPhoneCol,       vendorPhone,       portalDetailPatch, deltas, collectDeltas)
     return
   }
 
@@ -620,15 +629,18 @@ async function reconcileVendor(
   let vendor = await findVendorByCompany(m.vendorTableId, m.vendorCompanyField, portalCompany!)
   if (!vendor) {
     const fields: Record<string, unknown> = { [m.vendorCompanyField]: portalCompany }
-    if (m.vendorEmailField && portalEmail) fields[m.vendorEmailField] = portalEmail
-    if (m.vendorPhoneField && portalPhone) fields[m.vendorPhoneField] = portalPhone
+    if (m.vendorNameField  && portalContactName) fields[m.vendorNameField]  = portalContactName
+    if (m.vendorEmailField && portalEmail)       fields[m.vendorEmailField] = portalEmail
+    if (m.vendorPhoneField && portalPhone)       fields[m.vendorPhoneField] = portalPhone
     vendor = await createVendor(m.vendorTableId, fields)
     if (collectDeltas) deltas.push({ field: `airtable vendor: ${m.airtableLinkField}`, direction: 'push', oldValue: null, newValue: `created "${portalCompany}"` })
   } else {
-    // Existing vendor — only fill missing email/phone on the vendor row.
+    // Existing vendor — only fill MISSING fields on the vendor row,
+    // never overwrite what Alicyn already put there.
     const patch: Record<string, unknown> = {}
-    if (m.vendorEmailField && portalEmail && isEmptyValue(vendor.fields[m.vendorEmailField])) patch[m.vendorEmailField] = portalEmail
-    if (m.vendorPhoneField && portalPhone && isEmptyValue(vendor.fields[m.vendorPhoneField])) patch[m.vendorPhoneField] = portalPhone
+    if (m.vendorNameField  && portalContactName && isEmptyValue(vendor.fields[m.vendorNameField]))  patch[m.vendorNameField]  = portalContactName
+    if (m.vendorEmailField && portalEmail       && isEmptyValue(vendor.fields[m.vendorEmailField])) patch[m.vendorEmailField] = portalEmail
+    if (m.vendorPhoneField && portalPhone       && isEmptyValue(vendor.fields[m.vendorPhoneField])) patch[m.vendorPhoneField] = portalPhone
     if (Object.keys(patch).length > 0) {
       await patchVendor(m.vendorTableId, vendor.id, patch)
       vendor.fields = { ...vendor.fields, ...patch }
