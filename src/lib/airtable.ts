@@ -131,14 +131,18 @@ const READ_ONLY_FIELD_TYPES = new Set<string>([
   'externalSyncSource',
 ])
 
-// Process-level cache of fields we've discovered are unwritable at
-// runtime (i.e., the schema looked writable but Airtable returned 403
-// INVALID_PERMISSIONS when we actually tried). Common cause: enterprise
-// field-level permissions that the Metadata API doesn't expose. Stays
-// in memory for the lifetime of the serverless container so subsequent
-// syncs in the same process skip the field instead of repeatedly hitting
-// the same 403.
-const runtimeReadOnlyFields = new Set<string>()
+// (Cross-sync read-only cache removed 2026-06.) Previously a process-
+// wide Set captured field names that returned 403 INVALID_PERMISSIONS
+// or 422 UNKNOWN_FIELD_NAME, so subsequent syncs in the SAME Vercel
+// container would skip those fields silently. That broke loan-level
+// sync invisibly: a transient error on one loan permanently flagged a
+// field for every loan after it in the same container's lifetime.
+//
+// Now the per-sync retry loop drops the offending field from THIS
+// sync's PATCH (so one bad column doesn't kill the whole patch) and
+// the next loan starts fresh — if the field is genuinely locked, it
+// re-discovers and re-handles that on every sync; if the lock was
+// transient, it auto-recovers immediately.
 
 let dealsSchemaCache: Map<string, AirtableFieldSchema> | null = null
 let dealsSchemaPromise: Promise<Map<string, AirtableFieldSchema>> | null = null
@@ -394,16 +398,15 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
   // 5. Apply Airtable changes (PATCH the Deal — typecast lets Airtable coerce
   //    text into enum choices when values match).
   //
-  // Two retryable per-field rejections handled here:
-  //   - 403 INVALID_PERMISSIONS — enterprise field-level lock the
-  //     Metadata API doesn't expose. Drop the field, add it to
-  //     runtimeReadOnlyFields so future syncs in this process skip
-  //     it automatically, retry.
-  //   - 422 INVALID_VALUE_FOR_COLUMN — Airtable's type/constraint
-  //     rejection (currency cell that flipped to a formula, value
-  //     out of range, etc.). Drop the field for THIS sync but don't
-  //     cache permanently — the value or schema might be correctable
-  //     later. Bounded retry — at most 6 iterations, then give up.
+  // Per-field rejections handled here: parse the offending field name
+  // out of Airtable's error body, drop it from THIS sync's patch,
+  // retry without it. The drop is per-sync only — we no longer cache
+  // it across syncs (see the cache-removed note further up). Three
+  // error shapes:
+  //   - 403 INVALID_PERMISSIONS    — field-level write lock
+  //   - 422 INVALID_VALUE_FOR_COLUMN — type/constraint rejection
+  //   - 422 UNKNOWN_FIELD_NAME      — Airtable column doesn't exist
+  // Bounded retry — at most 6 iterations, then give up.
   let pushedToAirtable = 0
   if (Object.keys(airtablePatch).length > 0) {
     let attempts = 0
@@ -425,8 +428,7 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
         const permMatch = /INVALID_PERMISSIONS[\s\S]*?in field ([^"(]+?)(?:\s*\([^)]*\))?(?:["\\])/.exec(msg)
         const permField = permMatch?.[1]?.trim()
         if (permField && airtablePatch[permField] !== undefined) {
-          console.warn(`[airtable] field "${permField}" is not writable for this token — skipping for the rest of this process`)
-          runtimeReadOnlyFields.add(permField)
+          console.warn(`[airtable] field "${permField}" is not writable for this token — dropping from this sync`)
           delete airtablePatch[permField]
           continue
         }
@@ -449,8 +451,7 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
 
         // 422 UNKNOWN_FIELD_NAME — our mapping references an Airtable
         // column that doesn't (or no longer) exists in Alicyn's base.
-        // Drop the field for THIS sync; the runtime cache prevents
-        // re-trying it in this process. Long-term fix is to rename
+        // Drop the field for THIS sync. Long-term fix is to rename
         // the field map entry (or delete it) to match the Airtable
         // schema.
         //   {"error":{"type":"UNKNOWN_FIELD_NAME","message":"Unknown
@@ -459,7 +460,6 @@ export async function syncLoanToAirtable(loanId: string, opts: { collectDeltas?:
         const unknownField = unknownMatch?.[1]?.trim()
         if (unknownField && airtablePatch[unknownField] !== undefined) {
           console.warn(`[airtable] field "${unknownField}" does not exist in this Airtable base — dropping; update src/lib/airtable-field-map.ts to remove or rename the mapping`)
-          runtimeReadOnlyFields.add(unknownField)
           delete airtablePatch[unknownField]
           continue
         }
@@ -541,17 +541,14 @@ function reconcileScalar(
     // Skip the patch when Airtable already holds the same value — avoids
     // unnecessary writes / API calls on a no-op sync.
     if (!airtableEmpty && airtableValue === v) return
-    // Skip computed/locked Airtable fields. Two flavors:
-    //   - schema-declared read-only types (formula, rollup, lookup, etc.)
-    //     — these never accept writes.
-    //   - fields discovered to be unwritable at runtime (enterprise
-    //     field-level permissions that the schema doesn't expose).
-    //     Populated by the patch handler below on INVALID_PERMISSIONS.
+    // Skip computed/locked Airtable fields the schema knows about
+    // (formula, rollup, lookup, createdTime, etc.). Field-level
+    // permission locks that the Metadata API doesn't expose are
+    // discovered at PATCH time and dropped from this sync's payload
+    // by the retry loop below — no cross-sync cache anymore (it
+    // caused silent permanent drops when a transient error fired).
     const fieldSchema = schema.get(m.airtableField)
     if (fieldSchema && READ_ONLY_FIELD_TYPES.has(fieldSchema.type)) {
-      return
-    }
-    if (runtimeReadOnlyFields.has(m.airtableField)) {
       return
     }
     // Skip-on-mismatch for singleSelect fields. If the portal value isn't
