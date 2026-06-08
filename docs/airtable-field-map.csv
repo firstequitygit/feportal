@@ -65,10 +65,10 @@ DSCR inputs,annual_insurance_premium,loan_details,HOI Premium,Bidirectional,Dire
 DSCR inputs,annual_property_tax,loan_details,Monthly Property Tax,Bidirectional,"Portal annual ↔ Airtable monthly (÷12 on push, ×12 on pull)"
 DSCR inputs,annual_flood_insurance,loan_details,Flood Insurance,Bidirectional,Direct
 DSCR inputs,annual_hoa_dues,loan_details,Yearly HOA,Bidirectional,Direct
-Vendors (linked tables),title_company,loan_details,Title (linked record → Title table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),title_company,loan_details,Title Contact (linked record → Title table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
 Vendors (linked tables),title_email,loan_details,Title vendor 'Email',Bidirectional,Filled on the linked Title vendor row
 Vendors (linked tables),title_phone,loan_details,Title vendor 'Phone',Bidirectional,Filled on the linked Title vendor row
-Vendors (linked tables),insurance_company,loan_details,Insurance (linked record → Insurance table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
+Vendors (linked tables),insurance_company,loan_details,Insurance Contact (linked record → Insurance table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
 Vendors (linked tables),insurance_email,loan_details,Insurance vendor 'Email',Bidirectional,Filled on the linked Insurance vendor row
 Vendors (linked tables),insurance_phone,loan_details,Insurance vendor 'Phone',Bidirectional,Filled on the linked Insurance vendor row
 Vendors (linked tables),appraisal_company,loan_details,Appraiser (linked record → Appraisers table 'Company'),Bidirectional,"Find-or-create vendor row by company name; fills Email/Phone on the vendor record"
