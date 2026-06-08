@@ -51,6 +51,7 @@ Borrower / Guarantor,number_of_properties,loan_details,Number of Properties (tra
 Borrower / Guarantor,verified_assets,loan_details,Verified Assets,Bidirectional,"Portal text ('$250k') ↔ Airtable currency number"
 Credit / Background,credit_report_date,loan_details,Credit Date,Bidirectional,Direct
 Credit / Background,credit_background_notes,loan_details,Credit/Background Notes,Bidirectional,Direct
+Appraisal / Review Tracking,appraisal_order_date,loan_details,Appraisal Order Date,Bidirectional,Direct
 Appraisal / Review Tracking,appraisal_received_date,loan_details,Appraisal Received Date,Bidirectional,Direct
 Appraisal / Review Tracking,appraisal_paid_date,loan_details,Appraisal Paid Date,Bidirectional,Direct
 Valuation / Collateral,purchase_price,loan_details,Purchase Price,Bidirectional,Direct

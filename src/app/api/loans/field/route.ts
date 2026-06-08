@@ -170,6 +170,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   credit_background_notes:   { type: 'textarea', table: 'loan_details' },
 
   // Appraisal / Review Tracking
+  appraisal_order_date:     { type: 'date', table: 'loan_details' },
   appraisal_received_date:  { type: 'date', table: 'loan_details' },
   appraisal_effective_date: { type: 'date', table: 'loan_details' },
   appraisal_paid_date:      { type: 'date', table: 'loan_details' },

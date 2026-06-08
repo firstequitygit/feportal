@@ -134,6 +134,7 @@ export const LOAN_DETAILS_FIELDS: LoanDetailsFieldDef[] = [
   { key: 'credit_background_notes', label: 'Credit / Background Notes',     section: 'Credit / Background' },
 
   // Appraisal / Review Tracking
+  { key: 'appraisal_order_date',     label: 'Appraisal Order Date',         section: 'Appraisal / Review Tracking' },
   { key: 'appraisal_paid_date',      label: 'Appraisal Paid Date',          section: 'Appraisal / Review Tracking' },
   { key: 'appraisal_received_date',  label: 'Appraisal Received Date',      section: 'Appraisal / Review Tracking' },
   { key: 'appraisal_effective_date', label: 'Appraisal Effective Date',     section: 'Appraisal / Review Tracking' },

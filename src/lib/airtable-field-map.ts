@@ -371,6 +371,7 @@ export const FIELD_MAP: FieldMapping[] = [
   s('credit_background_notes', 'loan_details', 'Credit/Background Notes'),
 
   // ---- Appraisal / Review Tracking ----
+  s('appraisal_order_date', 'loan_details', 'Appraisal Order Date'),
   s('appraisal_received_date', 'loan_details', 'Appraisal Received Date'),
   s('appraisal_paid_date', 'loan_details', 'Appraisal Paid Date'),
 

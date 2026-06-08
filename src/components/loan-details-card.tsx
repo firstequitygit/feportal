@@ -69,6 +69,7 @@ export interface LoanDetails {
   credit_background_notes?: string | null
 
   // Appraisal / Review Tracking
+  appraisal_order_date?: string | null
   appraisal_received_date?: string | null
   appraisal_effective_date?: string | null
   appraisal_paid_date?: string | null
@@ -1247,6 +1248,15 @@ export function LoanDetailsCard({
             </Section>
 
             <Section title="Appraisal / Review Tracking">
+              <DetailRow fieldKey="appraisal_order_date" label="Appraisal Order Date">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="appraisal_order_date"
+                  type="date"
+                  currentValue={d.appraisal_order_date ?? null}
+                  display={formatDate(d.appraisal_order_date)}
+                />
+              </DetailRow>
               <DetailRow fieldKey="appraisal_paid_date" label="Appraisal Paid Date">
                 <EditableLoanField
                   loanId={loanId}

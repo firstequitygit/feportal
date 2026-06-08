@@ -170,6 +170,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'credit_report_date',        label: 'Credit Pulled',            format: 'date',     group: 'Borrower', edit: { format: 'date' } },
 
   // Appraisal
+  { key: 'appraisal_order_date',      label: 'Appraisal Ordered',        format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_paid_date',       label: 'Appraisal Paid',           format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_received_date',   label: 'Appraisal Received',       format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_effective_date',  label: 'Appraisal Effective',      format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
