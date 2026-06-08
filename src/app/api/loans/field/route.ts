@@ -171,6 +171,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
 
   // Appraisal / Review Tracking
   appraisal_order_date:     { type: 'date', table: 'loan_details' },
+  appraisal_due_date:       { type: 'date', table: 'loan_details' },
   appraisal_received_date:  { type: 'date', table: 'loan_details' },
   appraisal_effective_date: { type: 'date', table: 'loan_details' },
   appraisal_paid_date:      { type: 'date', table: 'loan_details' },

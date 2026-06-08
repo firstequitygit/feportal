@@ -171,6 +171,7 @@ const COLUMNS: ColumnDef[] = [
 
   // Appraisal
   { key: 'appraisal_order_date',      label: 'Appraisal Ordered',        format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
+  { key: 'appraisal_due_date',        label: 'Appraisal Due',            format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_paid_date',       label: 'Appraisal Paid',           format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_received_date',   label: 'Appraisal Received',       format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
   { key: 'appraisal_effective_date',  label: 'Appraisal Effective',      format: 'date',     group: 'Appraisal', edit: { format: 'date' } },

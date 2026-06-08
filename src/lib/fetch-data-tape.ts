@@ -113,6 +113,7 @@ export interface DataTapeRow {
 
   // ---- Appraisal ----
   appraisal_order_date: string | null
+  appraisal_due_date: string | null
   appraisal_paid_date: string | null
   appraisal_received_date: string | null
   appraisal_effective_date: string | null
@@ -193,7 +194,7 @@ export async function fetchDataTape(adminClient: SupabaseClient): Promise<DataTa
           annual_flood_insurance, annual_hoa_dues,
           number_of_properties, verified_assets,
           credit_score, credit_report_date,
-          appraisal_order_date, appraisal_paid_date, appraisal_received_date, appraisal_effective_date,
+          appraisal_order_date, appraisal_due_date, appraisal_paid_date, appraisal_received_date, appraisal_effective_date,
           title_company, insurance_company, appraisal_company,
           exceptions, underwriter_notes
         )
@@ -360,6 +361,7 @@ function flatten(raw: unknown): DataTapeRow {
     credit_report_date: s(details.credit_report_date),
 
     appraisal_order_date: s(details.appraisal_order_date),
+    appraisal_due_date: s(details.appraisal_due_date),
     appraisal_paid_date: s(details.appraisal_paid_date),
     appraisal_received_date: s(details.appraisal_received_date),
     appraisal_effective_date: s(details.appraisal_effective_date),
