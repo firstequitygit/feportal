@@ -20,17 +20,22 @@
 //     bigger concern is browser memory, which is fine in modern
 //     Chrome/Edge/Firefox at this size.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Search, Download, ChevronRight, ChevronDown, Minimize2 } from 'lucide-react'
 import { formatDate } from '@/lib/format-date'
 import type { DataTapeRow } from '@/lib/fetch-data-tape'
+import { DataTapeCell, type EditCellFormat } from '@/components/data-tape-cell'
 
 interface Props {
   rows: DataTapeRow[]
   /** Path prefix for the "open loan" link — admin and UW pages route
    *  to different loan-detail surfaces. */
   loanDetailHref: (loanId: string) => string
+  /** When true, columns marked `editable` in the COLUMNS table render
+   *  as click-to-edit cells that save via /api/loans/field. Defaults
+   *  to false (the admin page leaves the tape view-only). */
+  canEdit?: boolean
 }
 
 type ColumnFormat = 'text' | 'currency' | 'percent' | 'percent-stored-as-pct' | 'date' | 'integer' | 'boolean' | 'stage'
@@ -43,21 +48,53 @@ interface ColumnDef {
   widthClass?: string
   /** Group label for the optional column-group header row. */
   group: string
+  /** When set, the cell becomes click-to-edit for users with
+   *  `canEdit=true` on the parent table. The value `null` (or omit)
+   *  keeps the cell read-only.
+   *
+   *  Editable cells write through /api/loans/field which already
+   *  knows how to coerce the format-specific input into the right
+   *  loans / loan_details column. */
+  edit?: {
+    format: EditCellFormat
+    /** For format='enum' — the dropdown options. */
+    options?: readonly string[]
+  }
 }
+
+// Enum option lists — kept here so the COLUMNS array reads cleanly.
+const LOAN_TYPE_OPTIONS = ['Fix & Flip (Bridge)', 'Rental (DSCR)', 'New Construction'] as const
+const LOAN_PURPOSE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance (cash out)', 'Delayed Purchase'] as const
+const RATE_TYPE_OPTIONS = ['Fixed', 'ARM'] as const
+const YES_NO_OPTIONS = ['Yes', 'No'] as const
+const AMORT_OPTIONS = ['Interest Only', '15-yr', '20-yr', '25-yr', '30-yr', '40-yr'] as const
+const RATE_LOCK_DAYS_OPTIONS = ['No', '15 days', '30 days', '45 days'] as const
+const PROPERTY_TYPE_OPTIONS = ['SFR', '2-4 Unit', 'Multifamily', 'Condo', 'Townhouse', 'Mixed Use', 'Commercial'] as const
+const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const
+const INVESTOR_OPTIONS = ['Toorak', 'Churchill', 'Eastview', 'Silver', 'Blue', 'FE', 'ROC', 'Corvest', 'Held', 'Logan Financial', 'DSCR', 'Verus'] as const
 
 // Source-of-truth column spec. The CSV exporter and the visible table
 // both iterate this in order, so to add / remove / reorder columns
 // just touch this one array.
+//
+// Columns without an `edit` block stay read-only even when canEdit=true:
+//   - property_address — composite identifier, edit on the loan page
+//   - pipeline_stage   — has its own state-machine UI (EditableLoanStage)
+//   - loan_status      — has the on-hold / cancelled modal flow
+//   - *_name + broker_company — joined display-only, assignment is its own UI
+//   - ltv              — auto-calculated for DSCR loans
+//   - cross_collateralization / foreign_national — boolean Yes/No, defer
+//   - exceptions / underwriter_notes — long textareas, won't fit a cell
 const COLUMNS: ColumnDef[] = [
   // Identifiers
   { key: 'property_address',          label: 'Property',                 format: 'text',     group: 'ID', widthClass: 'w-72' },
-  { key: 'loan_number',               label: 'Loan #',                   format: 'text',     group: 'ID' },
-  { key: 'investor_loan_number',      label: 'Investor Loan #',          format: 'text',     group: 'ID' },
-  { key: 'min_number',                label: 'MIN #',                    format: 'text',     group: 'ID' },
+  { key: 'loan_number',               label: 'Loan #',                   format: 'text',     group: 'ID', edit: { format: 'text' } },
+  { key: 'investor_loan_number',      label: 'Investor Loan #',          format: 'text',     group: 'ID', edit: { format: 'text' } },
+  { key: 'min_number',                label: 'MIN #',                    format: 'text',     group: 'ID', edit: { format: 'text' } },
   { key: 'pipeline_stage',            label: 'Stage',                    format: 'stage',    group: 'ID' },
   { key: 'loan_status',               label: 'Status',                   format: 'text',     group: 'ID' },
 
-  // People
+  // People — display only; assignment is a separate flow.
   { key: 'borrower_name',             label: 'Borrower',                 format: 'text',     group: 'People', widthClass: 'w-48' },
   { key: 'loan_officer_name',         label: 'LO',                       format: 'text',     group: 'People', widthClass: 'w-44' },
   { key: 'loan_processor_name',       label: 'LP',                       format: 'text',     group: 'People', widthClass: 'w-44' },
@@ -66,88 +103,88 @@ const COLUMNS: ColumnDef[] = [
   { key: 'broker_company',            label: 'Broker Co.',               format: 'text',     group: 'People', widthClass: 'w-44' },
 
   // Loan structure
-  { key: 'loan_type',                 label: 'Loan Type',                format: 'text',     group: 'Loan' },
-  { key: 'loan_type_one',             label: 'Loan Purpose',             format: 'text',     group: 'Loan' },
-  { key: 'loan_amount',               label: 'Loan Amount',              format: 'currency', group: 'Loan' },
-  { key: 'initial_loan_amount',       label: 'Initial Loan Amt',         format: 'currency', group: 'Loan' },
-  { key: 'cash_out_amount',           label: 'Cash-Out Amt',             format: 'currency', group: 'Loan' },
-  { key: 'interest_rate',             label: 'Rate',                     format: 'percent-stored-as-pct', group: 'Loan' },
-  { key: 'rate_type',                 label: 'Rate Type',                format: 'text',     group: 'Loan' },
-  { key: 'interest_only',             label: 'Interest Only',            format: 'text',     group: 'Loan' },
-  { key: 'amortization_schedule',     label: 'Amortization',             format: 'text',     group: 'Loan' },
-  { key: 'term_months',               label: 'Term (mo)',                format: 'integer',  group: 'Loan' },
-  { key: 'points',                    label: 'Points',                   format: 'text',     group: 'Loan' },
-  { key: 'broker_points',             label: 'Broker Points',            format: 'text',     group: 'Loan' },
-  { key: 'broker_ysp',                label: 'Broker YSP',               format: 'text',     group: 'Loan' },
-  { key: 'prepayment_penalty',        label: 'Prepay Penalty',           format: 'text',     group: 'Loan' },
-  { key: 'rate_locked_days',          label: 'Rate Locked',              format: 'text',     group: 'Loan' },
-  { key: 'rate_lock_expiration_date', label: 'Rate Lock Exp.',           format: 'date',     group: 'Loan' },
-  { key: 'rate_lock_extended',        label: 'Rate Lock Ext.',           format: 'text',     group: 'Loan' },
+  { key: 'loan_type',                 label: 'Loan Type',                format: 'text',     group: 'Loan', edit: { format: 'enum', options: LOAN_TYPE_OPTIONS } },
+  { key: 'loan_type_one',             label: 'Loan Purpose',             format: 'text',     group: 'Loan', edit: { format: 'enum', options: LOAN_PURPOSE_OPTIONS } },
+  { key: 'loan_amount',               label: 'Loan Amount',              format: 'currency', group: 'Loan', edit: { format: 'currency' } },
+  { key: 'initial_loan_amount',       label: 'Initial Loan Amt',         format: 'currency', group: 'Loan', edit: { format: 'currency' } },
+  { key: 'cash_out_amount',           label: 'Cash-Out Amt',             format: 'currency', group: 'Loan', edit: { format: 'currency' } },
+  { key: 'interest_rate',             label: 'Rate',                     format: 'percent-stored-as-pct', group: 'Loan', edit: { format: 'percent-stored-as-pct' } },
+  { key: 'rate_type',                 label: 'Rate Type',                format: 'text',     group: 'Loan', edit: { format: 'enum', options: RATE_TYPE_OPTIONS } },
+  { key: 'interest_only',             label: 'Interest Only',            format: 'text',     group: 'Loan', edit: { format: 'enum', options: YES_NO_OPTIONS } },
+  { key: 'amortization_schedule',     label: 'Amortization',             format: 'text',     group: 'Loan', edit: { format: 'enum', options: AMORT_OPTIONS } },
+  { key: 'term_months',               label: 'Term (mo)',                format: 'integer',  group: 'Loan', edit: { format: 'integer' } },
+  { key: 'points',                    label: 'Points',                   format: 'text',     group: 'Loan', edit: { format: 'number' } },
+  { key: 'broker_points',             label: 'Broker Points',            format: 'text',     group: 'Loan', edit: { format: 'number' } },
+  { key: 'broker_ysp',                label: 'Broker YSP',               format: 'text',     group: 'Loan', edit: { format: 'number' } },
+  { key: 'prepayment_penalty',        label: 'Prepay Penalty',           format: 'text',     group: 'Loan', edit: { format: 'text' } },
+  { key: 'rate_locked_days',          label: 'Rate Locked',              format: 'text',     group: 'Loan', edit: { format: 'enum', options: RATE_LOCK_DAYS_OPTIONS } },
+  { key: 'rate_lock_expiration_date', label: 'Rate Lock Exp.',           format: 'date',     group: 'Loan', edit: { format: 'date' } },
+  { key: 'rate_lock_extended',        label: 'Rate Lock Ext.',           format: 'text',     group: 'Loan', edit: { format: 'enum', options: YES_NO_OPTIONS } },
 
   // Dates
-  { key: 'submitted_at',              label: 'Submitted',                format: 'date',     group: 'Dates' },
-  { key: 'origination_date',          label: 'Closing / Origination',    format: 'date',     group: 'Dates' },
-  { key: 'estimated_closing_date',    label: 'Est. Closing',             format: 'date',     group: 'Dates' },
-  { key: 'first_payment_date',        label: 'First Payment',            format: 'date',     group: 'Dates' },
-  { key: 'maturity_date',             label: 'Maturity',                 format: 'date',     group: 'Dates' },
-  { key: 'funded_date',               label: 'Funded',                   format: 'date',     group: 'Dates' },
+  { key: 'submitted_at',              label: 'Submitted',                format: 'date',     group: 'Dates', edit: { format: 'date' } },
+  { key: 'origination_date',          label: 'Closing / Origination',    format: 'date',     group: 'Dates', edit: { format: 'date' } },
+  { key: 'estimated_closing_date',    label: 'Est. Closing',             format: 'date',     group: 'Dates', edit: { format: 'date' } },
+  { key: 'first_payment_date',        label: 'First Payment',            format: 'date',     group: 'Dates', edit: { format: 'date' } },
+  { key: 'maturity_date',             label: 'Maturity',                 format: 'date',     group: 'Dates', edit: { format: 'date' } },
+  { key: 'funded_date',               label: 'Funded',                   format: 'date',     group: 'Dates', edit: { format: 'date' } },
 
   // Valuation
-  { key: 'purchase_price',            label: 'Purchase Price',           format: 'currency', group: 'Value' },
-  { key: 'acquisition_date',          label: 'Acquired',                 format: 'date',     group: 'Value' },
-  { key: 'value_as_is',               label: 'Value (As-Is)',            format: 'currency', group: 'Value' },
-  { key: 'arv',                       label: 'Value (ARV)',              format: 'currency', group: 'Value' },
-  { key: 'value_bpo',                 label: 'Value (BPO)',              format: 'currency', group: 'Value' },
+  { key: 'purchase_price',            label: 'Purchase Price',           format: 'currency', group: 'Value', edit: { format: 'currency' } },
+  { key: 'acquisition_date',          label: 'Acquired',                 format: 'date',     group: 'Value', edit: { format: 'date' } },
+  { key: 'value_as_is',               label: 'Value (As-Is)',            format: 'currency', group: 'Value', edit: { format: 'currency' } },
+  { key: 'arv',                       label: 'Value (ARV)',              format: 'currency', group: 'Value', edit: { format: 'currency' } },
+  { key: 'value_bpo',                 label: 'Value (BPO)',              format: 'currency', group: 'Value', edit: { format: 'currency' } },
   { key: 'ltv',                       label: 'LTV',                      format: 'percent-stored-as-pct', group: 'Value' },
-  { key: 'rehab_budget',              label: 'Construction Cost',        format: 'currency', group: 'Value' },
-  { key: 'construction_holdback',     label: 'Const. Holdback',          format: 'currency', group: 'Value' },
+  { key: 'rehab_budget',              label: 'Construction Cost',        format: 'currency', group: 'Value', edit: { format: 'currency' } },
+  { key: 'construction_holdback',     label: 'Const. Holdback',          format: 'currency', group: 'Value', edit: { format: 'currency' } },
 
   // Property
-  { key: 'property_type',             label: 'Property Type',            format: 'text',     group: 'Property' },
-  { key: 'number_of_units',           label: '# Units',                  format: 'integer',  group: 'Property' },
-  { key: 'square_footage',            label: 'Sq Ft',                    format: 'integer',  group: 'Property' },
-  { key: 'property_state',            label: 'State',                    format: 'text',     group: 'Property' },
-  { key: 'flood_zone',                label: 'Flood Zone',               format: 'text',     group: 'Property' },
+  { key: 'property_type',             label: 'Property Type',            format: 'text',     group: 'Property', edit: { format: 'enum', options: PROPERTY_TYPE_OPTIONS } },
+  { key: 'number_of_units',           label: '# Units',                  format: 'integer',  group: 'Property', edit: { format: 'integer' } },
+  { key: 'square_footage',            label: 'Sq Ft',                    format: 'integer',  group: 'Property', edit: { format: 'integer' } },
+  { key: 'property_state',            label: 'State',                    format: 'text',     group: 'Property', edit: { format: 'text' } },
+  { key: 'flood_zone',                label: 'Flood Zone',               format: 'text',     group: 'Property', edit: { format: 'text' } },
 
   // UW flags / overview
-  { key: 'urgency',                   label: 'Urgency',                  format: 'text',     group: 'UW' },
-  { key: 'investor',                  label: 'Investor',                 format: 'text',     group: 'UW' },
+  { key: 'urgency',                   label: 'Urgency',                  format: 'text',     group: 'UW', edit: { format: 'enum', options: URGENCY_OPTIONS } },
+  { key: 'investor',                  label: 'Investor',                 format: 'text',     group: 'UW', edit: { format: 'enum', options: INVESTOR_OPTIONS } },
   { key: 'cross_collateralization',   label: 'Cross Collat',             format: 'boolean',  group: 'UW' },
   { key: 'foreign_national',          label: 'Foreign National',         format: 'boolean',  group: 'UW' },
-  { key: 'entity_name',               label: 'Entity',                   format: 'text',     group: 'UW', widthClass: 'w-48' },
+  { key: 'entity_name',               label: 'Entity',                   format: 'text',     group: 'UW', widthClass: 'w-48', edit: { format: 'text' } },
   { key: 'exceptions',                label: 'Exceptions',               format: 'text',     group: 'UW', widthClass: 'w-64' },
   { key: 'underwriter_notes',         label: "UW Notes (Alicyn's)",      format: 'text',     group: 'UW', widthClass: 'w-72' },
 
   // DSCR
-  { key: 'qualifying_rent',           label: 'Qualifying Rent',          format: 'currency', group: 'DSCR' },
-  { key: 'annual_property_tax',       label: 'Annual Prop Tax',          format: 'currency', group: 'DSCR' },
-  { key: 'annual_insurance_premium',  label: 'Annual Insurance',         format: 'currency', group: 'DSCR' },
-  { key: 'annual_flood_insurance',    label: 'Annual Flood',             format: 'currency', group: 'DSCR' },
-  { key: 'annual_hoa_dues',           label: 'Annual HOA',               format: 'currency', group: 'DSCR' },
+  { key: 'qualifying_rent',           label: 'Qualifying Rent',          format: 'currency', group: 'DSCR', edit: { format: 'currency' } },
+  { key: 'annual_property_tax',       label: 'Annual Prop Tax',          format: 'currency', group: 'DSCR', edit: { format: 'currency' } },
+  { key: 'annual_insurance_premium',  label: 'Annual Insurance',         format: 'currency', group: 'DSCR', edit: { format: 'currency' } },
+  { key: 'annual_flood_insurance',    label: 'Annual Flood',             format: 'currency', group: 'DSCR', edit: { format: 'currency' } },
+  { key: 'annual_hoa_dues',           label: 'Annual HOA',               format: 'currency', group: 'DSCR', edit: { format: 'currency' } },
 
   // Borrower / Credit
-  { key: 'number_of_properties',      label: '# Properties',             format: 'integer',  group: 'Borrower' },
-  { key: 'verified_assets',           label: 'Verified Assets',          format: 'text',     group: 'Borrower' },
-  { key: 'credit_score',              label: 'Credit Score',             format: 'integer',  group: 'Borrower' },
-  { key: 'credit_report_date',        label: 'Credit Pulled',            format: 'date',     group: 'Borrower' },
+  { key: 'number_of_properties',      label: '# Properties',             format: 'integer',  group: 'Borrower', edit: { format: 'integer' } },
+  { key: 'verified_assets',           label: 'Verified Assets',          format: 'text',     group: 'Borrower', edit: { format: 'text' } },
+  { key: 'credit_score',              label: 'Credit Score',             format: 'integer',  group: 'Borrower', edit: { format: 'integer' } },
+  { key: 'credit_report_date',        label: 'Credit Pulled',            format: 'date',     group: 'Borrower', edit: { format: 'date' } },
 
   // Appraisal
-  { key: 'appraisal_paid_date',       label: 'Appraisal Paid',           format: 'date',     group: 'Appraisal' },
-  { key: 'appraisal_received_date',   label: 'Appraisal Received',       format: 'date',     group: 'Appraisal' },
-  { key: 'appraisal_effective_date',  label: 'Appraisal Effective',      format: 'date',     group: 'Appraisal' },
+  { key: 'appraisal_paid_date',       label: 'Appraisal Paid',           format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
+  { key: 'appraisal_received_date',   label: 'Appraisal Received',       format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
+  { key: 'appraisal_effective_date',  label: 'Appraisal Effective',      format: 'date',     group: 'Appraisal', edit: { format: 'date' } },
 
   // Fees
-  { key: 'underwriting_fee',          label: 'UW Fee',                   format: 'currency', group: 'Fees' },
-  { key: 'legal_doc_prep_fee',        label: 'Legal/Doc Prep',           format: 'currency', group: 'Fees' },
-  { key: 'desk_review_fee',           label: 'Desk Review',              format: 'currency', group: 'Fees' },
-  { key: 'small_balance_fee',         label: 'Small Balance',            format: 'currency', group: 'Fees' },
-  { key: 'feasibility_fee',           label: 'Feasibility',              format: 'currency', group: 'Fees' },
-  { key: 'additional_fees',           label: 'Additional Fees',          format: 'currency', group: 'Fees' },
+  { key: 'underwriting_fee',          label: 'UW Fee',                   format: 'currency', group: 'Fees', edit: { format: 'currency' } },
+  { key: 'legal_doc_prep_fee',        label: 'Legal/Doc Prep',           format: 'currency', group: 'Fees', edit: { format: 'currency' } },
+  { key: 'desk_review_fee',           label: 'Desk Review',              format: 'currency', group: 'Fees', edit: { format: 'currency' } },
+  { key: 'small_balance_fee',         label: 'Small Balance',            format: 'currency', group: 'Fees', edit: { format: 'currency' } },
+  { key: 'feasibility_fee',           label: 'Feasibility',              format: 'currency', group: 'Fees', edit: { format: 'currency' } },
+  { key: 'additional_fees',           label: 'Additional Fees',          format: 'currency', group: 'Fees', edit: { format: 'currency' } },
 
   // Vendors
-  { key: 'title_company',             label: 'Title',                    format: 'text',     group: 'Vendors', widthClass: 'w-48' },
-  { key: 'insurance_company',         label: 'Insurance',                format: 'text',     group: 'Vendors', widthClass: 'w-48' },
-  { key: 'appraisal_company',         label: 'Appraiser',                format: 'text',     group: 'Vendors', widthClass: 'w-48' },
+  { key: 'title_company',             label: 'Title',                    format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
+  { key: 'insurance_company',         label: 'Insurance',                format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
+  { key: 'appraisal_company',         label: 'Appraiser',                format: 'text',     group: 'Vendors', widthClass: 'w-48', edit: { format: 'text' } },
 ]
 
 const currencyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -191,7 +228,7 @@ function stageColor(stage: string | null): string {
   }
 }
 
-export function DataTape({ rows, loanDetailHref }: Props) {
+export function DataTape({ rows, loanDetailHref, canEdit = false }: Props) {
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [loanTypeFilter, setLoanTypeFilter] = useState<string>('all')
@@ -201,6 +238,18 @@ export function DataTape({ rows, loanDetailHref }: Props) {
   // row height. Click the chevron in the property cell to flip a
   // single row into wrap mode for full content.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // Local copy of the rows so inline edits can update the table
+  // without re-fetching the whole tape. Reset when the prop changes
+  // (e.g., the client wrapper refetches after navigation).
+  const [liveRows, setLiveRows] = useState<DataTapeRow[]>(rows)
+  useEffect(() => { setLiveRows(rows) }, [rows])
+
+  function applyEdit(loanId: string, key: keyof DataTapeRow, newRawValue: unknown) {
+    setLiveRows(prev => prev.map(r => (
+      r.id === loanId ? ({ ...r, [key]: newRawValue } as DataTapeRow) : r
+    )))
+  }
 
   function toggleExpand(loanId: string) {
     setExpandedIds(prev => {
@@ -218,21 +267,21 @@ export function DataTape({ rows, loanDetailHref }: Props) {
   // Derive the dropdown option sets from the data — keeps the UI from
   // showing a filter for a stage / investor that no loan currently has.
   const stages = useMemo(
-    () => Array.from(new Set(rows.map(r => r.pipeline_stage).filter((s): s is string => !!s))).sort(),
-    [rows],
+    () => Array.from(new Set(liveRows.map(r => r.pipeline_stage).filter((s): s is string => !!s))).sort(),
+    [liveRows],
   )
   const loanTypes = useMemo(
-    () => Array.from(new Set(rows.map(r => r.loan_type).filter((s): s is string => !!s))).sort(),
-    [rows],
+    () => Array.from(new Set(liveRows.map(r => r.loan_type).filter((s): s is string => !!s))).sort(),
+    [liveRows],
   )
   const investors = useMemo(
-    () => Array.from(new Set(rows.map(r => r.investor).filter((s): s is string => !!s))).sort(),
-    [rows],
+    () => Array.from(new Set(liveRows.map(r => r.investor).filter((s): s is string => !!s))).sort(),
+    [liveRows],
   )
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return rows.filter(r => {
+    return liveRows.filter(r => {
       if (stageFilter !== 'all' && r.pipeline_stage !== stageFilter) return false
       if (loanTypeFilter !== 'all' && r.loan_type !== loanTypeFilter) return false
       if (investorFilter !== 'all' && r.investor !== investorFilter) return false
@@ -246,7 +295,7 @@ export function DataTape({ rows, loanDetailHref }: Props) {
       ].filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(q)
     })
-  }, [rows, search, stageFilter, loanTypeFilter, investorFilter])
+  }, [liveRows, search, stageFilter, loanTypeFilter, investorFilter])
 
   function downloadCsv() {
     const header = COLUMNS.map(c => c.label).join(',')
@@ -306,7 +355,7 @@ export function DataTape({ rows, loanDetailHref }: Props) {
         </select>
         <div className="flex-1" />
         <span className="text-xs text-gray-500 whitespace-nowrap">
-          <strong className="text-gray-900">{filtered.length}</strong> of {rows.length} loans
+          <strong className="text-gray-900">{filtered.length}</strong> of {liveRows.length} loans
         </span>
         {expandedIds.size > 0 && (
           <button
@@ -357,7 +406,7 @@ export function DataTape({ rows, loanDetailHref }: Props) {
                   colSpan={COLUMNS.length}
                   className="px-4 py-8 text-center text-sm text-gray-500"
                 >
-                  {rows.length === 0
+                  {liveRows.length === 0
                     ? 'No active loans yet.'
                     : 'No loans match the current filters.'}
                 </td>
@@ -434,6 +483,28 @@ export function DataTape({ rows, loanDetailHref }: Props) {
                         }
                         const cls = value ? 'text-emerald-700' : 'text-gray-500'
                         return <td key={c.key} className={`${tdClasses} ${cls}`}>{text}</td>
+                      }
+
+                      // Editable cell — click-to-edit when canEdit is true
+                      // AND the column has an `edit` spec. Empty cells are
+                      // still clickable so the user can fill them in.
+                      const editSpec = c.edit
+                      if (canEdit && editSpec) {
+                        return (
+                          <td key={c.key} className={tdClasses}>
+                            <DataTapeCell
+                              loanId={row.id}
+                              field={c.key as string}
+                              format={editSpec.format}
+                              rawValue={value}
+                              displayText={text}
+                              enumOptions={editSpec.options}
+                              widthClass={c.widthClass ?? defaultWidthClass}
+                              wrapClass={wrapClass}
+                              onSaved={(newRaw) => applyEdit(row.id, c.key, newRaw)}
+                            />
+                          </td>
+                        )
                       }
 
                       if (!text) {

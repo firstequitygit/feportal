@@ -52,11 +52,19 @@ export default async function UnderwriterDataTapePage({
         <p className="text-sm text-gray-500 mt-1">
           Pipeline-wide loan view — same fields Alicyn tracks in Airtable.
           Excludes archived loans, New Application stage, and loans on hold.
+          {!isImpersonating && (
+            <> Click any non-grey cell to edit; the change syncs to Pipedrive + Airtable on the next loan sync.</>
+          )}
         </p>
       </div>
       <DataTapeClient
         loanDetailHrefPrefix="/underwriter/loans"
         maxRows={DATA_TAPE_MAX_ROWS}
+        // Inline cell edits enabled for the UW role only, and only
+        // when not in View-As mode. The /api/loans/field route
+        // double-checks the user's role + assignment before
+        // writing, so this is just the UI affordance.
+        canEdit={!isImpersonating}
       />
     </PortalShell>
   )

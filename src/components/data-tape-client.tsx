@@ -29,9 +29,13 @@ interface Props {
   /** Cap from the server — surfaced in the banner so the user knows
    *  when results were clipped. */
   maxRows: number
+  /** When true, editable columns become click-to-edit cells. Set by
+   *  the UW page (and only when not impersonating); the admin page
+   *  always passes false. */
+  canEdit?: boolean
 }
 
-export function DataTapeClient({ loanDetailHrefPrefix, maxRows }: Props) {
+export function DataTapeClient({ loanDetailHrefPrefix, maxRows, canEdit = false }: Props) {
   const loanDetailHref = (loanId: string) => `${loanDetailHrefPrefix}/${loanId}`
   const [data, setData] = useState<ApiResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,7 +107,7 @@ export function DataTapeClient({ loanDetailHrefPrefix, maxRows }: Props) {
           currently visible.
         </div>
       )}
-      <DataTape rows={rows} loanDetailHref={loanDetailHref} />
+      <DataTape rows={rows} loanDetailHref={loanDetailHref} canEdit={canEdit} />
     </div>
   )
 }
