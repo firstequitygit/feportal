@@ -39,6 +39,7 @@ import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
 import { ViewAsDropdown } from '@/components/view-as-dropdown'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
+import { LoanDocGeneratorMenu } from '@/components/loan-doc-generator-menu'
 import { buildViewAsOptions } from '@/lib/view-as-options'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -163,13 +164,7 @@ export default async function LoanProcessorLoanPage({
           <div className="flex items-center gap-2">
             <ViewAsDropdown loanId={id} options={buildViewAsOptions(loan)} />
             <LoanAirtableSyncButton loanId={id} />
-            <Link
-              href={`/approval-letter/${id}`}
-              // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
-              className="inline-flex items-center h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap"
-            >
-              Generate Approval Letter
-            </Link>
+            <LoanDocGeneratorMenu loanId={id} />
             <UnclaimButton
               loanId={id}
               apiEndpoint="/api/loan-processor/unclaim"

@@ -20,6 +20,7 @@ import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
+import { LoanDocGeneratorMenu } from '@/components/loan-doc-generator-menu'
 import { CollapsibleCard } from '@/components/collapsible-card'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
 import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
@@ -142,13 +143,7 @@ export default async function UnderwriterLoanPage({
           </div>
           <div className="flex items-center gap-2">
             <LoanAirtableSyncButton loanId={id} />
-            <Link
-              href={`/approval-letter/${id}`}
-              // Matches ViewAsDropdown + LoanAirtableSyncButton — pill, h-7, text-xs.
-              className="inline-flex items-center h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap"
-            >
-              Generate Approval Letter
-            </Link>
+            <LoanDocGeneratorMenu loanId={id} />
             <UnclaimButton
               loanId={id}
               apiEndpoint="/api/underwriter/unclaim"
