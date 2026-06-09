@@ -6,7 +6,9 @@
 // original Airtable templates).
 
 import React from 'react'
-import { Document, Page, View, Text, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
+import fs from 'fs'
+import path from 'path'
+import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import {
   fmtCurrencyCents,
   fmtLetterDate,
@@ -71,6 +73,22 @@ export interface TermSheetInput {
   coBorrowerNames: string[]
 }
 
+// Lazy-load the logo bitmap from the public folder once per
+// serverless container. React-PDF's <Image> accepts a Buffer
+// directly, which avoids round-tripping through a URL fetch
+// when the renderer runs server-side.
+let cachedLogo: Buffer | null = null
+function getLogoBuffer(): Buffer | null {
+  if (cachedLogo) return cachedLogo
+  try {
+    cachedLogo = fs.readFileSync(path.join(process.cwd(), 'public', 'logo-main.png'))
+    return cachedLogo
+  } catch (err) {
+    console.error('[term-sheet-pdf] failed to load logo from public/logo-main.png:', err)
+    return null
+  }
+}
+
 // Use Helvetica everywhere — built-in PDF font, no embedding
 // surprises and renders lowercase l's correctly in Acrobat /
 // browsers / Preview.
@@ -84,16 +102,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     lineHeight: 1.35,
   },
-  // Logo placeholder — we don't ship the binary image asset
-  // inside the PDF renderer (would require base64 embedding).
-  // Instead use the brand wordmark as text so the look is
-  // consistent across loans.
+  // Logo bitmap from public/logo-main.png. Source is 724x86, so we
+  // hold the height fixed at 40pt and let the natural ratio drive
+  // the width (~340pt = roughly 4.7in across the page).
+  logo: {
+    height: 40,
+    width: 'auto',
+    marginBottom: 14,
+  },
+  // Text fallback used only if the logo file can't be read at
+  // runtime — keeps the doc from rendering completely empty up top.
   brandWordmark: {
     color: '#1F5D8F',
     fontFamily: 'Helvetica-Bold',
     fontSize: 22,
     letterSpacing: -0.3,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   centerTitle: {
     fontFamily: 'Helvetica-Bold',
@@ -196,6 +220,15 @@ const styles = StyleSheet.create({
   },
 })
 
+// Header logo at the top of each page. Falls back to the
+// "First Equity Funding" brand wordmark if the bitmap couldn't
+// be read (e.g., asset missing on disk).
+function HeaderLogo() {
+  const logo = getLogoBuffer()
+  if (logo) return <Image src={logo} style={styles.logo} />
+  return <Text style={styles.brandWordmark}>First Equity Funding</Text>
+}
+
 // Reusable inline labels for clauses — keeps each clause readable
 // without a separate component per item.
 function Clause({ num, title, children }: { num: number; title: string; children: React.ReactNode }) {
@@ -258,7 +291,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
     <Document>
       {/* ====== Page 1 — Cover + Clauses 1-2 ====== */}
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.brandWordmark}>First Equity Funding</Text>
+        <HeaderLogo />
 
         <Text style={styles.centerTitle}>LOAN TERM SHEET</Text>
         <Text style={styles.centerDate}>{letterDate}</Text>
@@ -323,11 +356,6 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
             with respect to the Proposed Transaction, subject to Section 1 above.
           </Text>
         </Clause>
-      </Page>
-
-      {/* ====== Page 2 — Clauses 3-11 + Acceptance (was 3 pages, now 1) ====== */}
-      <Page size="LETTER" style={styles.page}>
-        <Text style={styles.brandWordmark}>First Equity Funding</Text>
 
         <Clause num={3} title="Timing.">
           <Text>
@@ -348,6 +376,11 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
             regarding the Proposed Transaction.
           </Text>
         </Clause>
+      </Page>
+
+      {/* ====== Page 2 — Clauses 5-11 + Acceptance (fits on one page) ====== */}
+      <Page size="LETTER" style={styles.page}>
+        <HeaderLogo />
 
         <Clause num={5} title="Collections Costs.">
           <Text>
@@ -443,7 +476,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
 
       {/* ====== Page 3 — Appendix A ====== */}
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.brandWordmark}>First Equity Funding</Text>
+        <HeaderLogo />
         <Text style={styles.appHeader}>Appendix A</Text>
 
         <View style={styles.appTable}>
@@ -518,7 +551,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
 
       {/* ====== Final page — FEES / TITLE / FLOOD / etc. boilerplate ====== */}
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.brandWordmark}>First Equity Funding</Text>
+        <HeaderLogo />
 
         <Text style={styles.paragraph}>
           <Text style={styles.boilerHeading}>FEES:</Text> Borrower shall pay all third-party fees
