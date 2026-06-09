@@ -137,33 +137,38 @@ export function TermSheet({ loan, details, borrower, coBorrowerNames, backHref }
 
       <div className="bg-gray-100 min-h-screen py-8 print:py-0 print:bg-white">
         <div
-          className="letter-page max-w-4xl mx-auto bg-white shadow-md print:shadow-none px-12 py-10 text-gray-900 text-sm leading-relaxed"
+          // Tighter type + padding than the Approval Letter — the
+          // Term Sheet has a lot of legal prose and each page needs
+          // to fit cleanly between the @page margins. text-[12px] +
+          // leading-snug is the densest we can go before readability
+          // suffers on the printed PDF.
+          className="letter-page max-w-4xl mx-auto bg-white shadow-md print:shadow-none px-10 py-6 text-gray-900 text-[12px] leading-snug"
           style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
         >
           {/* ---- Page 1 — Cover ---- */}
           <PageBlock>
             <LogoBar />
 
-            <h1 className="text-base font-bold text-center mt-8">LOAN TERM SHEET</h1>
-            <div className="text-center mt-2">
+            <h1 className="text-sm font-bold text-center mt-4">LOAN TERM SHEET</h1>
+            <div className="text-center mt-1">
               <input
                 type="text"
                 value={letterDate}
                 onChange={e => setLetterDate(e.target.value)}
-                className="editable-text text-sm w-32 text-center"
+                className="editable-text text-[12px] w-32 text-center"
                 aria-label="Letter date"
               />
             </div>
 
-            <div className="mt-8 space-y-1">
+            <div className="mt-5 space-y-0.5">
               <p>{llcName}</p>
               <p>{borrowerName}</p>
               <p>{borrowerAddress}</p>
             </div>
 
-            <p className="mt-6">Dear {borrowerName},</p>
+            <p className="mt-4">Dear {borrowerName},</p>
 
-            <p className="mt-4">
+            <p className="mt-3">
               First Equity Capital, LLC (&ldquo;First Equity&rdquo;) is pleased to present to you the
               following loan proposal. The costs outlined herein are estimates. The creation of a
               legally binding commitment or obligation is subject to the delivery of documents
@@ -173,7 +178,7 @@ export function TermSheet({ loan, details, borrower, coBorrowerNames, backHref }
               subject to the satisfaction of the conditions set forth therein.
             </p>
 
-            <p className="mt-3">
+            <p className="mt-2">
               This Loan Term Sheet Letter (&ldquo;Letter&rdquo;) outlines the proposed transaction between
               First Equity a New Jersey limited liability company (&ldquo;Lender&rdquo;), and, {llcName},
               (&ldquo;Borrower&rdquo;), pursuant to which Lender would lend funds to Borrower (the
@@ -191,7 +196,7 @@ export function TermSheet({ loan, details, borrower, coBorrowerNames, backHref }
                 agreement, including a note, mortgage and other necessary loan documents (collectively,
                 the &ldquo;Loan Documents&rdquo;).
               </p>
-              <p className="mt-2">
+              <p className="mt-1.5">
                 (b) Notwithstanding the foregoing subsection (a), Sections 3, 4, 5, 6 and 7 of this
                 Letter are intended to create binding legal and contractual obligations of the parties
                 with respect to matters set forth therein, and upon the breach by a party of its
@@ -199,7 +204,7 @@ export function TermSheet({ loan, details, borrower, coBorrowerNames, backHref }
                 shall have such rights and remedies with respect thereto as are available to it under
                 applicable law.
               </p>
-              <p className="mt-2">
+              <p className="mt-1.5">
                 (c) Upon execution and delivery of the Loan Documents, this Letter shall be superseded
                 thereby and the rights and obligations of the parties with respect to the Proposed
                 Transaction shall thereafter be governed by the Loan Documents.
@@ -605,16 +610,16 @@ function LogoBar() {
 }
 
 function PageBlock({ children }: { children: React.ReactNode }) {
-  return <div className="page-block pb-8 print:pb-0 mb-8 print:mb-0">{children}</div>
+  return <div className="page-block pb-6 print:pb-0 mb-6 print:mb-0">{children}</div>
 }
 
 function NumberedClause({ num, title, children }: { num: number; title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-4">
+    <div className="mt-3">
       <p>
         {num}. <span className="underline">{title}</span>
       </p>
-      <div className="mt-2 pl-4">{children}</div>
+      <div className="mt-1 pl-4">{children}</div>
     </div>
   )
 }
