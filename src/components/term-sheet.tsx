@@ -14,7 +14,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Printer, Download } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import {
   fmtCurrencyCents,
   fmtLetterDate,
@@ -126,28 +126,18 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
             <ArrowLeft className="w-4 h-4" />
             Back to Loan
           </Link>
-          <div className="flex items-center gap-2">
-            {/* Primary action — server-rendered PDF download. Goes
-                through /api/term-sheet/[id]/pdf so font rendering
-                stays clean (browser print was mangling lowercase
-                "l"s in Chrome's export). */}
-            <a
-              href={`/api/term-sheet/${loanId}/pdf`}
-              className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
-            >
-              <Download className="w-4 h-4" />
-              Download PDF
-            </a>
-            {/* Secondary fallback — keep print available in case
-                someone wants to mark up the on-screen preview. */}
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-md hover:bg-gray-50"
-            >
-              <Printer className="w-4 h-4" />
-              Print preview
-            </button>
-          </div>
+          {/* Single action — server-rendered PDF download. Goes
+              through /api/term-sheet/[id]/pdf so font rendering
+              stays clean (browser print was mangling lowercase
+              "l"s in Chrome's export). The on-screen view below
+              acts as the preview. */}
+          <a
+            href={`/api/term-sheet/${loanId}/pdf`}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </a>
         </div>
       </div>
 
