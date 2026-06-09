@@ -1,6 +1,8 @@
 // Centralized field + conditional-logic config for the loan application.
 // One source of truth: render order, options, and visibility rules.
 
+import { BROKER_PRIMARY_EXTRA_FIELDS } from './application-fields.broker'
+
 export type FieldType =
   | 'text' | 'email' | 'tel' | 'ssn' | 'date' | 'number' | 'currency'
   | 'select' | 'radio' | 'yesno' | 'textarea' | 'file' | 'signature'
@@ -378,8 +380,10 @@ export function getMissingRequiredFields(
     : []
 
   if (stepId === "borrower") {
-    // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS
-    for (const f of [...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]) {
+    // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS (broker variant adds
+    // a broker-identity block at the top of primary-extra).
+    const brokerExtras = ctx.variant === 'broker' ? BROKER_PRIMARY_EXTRA_FIELDS : []
+    for (const f of [...BORROWER_FIELDS, ...brokerExtras, ...PRIMARY_EXTRA_FIELDS]) {
       if (isRequired(f, data, primary, ctx) && isEmpty(primary[f.name])) {
         miss.push(`primary.${f.name}`)
       }
@@ -431,15 +435,23 @@ export function getMissingRequiredFields(
       }
     }
   } else if (stepId === "authorization") {
-    // Primary borrower signs the loan authorization. Signature stored at root: data.auth_signature
-    if (isEmpty(data.auth_signature)) {
-      miss.push("auth_signature")
+    if (ctx.variant === 'broker') {
+      // Broker signs their own attestation; borrower credit/payment auth
+      // happens later at /authorize/<token>.
+      if (isEmpty(data.broker_attestation_signature)) {
+        miss.push("broker_attestation_signature")
+      }
+    } else {
+      // Primary borrower signs the loan authorization. Signature stored at root: data.auth_signature
+      if (isEmpty(data.auth_signature)) {
+        miss.push("auth_signature")
+      }
+      // Payment authorization signature (combined step)
+      if (isEmpty(data.payment_signature)) {
+        miss.push("payment_signature")
+      }
+      // save_card_agree is gated in the UI (must check the box before saving card) - not server-validated here
     }
-    // Payment authorization signature (combined step)
-    if (isEmpty(data.payment_signature)) {
-      miss.push("payment_signature")
-    }
-    // save_card_agree is gated in the UI (must check the box before saving card) - not server-validated here
   }
 
   return miss

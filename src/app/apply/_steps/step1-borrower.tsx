@@ -1,15 +1,18 @@
 'use client'
 import { Lock } from "lucide-react"
-import { BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, type ApplicationData } from '@/lib/application-fields'
+import { BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, type ApplicationData, type FieldDef } from '@/lib/application-fields'
 import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingBorrowers } from '../_components/repeating-borrowers'
 
-export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOfficerOptions }: {
+export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOfficerOptions, primaryExtraFields }: {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   ensureDraft: (email: string, firstName: string) => void
   missingFields?: string[]
   loanOfficerOptions: string[]
+  /** Variant-supplied. Defaults to the shared PRIMARY_EXTRA_FIELDS so existing
+   *  borrower callers keep working without change. */
+  primaryExtraFields?: FieldDef[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
@@ -35,7 +38,7 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOffic
         </div>
       </div>
       <FieldRenderer
-        fields={[...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS]}
+        fields={[...BORROWER_FIELDS, ...(primaryExtraFields ?? PRIMARY_EXTRA_FIELDS)]}
         data={data}
         scope={primary}
         onChange={setPrimary}

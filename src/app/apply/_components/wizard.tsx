@@ -9,6 +9,7 @@ import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Declarations } from '../_steps/step4-declarations'
 import { Step5Authorization } from '../_steps/step5-authorization'
+import { Step5BrokerAttestation } from '../_steps/step5-broker-attestation'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
 import { TestModePanel, type TestOverridesState } from './test-mode-panel'
@@ -187,7 +188,12 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       })
       const j = await res.json()
       if (j.success) {
-        window.location.href = variant.redirects.afterSubmit
+        // Broker variant needs the freshly-minted authorize_token in the URL
+        // so the confirmation page can show the forwardable /authorize link.
+        const dest = variantKind === 'broker' && j.authorizeToken
+          ? `${variant.redirects.afterSubmit}?token=${encodeURIComponent(j.authorizeToken)}`
+          : variant.redirects.afterSubmit
+        window.location.href = dest
         return
       }
       if (!res.ok && Array.isArray(j.missing) && j.missing.length > 0) {
@@ -250,7 +256,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     }
 
     const stepId = STEPS[step - 1].id as StepId
-    const missing = getMissingRequiredFields(stepId, data)
+    const missing = getMissingRequiredFields(stepId, data, { variant: variantKind })
 
     if (missing.length > 0) {
       setSubmitErrors(missing)
@@ -269,12 +275,19 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   }
 
   const stepEl = [
-    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} loanOfficerOptions={loanOfficerOptions} />,
+    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} loanOfficerOptions={loanOfficerOptions} primaryExtraFields={variant.fieldArrays.primaryExtraFields} />,
     <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} token={token} testMode={testMode} />,
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,
-    <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
-      token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
+    variantKind === 'broker'
+      ? <Step5BrokerAttestation key={5} data={data} set={set} missingFields={liveMissing}
+          onEdit={(s) => { setSubmitErrors(null); setStep(s) }}
+          variantCopy={{
+            step5AttestationLabel: variant.copy.step5AttestationLabel ?? 'Broker Certification',
+            step5AttestationBody: variant.copy.step5AttestationBody ?? '',
+          }} />
+      : <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
+          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
   ][step - 1]
 
   return (
