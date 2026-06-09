@@ -57,7 +57,7 @@ export default async function AttorneySummaryPage({ params }: { params: Promise<
 
   const { data: details } = await adminClient
     .from('loan_details')
-    .select('title_company, title_contact_name, underwriter_notes')
+    .select('title_company, title_contact_name, title_email, title_phone, underwriter_notes')
     .eq('loan_id', id)
     .maybeSingle()
 
@@ -87,6 +87,8 @@ export default async function AttorneySummaryPage({ params }: { params: Promise<
       entityName={loan.entity_name}
       titleCompany={details?.title_company ?? null}
       titleContactName={details?.title_contact_name ?? null}
+      titleEmail={details?.title_email ?? null}
+      titlePhone={details?.title_phone ?? null}
       estimatedClosingDate={loan.estimated_closing_date}
       initialNotes={details?.underwriter_notes ?? null}
       backHref={backHref}

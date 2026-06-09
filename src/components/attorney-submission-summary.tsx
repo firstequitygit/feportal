@@ -23,6 +23,8 @@ interface Props {
   entityName: string | null
   titleCompany: string | null
   titleContactName: string | null
+  titleEmail: string | null
+  titlePhone: string | null
   estimatedClosingDate: string | null
   initialNotes: string | null
   backHref: string
@@ -39,6 +41,8 @@ export function AttorneySubmissionSummary({
   entityName,
   titleCompany,
   titleContactName,
+  titleEmail,
+  titlePhone,
   estimatedClosingDate,
   initialNotes,
   backHref,
@@ -127,6 +131,8 @@ export function AttorneySubmissionSummary({
             <Field label="Guarantor #1:" value={borrowerName ?? ''} />
             <Field label="Entity name:" value={entityName ?? ''} />
             <Field label="Title contact/s:" value={titleContactDisplay} />
+            <Field label="Title contact email:" value={titleEmail ?? ''} />
+            <Field label="Title contact phone:" value={titlePhone ?? ''} />
             <Field
               label="Desired closing date:"
               value={estimatedClosingDate ? formatDate(estimatedClosingDate) : ''}

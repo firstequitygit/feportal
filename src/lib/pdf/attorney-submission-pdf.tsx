@@ -22,6 +22,8 @@ export interface AttorneySubmissionInput {
   entityName: string | null
   titleCompany: string | null
   titleContactName: string | null
+  titleEmail: string | null
+  titlePhone: string | null
   estimatedClosingDate: string | null
   /** Miscellaneous Notes — captured live from the UW's textarea in
    *  the preview, so the printed file matches what they saw. */
@@ -114,7 +116,8 @@ export async function renderAttorneySubmissionPdf(input: AttorneySubmissionInput
   const {
     propertyAddress, loanNumber, loanType, termMonths,
     borrowerName, coBorrowerNames, entityName,
-    titleCompany, titleContactName, estimatedClosingDate, notes,
+    titleCompany, titleContactName, titleEmail, titlePhone,
+    estimatedClosingDate, notes,
   } = input
 
   const guarantors = joinGuarantors(borrowerName, ...coBorrowerNames)
@@ -141,6 +144,8 @@ export async function renderAttorneySubmissionPdf(input: AttorneySubmissionInput
           <Field label="Guarantor #1:" value={borrowerName ?? ''} />
           <Field label="Entity name:" value={entityName ?? ''} />
           <Field label="Title contact/s:" value={titleContactDisplay} />
+          <Field label="Title contact email:" value={titleEmail ?? ''} />
+          <Field label="Title contact phone:" value={titlePhone ?? ''} />
           <Field
             label="Desired closing date:"
             value={estimatedClosingDate ? formatDate(estimatedClosingDate) : ''}
