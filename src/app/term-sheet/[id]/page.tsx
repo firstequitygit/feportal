@@ -90,6 +90,7 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
 
   return (
     <TermSheet
+      loanId={id}
       loan={{
         loan_type: loan.loan_type,
         loan_amount: loan.loan_amount,
