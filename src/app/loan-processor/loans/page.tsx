@@ -120,6 +120,9 @@ export default async function LoanProcessorLoansPage() {
     activeLoans: loans ?? [],
     closedLoansTrailing12: closedTrailing ?? [],
     conditionAssignee: 'loan_processor',
+    // Ops manager LPs (Omayra) also act as the closer — count those
+    // conditions toward her "Outstanding for you" tile.
+    extraAssignees: lp.is_ops_manager ? ['closer'] : [],
   })
 
   // Latest Closer Notes per loan for inline display on each card.

@@ -51,10 +51,25 @@ export async function PortalShell(props: PortalShellProps) {
         const adminClient = createAdminClient()
         const ident = await resolveRoleIdent(adminClient, user.id, kindByVariant)
         if (ident) {
+          // Ops manager LPs see the whole pipeline and also act as
+          // closer — extend the badge to match the LP Inbox page's
+          // scope. (Omayra is the only ops manager today.)
+          let isOpsManagerLp = false
+          if (kindByVariant === 'loan_processor') {
+            const { data: lpRow } = await adminClient
+              .from('loan_processors')
+              .select('is_ops_manager')
+              .eq('id', ident.id)
+              .maybeSingle()
+            isOpsManagerLp = !!lpRow?.is_ops_manager
+          }
           // Both queries are independent — run in parallel.
           const [m, o] = await Promise.all([
             countUnreadMentions(adminClient, ident),
-            countOutstandingForRole(adminClient, kindByVariant, ident.id),
+            countOutstandingForRole(adminClient, kindByVariant, ident.id, {
+              allLoans: isOpsManagerLp,
+              includeCloser: isOpsManagerLp,
+            }),
           ])
           unreadMentions = m
           outstandingForYou = o

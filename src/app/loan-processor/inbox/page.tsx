@@ -32,12 +32,19 @@ export default async function LoanProcessorInbox() {
   const loanIds = activeLoans.map(l => l.id)
   const loanMap = new Map(activeLoans.map(l => [l.id, l]))
 
+  // Ops manager LPs (Omayra) also act as the closer — surface
+  // closer-assigned conditions in her inbox too. Regular LPs see only
+  // their own loan_processor-assigned conditions.
+  const assigneeBuckets = lp.is_ops_manager
+    ? ['loan_processor', 'closer']
+    : ['loan_processor']
+
   const { data: conditions } = loanIds.length > 0
     ? await adminClient
         .from('conditions')
         .select('id, loan_id, title, description, status, category, rejection_reason, created_at, updated_at')
         .in('loan_id', loanIds)
-        .eq('assigned_to', 'loan_processor')
+        .in('assigned_to', assigneeBuckets)
     : { data: [] }
 
   const items: InboxItem[] = (conditions ?? []).map(c => {

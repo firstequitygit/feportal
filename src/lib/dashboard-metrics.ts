@@ -33,6 +33,10 @@ export interface DashboardMetricsInput {
   closedLoansTrailing12: ClosedLoanRow[]
   /** Staff role used to count "outstanding for you" — which assignee value to match. */
   conditionAssignee: 'loan_officer' | 'loan_processor' | 'underwriter'
+  /** Extra assignee buckets that should also count as "yours". Used for
+   *  ops manager LPs (Omayra) who are also the closer — her tile needs
+   *  to include conditions assigned_to='closer'. */
+  extraAssignees?: Array<'borrower' | 'loan_officer' | 'loan_processor' | 'underwriter' | 'closer'>
 }
 
 export interface DashboardMetrics {
@@ -48,7 +52,7 @@ export interface DashboardMetrics {
 
 export async function computeDashboardMetrics(
   supabase: SupabaseAdmin,
-  { activeLoans, closedLoansTrailing12, conditionAssignee }: DashboardMetricsInput,
+  { activeLoans, closedLoansTrailing12, conditionAssignee, extraAssignees = [] }: DashboardMetricsInput,
 ): Promise<DashboardMetrics> {
   // Pipeline = active non-closed loans, EXCLUDING on_hold.
   // On-hold loans are paused — they don't count toward pipeline volume or
@@ -91,6 +95,7 @@ export async function computeDashboardMetrics(
       outstandingCount++
       const isYours =
         c.assigned_to === conditionAssignee ||
+        extraAssignees.includes(c.assigned_to) ||
         (conditionAssignee === 'underwriter' && (c.status === 'Received' || c.status === 'Under Review'))
       if (isYours) outstandingForYou++
     }
