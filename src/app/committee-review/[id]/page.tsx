@@ -86,6 +86,7 @@ export default async function CommitteeReviewPage({ params }: { params: Promise<
 
   return (
     <CommitteeReviewSheet
+      loanId={id}
       loan={{
         loan_type: loan.loan_type,
         loan_number: loan.loan_number,

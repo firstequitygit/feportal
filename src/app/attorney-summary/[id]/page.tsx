@@ -77,6 +77,7 @@ export default async function AttorneySummaryPage({ params }: { params: Promise<
 
   return (
     <AttorneySubmissionSummary
+      loanId={id}
       propertyAddress={loan.property_address}
       loanNumber={loan.loan_number}
       loanType={loan.loan_type}

@@ -17,7 +17,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import {
   fmtCurrency,
   fmtLetterDate,
@@ -64,6 +64,7 @@ interface CommitteeReviewDetails {
 }
 
 interface Props {
+  loanId: string
   loan: CommitteeReviewLoan
   details: CommitteeReviewDetails
   borrowerName: string | null
@@ -74,6 +75,7 @@ interface Props {
 }
 
 export function CommitteeReviewSheet({
+  loanId,
   loan,
   details,
   borrowerName,
@@ -144,13 +146,16 @@ export function CommitteeReviewSheet({
             <ArrowLeft className="w-4 h-4" />
             Back to Loan
           </Link>
-          <button
-            onClick={() => window.print()}
+          {/* Server-rendered PDF download. The current letter-date
+              edit in the preview is passed through as ?date= so the
+              printed file matches what the UW saw on screen. */}
+          <a
+            href={`/api/committee-review/${loanId}/pdf?date=${encodeURIComponent(letterDate)}`}
             className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
           >
-            <Printer className="w-4 h-4" />
-            Print / Save as PDF
-          </button>
+            <Download className="w-4 h-4" />
+            Download PDF
+          </a>
         </div>
       </div>
 
