@@ -10,8 +10,15 @@
 // passes `onChange`. That way bulk-add reads from the parent's
 // override map and an unchanged badge still uses the template's
 // default.
+//
+// The popover is rendered via React portal to document.body and
+// positioned using getBoundingClientRect on the trigger. We can't
+// use a simple absolute child div because each template row sits
+// inside a card with `overflow-hidden` (for the rounded corners),
+// which would clip the dropdown behind the next card below.
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import type { AssignedTo } from '@/lib/types'
 
@@ -47,29 +54,60 @@ interface Props {
 
 export function TemplateAssigneePicker({ value, onChange, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  function recomputeAnchor() {
+    const el = triggerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // Position the popover just below the trigger, left-aligned.
+    // Coordinates are viewport-relative because the portal uses
+    // position: fixed.
+    setAnchor({
+      top: rect.bottom + 4,
+      left: rect.left,
+    })
+  }
 
   useEffect(() => {
     if (!open) return
+    function reposition() { recomputeAnchor() }
     function onDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
+      setOpen(false)
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
     }
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
     return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative inline-block">
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={disabled ? undefined : (e) => { e.stopPropagation(); setOpen(o => !o) }}
+        onClick={disabled ? undefined : (e) => {
+          e.stopPropagation()
+          if (!open) recomputeAnchor()
+          setOpen(o => !o)
+        }}
         disabled={disabled}
         title="Click to change assignee for this template"
         className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border ${colorFor(value)} ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:opacity-80'}`}
@@ -77,9 +115,11 @@ export function TemplateAssigneePicker({ value, onChange, disabled = false }: Pr
         {labelFor(value)}
         <ChevronDown className="w-3 h-3" />
       </button>
-      {open && (
+      {open && mounted && anchor && createPortal(
         <div
-          className="absolute left-0 mt-1 z-20 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1"
+          ref={popoverRef}
+          style={{ position: 'fixed', top: anchor.top, left: anchor.left }}
+          className="z-50 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1"
           onClick={e => e.stopPropagation()}
         >
           {OPTIONS.map(opt => (
@@ -92,8 +132,9 @@ export function TemplateAssigneePicker({ value, onChange, disabled = false }: Pr
               {labelFor(opt)}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
