@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { type Condition, type ConditionTemplate, type ConditionStatus, type AssignedTo, type LoanType, type ConditionCategory, CONDITION_CATEGORIES } from '@/lib/types'
 import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
 import { ConditionReminderButton } from '@/components/condition-reminder-button'
+import { TemplateAssigneePicker } from '@/components/template-assignee-picker'
 
 interface Props {
   loanId: string
@@ -164,6 +165,10 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
   const [localConditions, setLocalConditions] = useState<Condition[]>(conditions)
   const [pendingRejection, setPendingRejection] = useState<{ id: string; reason: string } | null>(null)
   const [pendingTemplate, setPendingTemplate] = useState<{ template: ConditionTemplate; category: ConditionCategory } | null>(null)
+  // Per-template assignee override. Keyed by template.id. When a
+  // template isn't in the map, the badge falls back to its default
+  // assigned_to.
+  const [templateAssigneeOverrides, setTemplateAssigneeOverrides] = useState<Record<string, AssignedTo>>({})
 
   const relevantTemplates = templates.filter(
     t => t.loan_type === null || t.loan_type === loanType
@@ -194,6 +199,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
 
   async function addFromTemplate(template: ConditionTemplate, categoryOverride: ConditionCategory) {
     setSaving(true)
+    const assignedTo = templateAssigneeOverrides[template.id] ?? template.assigned_to ?? 'borrower'
     const res = await fetch('/api/admin/conditions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,7 +207,7 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
         loanId,
         title: template.title,
         description: template.description,
-        assignedTo: template.assigned_to ?? 'borrower',
+        assignedTo,
         category: categoryOverride,
       }),
     })
@@ -597,9 +603,11 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
                         {template.loan_type && (
                           <span className="text-xs text-primary">{template.loan_type}</span>
                         )}
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${assignedToColor(template.assigned_to ?? 'borrower')}`}>
-                          {assignedToLabel(template.assigned_to ?? 'borrower')}
-                        </span>
+                        <TemplateAssigneePicker
+                          value={templateAssigneeOverrides[template.id] ?? template.assigned_to ?? 'borrower'}
+                          onChange={next => setTemplateAssigneeOverrides(prev => ({ ...prev, [template.id]: next }))}
+                          disabled={saving}
+                        />
                       </div>
                     </div>
                     <Button

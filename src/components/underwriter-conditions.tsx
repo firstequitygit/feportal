@@ -16,6 +16,7 @@ import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
 import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
 import { suggestConditionId } from '@/lib/match-condition'
 import { ConditionReminderButton } from '@/components/condition-reminder-button'
+import { TemplateAssigneePicker } from '@/components/template-assignee-picker'
 
 export interface LoanStaffSummary {
   loan_officer?: { id: string; full_name: string } | null
@@ -419,6 +420,8 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
   const [templateSaving, setTemplateSaving] = useState<string | null>(null)
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [addedTemplates, setAddedTemplates] = useState<Set<string>>(new Set(conditions.map(c => c.title)))
+  // Per-template assignee override. Bulk + single add read this map.
+  const [templateAssigneeOverrides, setTemplateAssigneeOverrides] = useState<Record<string, AssignedTo>>({})
 
   const [selectedConditions, setSelectedConditions] = useState<Set<string>>(new Set())
   const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set())
@@ -475,7 +478,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
           loanId,
           title: template.title,
           description: template.description ?? null,
-          assignedTo: template.assigned_to ?? 'borrower',
+          assignedTo: templateAssigneeOverrides[template.id] ?? template.assigned_to ?? 'borrower',
           category: template.category ?? null,
         }),
       }).then(r => r.json()).catch(() => ({ success: false }))
@@ -502,7 +505,7 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
         loanId,
         title: template.title,
         description: template.description ?? null,
-        assignedTo: template.assigned_to ?? 'borrower',
+        assignedTo: templateAssigneeOverrides[template.id] ?? template.assigned_to ?? 'borrower',
         category: template.category ?? null,
       }),
     })
@@ -930,9 +933,11 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
                         {template.loan_type && (
                           <span className="text-xs text-primary">{template.loan_type}</span>
                         )}
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${assignedToColor(template.assigned_to ?? 'borrower')}`}>
-                          {assignedToLabel(template.assigned_to ?? 'borrower')}
-                        </span>
+                        <TemplateAssigneePicker
+                          value={templateAssigneeOverrides[template.id] ?? template.assigned_to ?? 'borrower'}
+                          onChange={next => setTemplateAssigneeOverrides(prev => ({ ...prev, [template.id]: next }))}
+                          disabled={isSaving || bulkSaving}
+                        />
                       </div>
                     </div>
                     <Button
