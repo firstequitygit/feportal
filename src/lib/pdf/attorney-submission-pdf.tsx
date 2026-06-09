@@ -52,25 +52,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     lineHeight: 1.4,
   },
-  // Header row — title left, logo right.
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
+  // Header — logo centered on top, title below. Stacked instead of
+  // side-by-side because the doubled logo is wider than what fits
+  // alongside a fontSize-18 title within the 504pt content area.
   title: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 18,
+    textAlign: 'center',
+    marginTop: 10,
   },
   logo: {
-    width: 200,
-    height: 23.8, // 200 / 724 * 86 ≈ 23.8
+    width: 400,
+    height: 47.5, // 400 / 724 * 86 ≈ 47.5
     objectFit: 'contain',
+    alignSelf: 'center',
   },
   brandWordmark: {
     color: '#1F5D8F',
     fontFamily: 'Helvetica-Bold',
-    fontSize: 18,
+    fontSize: 32,
+    textAlign: 'center',
   },
   // Field block — one row per label/value pair.
   fieldsBlock: {
@@ -128,11 +129,9 @@ export async function renderAttorneySubmissionPdf(input: AttorneySubmissionInput
   const doc = (
     <Document>
       <Page size="LETTER" style={styles.page}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Attorney Submission Summary</Text>
-          <HeaderLogo />
-        </View>
+        {/* Header — logo centered above the title */}
+        <HeaderLogo />
+        <Text style={styles.title}>Attorney Submission Summary</Text>
 
         <View style={styles.fieldsBlock}>
           <Field label="Subject Property:" value={propertyAddress ?? ''} />
