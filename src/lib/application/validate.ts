@@ -4,6 +4,7 @@ import {
   dscrUnitCount, isRequired,
   type ApplicationData, type FieldDef, type FieldContext,
 } from '@/lib/application-fields'
+import { BROKER_PRIMARY_EXTRA_FIELDS } from '@/lib/application-fields.broker'
 
 function isEmpty(v: unknown): boolean {
   if (v === undefined || v === null || v === '') return true
@@ -32,8 +33,12 @@ export function missingRequired(
     }
   }
 
-  // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS
-  checkScoped([...BORROWER_FIELDS, ...PRIMARY_EXTRA_FIELDS], primary as ApplicationData, 'primary')
+  // Primary: BORROWER_FIELDS + PRIMARY_EXTRA_FIELDS (broker variant prepends
+  // its identity block to the primary-extra set; mirrors variants.ts).
+  const primaryExtras = ctx.variant === 'broker'
+    ? [...BROKER_PRIMARY_EXTRA_FIELDS, ...PRIMARY_EXTRA_FIELDS]
+    : PRIMARY_EXTRA_FIELDS
+  checkScoped([...BORROWER_FIELDS, ...primaryExtras], primary as ApplicationData, 'primary')
 
   // Deal fields at root.
   checkScoped(DEAL_FIELDS, data, '')
@@ -59,9 +64,14 @@ export function missingRequired(
   // Declaration + HMDA at root.
   checkScoped([...DECLARATION_FIELDS, ...HMDA_FIELDS], data, '')
 
-  // Authorization signature (primary borrower). For broker variant, see future
-  // ctx-aware overrides; today the borrower path always requires it.
-  if (ctx.variant === 'borrower') {
+  // Authorization signature. Borrower signs the credit/identity authorization
+  // inline at Step 5; broker signs their own certification (the borrower's
+  // credit auth + payment happens later at /authorize/<token>).
+  if (ctx.variant === 'broker') {
+    if (!data.broker_attestation_signature || data.broker_attestation_signature === '') {
+      miss.push('broker_attestation_signature')
+    }
+  } else {
     if (!data.auth_signature || data.auth_signature === '') {
       miss.push('auth_signature')
     }
