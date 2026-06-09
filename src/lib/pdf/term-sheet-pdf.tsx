@@ -102,12 +102,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     lineHeight: 1.35,
   },
-  // Logo bitmap from public/logo-main.png. Source is 724x86, so we
-  // hold the height fixed at 40pt and let the natural ratio drive
-  // the width (~340pt = roughly 4.7in across the page).
+  // Logo bitmap from public/logo-main.png. Source is 724x86 (ratio
+  // 8.42:1). React-PDF treats width:'auto' on <Image> as "fill the
+  // container," which stretches the logo horizontally — so we pin
+  // both dimensions to the natural ratio and center it.
   logo: {
-    height: 40,
-    width: 'auto',
+    width: 240,
+    height: 28.5, // 240 / 724 * 86 ≈ 28.5
+    objectFit: 'contain',
+    alignSelf: 'center',
     marginBottom: 14,
   },
   // Text fallback used only if the logo file can't be read at
