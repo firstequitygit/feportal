@@ -677,11 +677,15 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
     }
   }
 
-  // Group conditions by category
+  // Group conditions by category. Satisfied conditions float to the
+  // top of each group — they render as minimized one-liners, so
+  // stacking them first keeps the active cards together below.
   const grouped = [...CONDITION_CATEGORIES, null].map(cat => {
     const catValue = cat ? cat.value : null
     const catLabel = cat ? cat.label : 'Uncategorized'
-    const group = conditions.filter(c => (c.category ?? null) === catValue)
+    const group = conditions
+      .filter(c => (c.category ?? null) === catValue)
+      .sort((a, b) => (a.status === 'Satisfied' ? 0 : 1) - (b.status === 'Satisfied' ? 0 : 1))
     return { catValue, catLabel, group }
   }).filter(g => g.group.length > 0)
 
