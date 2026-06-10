@@ -1036,6 +1036,29 @@ export function UnderwriterConditions({ loanId, loanType, propertyAddress, condi
         onClose={() => setBulkModalOpen(false)}
         initialDocs={bulkInitialDocs}
         onSaved={() => { setUnmatchedRefreshKey(k => k + 1); router.refresh() }}
+        templates={relevantTemplates}
+        onAddConditions={async (ids: string[]) => {
+          const toAdd = relevantTemplates.filter(t => ids.includes(t.id))
+          let addedCount = 0
+          let failed = 0
+          for (const template of toAdd) {
+            const res = await fetch('/api/underwriter/conditions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                loanId,
+                title: template.title,
+                description: template.description ?? null,
+                assignedTo: template.assigned_to ?? 'borrower',
+                category: template.category ?? null,
+              }),
+            }).then(r => r.json()).catch(() => ({ success: false }))
+            if (res.success) addedCount++
+            else failed++
+          }
+          router.refresh()
+          return { addedCount, failed }
+        }}
       />
     </div>
   )
