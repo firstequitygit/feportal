@@ -209,23 +209,20 @@ export function buildScenario(key: ScenarioKey): ApplicationData {
 export function applyBrokerOverlay(data: ApplicationData): ApplicationData {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const broker = randomName()
-  const brokerEmail = randomEmail(broker.first, broker.last)
+  const brokerFullName = `${broker.first} ${broker.last}`
   const next: ApplicationData = {
     ...data,
     primary: {
       ...primary,
-      brokerage_name: 'Acme Test Brokerage LLC',
-      broker_email: brokerEmail,
+      broker_full_name: brokerFullName,
+      broker_email: randomEmail(broker.first, broker.last),
       broker_phone: randomPhone(),
-      broker_license_number: String(1000000 + Math.floor(Math.random() * 9000000)),
-      broker_license_state: 'NJ',
-      commission_split_percent: 50,
-      commission_paid_by: 'Lender',
       referral_source: 'Broker Referral',
+      commission_split_percent: '50/50 split',
     },
-    broker_attestation_signature: `${broker.first} ${broker.last}`,
+    broker_attestation_signature: brokerFullName,
   }
-  // Borrower-side signatures are not collected on the broker variant — drop
+  // Borrower-side signatures are not collected on the broker variant - drop
   // them so the server-side broker validator does not see stale values.
   delete (next as Record<string, unknown>).auth_signature
   delete (next as Record<string, unknown>).payment_signature
