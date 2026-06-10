@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { SCENARIO_OPTIONS, buildScenario, type ScenarioKey } from '@/lib/test-data/scenarios'
+import { SCENARIO_OPTIONS, buildScenario, applyBrokerOverlay, type ScenarioKey } from '@/lib/test-data/scenarios'
 import { TOTAL_STEPS, type ApplicationData } from '@/lib/application-fields'
 
 const DEFAULT_EMAIL = 'apalmiotto@outlook.com'
@@ -42,8 +42,14 @@ export function TestModePanel(props: {
   onAutoSubmit: (overrides: TestOverridesState, scenarioLabel: string, scenarioData: ApplicationData) => Promise<void>
   busy: boolean
   overridesStorageKey?: string
+  /** When 'broker', scenarios get a broker identity overlay + broker_attestation_signature. */
+  variantKind?: 'borrower' | 'broker'
 }) {
-  const { data, setData, step, setStep, onAutoSubmit, busy, overridesStorageKey = 'fe-apply-test-overrides' } = props
+  const { data, setData, step, setStep, onAutoSubmit, busy, overridesStorageKey = 'fe-apply-test-overrides', variantKind = 'borrower' } = props
+  const buildForVariant = (key: ScenarioKey): ApplicationData => {
+    const base = buildScenario(key)
+    return variantKind === 'broker' ? applyBrokerOverlay(base) : base
+  }
   const [scenario, setScenario] = useState<ScenarioKey>('fix-flip-purchase')
   const [overrides, setOverrides] = useState<TestOverridesState>(DEFAULT_OVERRIDES)
 
@@ -59,7 +65,7 @@ export function TestModePanel(props: {
   }
 
   function fillWithScenario() {
-    const built = buildScenario(scenario)
+    const built = buildForVariant(scenario)
     setData(built)
     toast.success(`Filled with ${scenarioLabel()}`)
   }
@@ -85,7 +91,7 @@ export function TestModePanel(props: {
   }
 
   async function autoSubmit() {
-    const built = buildScenario(scenario)
+    const built = buildForVariant(scenario)
     setData(built)
     await onAutoSubmit(overrides, scenarioLabel(), built)
   }

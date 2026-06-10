@@ -194,7 +194,7 @@ export const BROKER_VARIANT: VariantConfig = {
     afterSubmit: '/broker/apply/submitted',
   },
   features: {
-    showTestMode: false,
+    showTestMode: true,
     autosaveEnabled: true,
     createDraftOnLoad: false,
     prefillFromAuthenticatedUser: false,
