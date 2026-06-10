@@ -13,7 +13,7 @@ function setIfPresent(obj: Record<string, unknown>, key: string, value: unknown)
   if (typeof value === 'string' && value.trim() === '') return
   obj[key] = value
 }
-import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail, sendStageUpdateEmail } from '@/lib/email'
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { recordStageChange } from '@/lib/stage-history'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
@@ -225,16 +225,11 @@ export async function POST() {
           } catch (err) {
             console.error(`Stage email failed for deal ${deal.pipedrive_deal_id}:`, err)
           }
-          // Pre-Underwriting: auto-assign Alicyn (if no UW yet) + fall back
-          // to the team-claim blast. sendPreUnderwritingClaimEmail no-ops
-          // when underwriter_id is set, so a successful auto-assign silently
-          // skips the blast.
+          // Pre-Underwriting: auto-assign Alicyn (if no UW yet). Silent by
+          // request — no email; the loan lands in her queue directly.
           if (deal.pipeline_stage === 'Pre-Underwriting' && previousStage !== 'Pre-Underwriting') {
             try { await autoAssignDefaultUnderwriter(supabase, existing.id) }
             catch (err) { console.error(`Auto-assign UW failed for deal ${deal.pipedrive_deal_id}:`, err) }
-
-            try { await sendPreUnderwritingClaimEmail(existing.id) }
-            catch (err) { console.error(`Pre-UW claim email failed for deal ${deal.pipedrive_deal_id}:`, err) }
           }
         }
       }

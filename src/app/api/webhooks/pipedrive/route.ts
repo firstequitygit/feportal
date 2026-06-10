@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeDeal, fetchEnumOptions, type PipedriveDeal } from '@/lib/pipedrive'
 import { PIPEDRIVE_FIELDS } from '@/lib/types'
-import { sendLoanApprovedEmail, sendLoanFundedEmail, sendPreUnderwritingClaimEmail } from '@/lib/email'
+import { sendLoanApprovedEmail, sendLoanFundedEmail } from '@/lib/email'
 import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 import { findOrLinkBroker } from '@/lib/broker-sync'
 import { chooseEffectiveStage } from '@/lib/effective-stage'
@@ -246,20 +246,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Pre-Underwriting: auto-assign Alicyn (no-op if already assigned),
-    // then call the team-claim blast which itself no-ops when underwriter_id
-    // is set. A successful auto-assign therefore silently skips the blast.
+    // Pre-Underwriting: auto-assign Alicyn (no-op if already assigned).
+    // Silent by request — no email; the loan lands in her queue directly.
     if (isNowPreUW && !wasPreUW && existingLoan?.id) {
       try {
         await autoAssignDefaultUnderwriter(supabase, existingLoan.id)
       } catch (err) {
         console.error(`Auto-assign UW failed for deal ${dealId}:`, err)
-      }
-      try {
-        await sendPreUnderwritingClaimEmail(existingLoan.id)
-        console.log(`Pre-UW notifications complete for deal ${dealId}`)
-      } catch (err) {
-        console.error(`Pre-UW claim email failed for deal ${dealId}:`, err)
       }
     }
 

@@ -1,20 +1,20 @@
 // Auto-assigns the default underwriter (Alicyn DeSimone) to a loan when it
-// transitions into Pre-Underwriting. Replaces the team-wide claim blast
-// for loans without a prior UW — those loans now arrive in Alicyn's queue
-// directly.
+// transitions into Pre-Underwriting. Loans without a prior UW arrive in
+// Alicyn's queue directly.
+//
+// Deliberately silent: no email is sent on assignment. Alicyn asked for
+// the Pre-Underwriting alert to be removed (June 2026) — her /underwriter
+// queue and the sidebar Inbox badge are the signal instead.
 //
 // Skip conditions (no-op + return false):
 //   - Loan already has underwriter_id set (don't clobber a manual pick)
-//   - Default UW row not found (name typo / staff turnover) — caller can
-//     fall back to the team blast
+//   - Default UW row not found (name typo / staff turnover)
 //
 // Called from /api/loans/stage, /api/sync, /api/webhooks/pipedrive. Cron
 // sync does not call this (cron is the silent backfill path, matches the
 // existing email-trigger policy).
 
 import type { createAdminClient } from '@/lib/supabase/admin'
-import { sendEmail } from '@/lib/mailer'
-import { PORTAL_URL, PORTAL_DOMAIN } from '@/lib/portal-url'
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -30,7 +30,7 @@ export async function autoAssignDefaultUnderwriter(
   // Don't override an existing assignment.
   const { data: loan } = await adminClient
     .from('loans')
-    .select('id, underwriter_id, property_address, loan_number, loan_amount, loan_type')
+    .select('id, underwriter_id')
     .eq('id', loanId)
     .single()
   if (!loan) return { assigned: false, reason: 'loan not found' }
@@ -38,7 +38,7 @@ export async function autoAssignDefaultUnderwriter(
 
   const { data: uw } = await adminClient
     .from('underwriters')
-    .select('id, full_name, email')
+    .select('id, full_name')
     .ilike('full_name', DEFAULT_UNDERWRITER_NAME)
     .maybeSingle()
   if (!uw) return { assigned: false, reason: 'default underwriter not found' }
@@ -58,54 +58,6 @@ export async function autoAssignDefaultUnderwriter(
       description: `${uw.full_name} auto-assigned as Underwriter on Pre-Underwriting transition`,
     })
   } catch (err) { console.error('Auto-assign UW event log error:', err) }
-
-  // Email the UW. Best-effort — assignment is the durable state, email is
-  // a courtesy notification.
-  if (uw.email) {
-    try {
-      const property = loan.property_address ?? 'a new loan'
-      const detailRows = [
-        loan.loan_number ? ['Loan #', loan.loan_number] : null,
-        loan.loan_type ? ['Type', loan.loan_type] : null,
-        loan.loan_amount
-          ? ['Amount', new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(loan.loan_amount)]
-          : null,
-      ].filter((r): r is [string, string] => !!r)
-      await sendEmail({
-        to: uw.email,
-        subject: `New loan assigned to you for underwriting — ${property}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
-            <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; color: white; font-size: 18px;">Loan Assigned for Underwriting</h1>
-            </div>
-            <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-              <p style="font-size: 15px; margin-top: 0;">Hi ${uw.full_name?.split(/\s+/)[0] ?? 'there'},</p>
-              <p style="font-size: 15px;">
-                A loan has moved into <strong style="color: #1F5D8F;">Pre-Underwriting</strong> and
-                has been assigned to you.
-              </p>
-              <table style="font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
-                <tr><td style="padding: 4px 16px 4px 0; color: #666;">Property</td><td><strong>${property}</strong></td></tr>
-                ${detailRows.map(([k, v]) => `<tr><td style="padding: 4px 16px 4px 0; color: #666;">${k}</td><td><strong>${v}</strong></td></tr>`).join('')}
-              </table>
-              <p style="margin-top: 24px;">
-                <a href="${PORTAL_URL}/underwriter/loans/${loanId}"
-                   style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
-                  Open Loan
-                </a>
-              </p>
-              <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
-              <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
-            </div>
-          </div>
-        `,
-      })
-    } catch (err) {
-      console.error(`Auto-assign UW email to ${uw.email} failed:`, err)
-    }
-  }
 
   return { assigned: true }
 }
