@@ -13,6 +13,10 @@ export type { ApplicationData }
 export interface VariantFieldArrays {
   borrowerFields: FieldDef[]
   primaryExtraFields: FieldDef[]
+  /** Optional fields rendered as their own labeled block ABOVE the borrower
+   *  block on Step 1 — used by the broker variant for the broker's identity
+   *  + compensation info so it visually leads the page. */
+  brokerInfoFields?: FieldDef[]
   dealFields: FieldDef[]
   unitFields: FieldDef[]
   experienceFields: FieldDef[]
@@ -154,8 +158,10 @@ export const BROKER_VARIANT: VariantConfig = {
   kind: 'broker',
   fieldArrays: {
     borrowerFields: BORROWER_FIELDS,
-    // Broker identity block renders first, then the shared primary-extra block.
-    primaryExtraFields: [...BROKER_PRIMARY_EXTRA_FIELDS, ...PRIMARY_EXTRA_FIELDS],
+    primaryExtraFields: PRIMARY_EXTRA_FIELDS,
+    // Rendered as its own labeled "Broker Information" block ABOVE the
+    // borrower section on Step 1.
+    brokerInfoFields: BROKER_PRIMARY_EXTRA_FIELDS,
     dealFields: DEAL_FIELDS,
     unitFields: UNIT_FIELDS,
     experienceFields: EXPERIENCE_FIELDS,

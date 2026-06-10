@@ -275,7 +275,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   }
 
   const stepEl = [
-    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} loanOfficerOptions={loanOfficerOptions} primaryExtraFields={variant.fieldArrays.primaryExtraFields} />,
+    <Step1Borrower key={1} data={data} set={set} ensureDraft={ensureDraft} missingFields={liveMissing} loanOfficerOptions={loanOfficerOptions} primaryExtraFields={variant.fieldArrays.primaryExtraFields} brokerInfoFields={variant.fieldArrays.brokerInfoFields} />,
     <Step2Deal key={2} data={data} set={set} missingFields={liveMissing} token={token} testMode={testMode} />,
     <Step3Experience key={3} data={data} set={set} missingFields={liveMissing} />,
     <Step4Declarations key={4} data={data} set={set} missingFields={liveMissing} />,
