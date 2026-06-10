@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Borrower {
-  id: string
   full_name: string | null
   email: string
   phone: string | null
@@ -30,11 +29,10 @@ export function EditableBorrowerContact({ loanId, borrower }: Props) {
   async function handleSave() {
     setSaving(true)
     setError(null)
-    const res = await fetch('/api/loan-processor/borrowers', {
+    const res = await fetch('/api/loans/borrower-contact', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: borrower.id,
         loanId,
         full_name: fullName.trim() || null,
         // When locked, send the unchanged email so the server's guard passes.

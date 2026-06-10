@@ -8,6 +8,7 @@ import { type Condition, type ConditionTemplate } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { CollapsibleCard } from '@/components/collapsible-card'
+import { EditableBorrowerContact } from '@/components/editable-borrower-contact'
 import { EditableLoanStage } from '@/components/editable-loan-stage'
 import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
@@ -89,7 +90,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
     { data: loanDetails },
     { data: loanDemographics },
   ] = await Promise.all([
-    adminClient.from('loans').select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
+    adminClient.from('loans').select('*, borrowers!borrower_id(id, auth_user_id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)').eq('id', id).single(),
     adminClient.from('conditions').select('*').eq('loan_id', id).order('created_at', { ascending: true }),
     adminClient.from('condition_templates').select('*').order('title'),
     fetchAllBorrowers(adminClient).then(rows => ({ data: rows })),
@@ -310,6 +311,17 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               currentBorrowerName={loan.borrowers?.full_name ?? null}
               allBorrowers={(allBorrowers ?? []) as { id: string; full_name: string; email: string }[]}
             />
+
+            {loan.borrowers && (
+              <CollapsibleCard title="Borrower Contact">
+                <div className="text-sm">
+                  <EditableBorrowerContact
+                    loanId={id}
+                    borrower={loan.borrowers as { auth_user_id: string | null; full_name: string | null; email: string; phone: string | null }}
+                  />
+                </div>
+              </CollapsibleCard>
+            )}
 
             <CoBorrowersAssign
               loanId={id}
