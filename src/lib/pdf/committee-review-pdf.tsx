@@ -93,15 +93,22 @@ const styles = StyleSheet.create({
     lineHeight: 1.25,
   },
   // Letterhead row — logo flush to the left margin, contact lines
-  // flush to the right margin. Logo bumped 50% (200 → 300pt wide).
+  // flush to the right margin.
+  //
+  // logo-main.png is actually 766x264 (ratio ~2.9:1) — NOT the
+  // 724x86 the next/image props elsewhere suggest. Earlier boxes
+  // used the wrong ratio, so objectFit:contain letterboxed the
+  // image and centered it inside a too-wide box, leaving a dead
+  // gap at the left margin. Box now matches the real ratio so the
+  // bitmap fills it edge-to-edge, flush left.
   letterhead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   logo: {
-    width: 300,
-    height: 35.6, // 300 / 724 * 86 ≈ 35.6
+    width: 155,
+    height: 53.4, // 155 / 766 * 264 ≈ 53.4 — 50% larger than the prior visible size
     objectFit: 'contain',
     alignSelf: 'flex-start',
   },

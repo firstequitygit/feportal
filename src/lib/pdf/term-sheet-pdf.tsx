@@ -102,13 +102,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     lineHeight: 1.35,
   },
-  // Logo bitmap from public/logo-main.png. Source is 724x86 (ratio
-  // 8.42:1). React-PDF treats width:'auto' on <Image> as "fill the
-  // container," which stretches the logo horizontally — so we pin
-  // both dimensions to the natural ratio and center it.
+  // Logo bitmap from public/logo-main.png — actual size 766x264
+  // (ratio ~2.9:1), not the 724x86 the next/image props elsewhere
+  // suggest. Box matches the real ratio so contain-fit doesn't
+  // letterbox; visible size unchanged (the old 240pt box only
+  // showed ~83pt of logo, centered).
   logo: {
-    width: 240,
-    height: 28.5, // 240 / 724 * 86 ≈ 28.5
+    width: 83,
+    height: 28.6, // 83 / 766 * 264 ≈ 28.6
     objectFit: 'contain',
     alignSelf: 'center',
     marginBottom: 14,

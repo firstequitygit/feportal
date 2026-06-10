@@ -61,9 +61,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
+  // logo-main.png is actually 766x264 (ratio ~2.9:1), not 724x86.
+  // Box matches the real ratio so contain-fit doesn't letterbox.
+  // Visible size unchanged from the "doubled" request — the old
+  // 400pt-wide box only showed ~138pt of actual logo.
   logo: {
-    width: 400,
-    height: 47.5, // 400 / 724 * 86 ≈ 47.5
+    width: 138,
+    height: 47.5, // 138 / 766 * 264 ≈ 47.5
     objectFit: 'contain',
     alignSelf: 'center',
   },
