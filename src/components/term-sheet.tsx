@@ -14,7 +14,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Download } from 'lucide-react'
+import { ArrowLeft, Download, PenLine } from 'lucide-react'
 import {
   fmtCurrencyCents,
   fmtLetterDate,
@@ -72,6 +72,15 @@ interface TermSheetBorrower {
   current_address_zip: string | null
 }
 
+interface EsignState {
+  /** BOLDSIGN_API_KEY configured server-side. */
+  enabled: boolean
+  /** Latest envelope status for this loan's term sheet, if any. */
+  status: string | null
+  /** Primary borrower has an email on file (required to send). */
+  signerHasEmail: boolean
+}
+
 interface Props {
   loanId: string
   loan: TermSheetLoan
@@ -79,9 +88,38 @@ interface Props {
   borrower: TermSheetBorrower | null
   coBorrowerNames: string[]
   backHref: string
+  esign?: EsignState
 }
 
-export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, backHref }: Props) {
+const ESIGN_STATUS_LABELS: Record<string, { label: string; classes: string }> = {
+  sent:      { label: 'Out for signature', classes: 'bg-blue-100 text-blue-700 border-blue-200' },
+  viewed:    { label: 'Viewed by signer',  classes: 'bg-blue-100 text-blue-700 border-blue-200' },
+  signed:    { label: 'Signed',            classes: 'bg-green-100 text-green-700 border-green-200' },
+  completed: { label: 'Signed ✓',          classes: 'bg-green-100 text-green-700 border-green-200' },
+  declined:  { label: 'Declined',          classes: 'bg-red-100 text-red-700 border-red-200' },
+  revoked:   { label: 'Revoked',           classes: 'bg-gray-100 text-gray-600 border-gray-200' },
+  expired:   { label: 'Expired',           classes: 'bg-gray-100 text-gray-600 border-gray-200' },
+}
+
+export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, backHref, esign }: Props) {
+  const [sending, setSending] = useState(false)
+
+  async function sendForSignature() {
+    if (sending) return
+    if (!confirm('Send the Term Sheet to the borrower for e-signature?')) return
+    setSending(true)
+    try {
+      const res = await fetch(`/api/esign/term-sheet/${loanId}/send`, { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(body.error ?? 'Failed to send for signature.')
+        return
+      }
+      window.location.reload()
+    } finally {
+      setSending(false)
+    }
+  }
   const [letterDate, setLetterDate] = useState<string>(fmtLetterDate())
 
   const isFixFlip = loan.loan_type === 'Fix & Flip (Bridge)' || loan.loan_type === 'New Construction'
@@ -126,18 +164,38 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
             <ArrowLeft className="w-4 h-4" />
             Back to Loan
           </Link>
-          {/* Single action — server-rendered PDF download. Goes
-              through /api/term-sheet/[id]/pdf so font rendering
-              stays clean (browser print was mangling lowercase
-              "l"s in Chrome's export). The on-screen view below
-              acts as the preview. */}
-          <a
-            href={`/api/term-sheet/${loanId}/pdf`}
-            className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
-          >
-            <Download className="w-4 h-4" />
-            Download PDF
-          </a>
+          <div className="flex items-center gap-2">
+            {/* E-sign status pill + send button — only when the
+                BoldSign integration is configured server-side. */}
+            {esign?.enabled && esign.status && ESIGN_STATUS_LABELS[esign.status] && (
+              <span className={`text-xs px-2 py-1 rounded-full border ${ESIGN_STATUS_LABELS[esign.status].classes}`}>
+                {ESIGN_STATUS_LABELS[esign.status].label}
+              </span>
+            )}
+            {esign?.enabled && !['sent', 'viewed', 'signed', 'completed'].includes(esign.status ?? '') && (
+              <button
+                onClick={sendForSignature}
+                disabled={sending || !esign.signerHasEmail}
+                title={esign.signerHasEmail ? 'Send to the borrower for e-signature' : 'Primary borrower needs an email on file first'}
+                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PenLine className="w-4 h-4" />
+                {sending ? 'Sending…' : 'Send for Signature'}
+              </button>
+            )}
+            {/* Server-rendered PDF download. Goes through
+                /api/term-sheet/[id]/pdf so font rendering stays
+                clean (browser print was mangling lowercase "l"s in
+                Chrome's export). The on-screen view below acts as
+                the preview. */}
+            <a
+              href={`/api/term-sheet/${loanId}/pdf`}
+              className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </a>
+          </div>
         </div>
       </div>
 

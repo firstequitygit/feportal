@@ -127,6 +127,24 @@ CRON_SECRET
 PIPEDRIVE_API_TOKEN
 ```
 
+Optional — BoldSign e-signature (feature is hidden when unset):
+```
+BOLDSIGN_API_KEY          # API key (sandbox or production)
+BOLDSIGN_WEBHOOK_SECRET   # webhook signing secret from BoldSign dashboard
+NEXT_PUBLIC_SITE_URL      # absolute origin for e-sign redirects (defaults to production URL)
+```
+
+### E-Signature (BoldSign)
+
+All provider calls go through `src/lib/esign/boldsign.ts`. The Term Sheet
+is the pilot doc: staff click "Send for Signature" on `/term-sheet/[id]`,
+which renders the PDF with invisible BoldSign text tags over the
+Acceptance block and creates an envelope (`esign_envelopes` table).
+The borrower signs embedded at `/loans/[id]/sign/[envelopeId]` or via
+BoldSign's email. The webhook (`/api/esign/webhook`, HMAC-verified)
+updates envelope status and files the executed PDF on the loan as a
+`documents` row on Completed.
+
 ## Important Conventions
 
 - **Server Components fetch data; Client Components handle interactivity.** Pages are async server components that pass pre-fetched data as props to `'use client'` components.

@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TermSheet } from '@/components/term-sheet'
+import { isEsignEnabled } from '@/lib/esign/boldsign'
 
 type StaffRole = 'Administrator' | 'Loan Officer' | 'Loan Processor' | 'Underwriter'
 
@@ -44,7 +45,7 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
     .from('loans')
     .select(`
       *,
-      borrowers!borrower_id(full_name, current_address_street, current_address_city, current_address_state, current_address_zip),
+      borrowers!borrower_id(full_name, email, current_address_street, current_address_city, current_address_state, current_address_zip),
       borrower_2:borrowers!borrower_id_2(full_name),
       borrower_3:borrowers!borrower_id_3(full_name),
       borrower_4:borrowers!borrower_id_4(full_name)
@@ -70,6 +71,7 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
 
   const borrower = loan.borrowers as unknown as {
     full_name: string | null
+    email: string | null
     current_address_street: string | null
     current_address_city: string | null
     current_address_state: string | null
@@ -87,6 +89,27 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
     staff.role === 'Loan Officer'     ? `/loan-officer/loans/${id}` :
     staff.role === 'Loan Processor'   ? `/loan-processor/loans/${id}` :
     /* Underwriter */                   `/underwriter/loans/${id}`
+
+  // Latest e-sign envelope status for the toolbar pill / send button.
+  // Best-effort: hidden entirely when BoldSign isn't configured, and
+  // tolerant of the esign_envelopes table not existing yet.
+  const esignEnabled = isEsignEnabled()
+  let esignStatus: string | null = null
+  if (esignEnabled) {
+    try {
+      const { data: env } = await adminClient
+        .from('esign_envelopes')
+        .select('status')
+        .eq('loan_id', id)
+        .eq('document_kind', 'term_sheet')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      esignStatus = env?.status ?? null
+    } catch {
+      // table missing — treat as never sent
+    }
+  }
 
   return (
     <TermSheet
@@ -127,6 +150,11 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
       borrower={borrower}
       coBorrowerNames={coBorrowerNames}
       backHref={backHref}
+      esign={{
+        enabled: esignEnabled,
+        status: esignStatus,
+        signerHasEmail: !!borrower?.email,
+      }}
     />
   )
 }

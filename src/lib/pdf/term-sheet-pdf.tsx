@@ -71,6 +71,11 @@ export interface TermSheetInput {
   details: TermSheetDetails
   borrower: TermSheetBorrower | null
   coBorrowerNames: string[]
+  /** When true, render invisible (white) BoldSign text tags over the
+   *  Acceptance signature/date lines so the e-sign provider converts
+   *  them into fillable Signature + DateSigned fields. The regular
+   *  download/preview PDF omits them. */
+  esignTags?: boolean
 }
 
 // Lazy-load the logo bitmap from the public folder once per
@@ -205,6 +210,7 @@ const styles = StyleSheet.create({
   },
   signatureLineBox: {
     flex: 1,
+    position: 'relative', // anchor for the absolute e-sign text tag
   },
   signatureLine: {
     borderBottom: '1pt solid #111827',
@@ -216,11 +222,25 @@ const styles = StyleSheet.create({
   },
   dateBox: {
     width: 110,
+    position: 'relative', // anchor for the absolute e-sign text tag
   },
   // Boilerplate page
   boilerHeading: {
     fontFamily: 'Helvetica-Bold',
     textDecoration: 'underline',
+  },
+  // Invisible BoldSign text tags. White-on-white per BoldSign's own
+  // recommendation — the tag text stays in the PDF but is invisible;
+  // BoldSign places a form field over the tag's exact bounds when
+  // UseTextTags is enabled on the send request. Absolutely positioned
+  // so e-sign mode adds ZERO layout height — pagination stays
+  // identical to the regular download.
+  esignTag: {
+    position: 'absolute',
+    top: -2, // overlap the signature line so the field lands on it
+    left: 0,
+    color: '#ffffff',
+    fontSize: 9.5,
   },
 })
 
@@ -257,7 +277,7 @@ function AppRow({ label, value, last }: { label: string; value: React.ReactNode;
 }
 
 export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer> {
-  const { loan, details, borrower, coBorrowerNames } = input
+  const { loan, details, borrower, coBorrowerNames, esignTags = false } = input
 
   const isFixFlip = loan.loan_type === 'Fix & Flip (Bridge)' || loan.loan_type === 'New Construction'
   const llcName = loan.entity_name ?? '—'
@@ -468,10 +488,22 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
         <Text style={styles.paragraphTight}>Confirmed and agreed to:</Text>
         <View style={styles.signatureRow}>
           <View style={styles.signatureLineBox}>
+            {/* E-sign mode: invisible white tag overlapping the line —
+                BoldSign converts it to a Signature field at the tag's
+                exact bounds. Tag MUST stay on one line; a wrapped tag
+                string is unparseable, so keep it shorter than the box. */}
+            {esignTags
+              ? <Text style={styles.esignTag}>{'{{sign|1|*|Signature|borrower_signature}}'}</Text>
+              : null}
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>By: {borrowerName}</Text>
           </View>
           <View style={styles.dateBox}>
+            {/* Short-form tag — the date box is only 110pt wide and
+                the tag must not wrap. */}
+            {esignTags
+              ? <Text style={styles.esignTag}>{'{{datesigned|1|*}}'}</Text>
+              : null}
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Date:</Text>
           </View>

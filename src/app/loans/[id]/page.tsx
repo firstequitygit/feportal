@@ -114,6 +114,27 @@ export default async function LoanPage({
     .eq('loan_id', loan.id)
     .order('created_at', { ascending: false })
 
+  // Pending e-signature request for THIS borrower (they must be the
+  // designated signer — co-borrowers see nothing). Best-effort: the
+  // table may not exist yet on environments that haven't run the
+  // esign migration, so failures just hide the banner.
+  let pendingSignature: { id: string } | null = null
+  try {
+    const { data: env } = await adminClient
+      .from('esign_envelopes')
+      .select('id, signer_email')
+      .eq('loan_id', loan.id)
+      .in('status', ['sent', 'viewed'])
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (env && borrower.email && env.signer_email?.toLowerCase() === borrower.email.toLowerCase()) {
+      pendingSignature = { id: env.id }
+    }
+  } catch {
+    // table missing or query failed — no banner
+  }
+
   return (
     <PortalShell
       userName={borrower.full_name ?? user.email ?? null}
@@ -142,6 +163,25 @@ export default async function LoanPage({
             loanNumber: loan.loan_number,
           })}
         </h2>
+
+        {/* E-signature call-to-action — shown only to the designated
+            signer while a request is outstanding. */}
+        {pendingSignature && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Your Term Sheet is ready to sign</p>
+              <p className="text-sm text-blue-700 mt-0.5">
+                Review and sign electronically — it only takes a minute.
+              </p>
+            </div>
+            <Link
+              href={`/loans/${loan.id}/sign/${pendingSignature.id}`}
+              className="shrink-0 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
+            >
+              Review &amp; Sign
+            </Link>
+          </div>
+        )}
 
         <LoanProgressTracker
           stage={loan.pipeline_stage}
