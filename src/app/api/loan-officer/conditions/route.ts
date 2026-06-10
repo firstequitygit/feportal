@@ -9,6 +9,7 @@ import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { setConditionReceived } from '@/lib/condition-set-received'
 import { processMentions } from '@/lib/process-mentions'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
+import { sendConditionRejectedEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -174,6 +175,13 @@ export async function PUT(req: NextRequest) {
     .from('conditions').update(updatePayload).eq('id', conditionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Rejection alert to the loan's outside contact (broker, else
+  // borrower) — borrower-facing conditions only, transition only.
+  if (status === 'Rejected' && previousStatus !== 'Rejected' && condition.assigned_to === 'borrower') {
+    try { await sendConditionRejectedEmail(condition.loan_id, condition.title, rejectionReason) }
+    catch (err) { console.error('Condition rejected email error:', err) }
+  }
 
   try {
     await adminClient.from('loan_events').insert({

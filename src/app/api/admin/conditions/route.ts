@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
+import { sendConditionRejectedEmail } from '@/lib/email'
 
 async function verifyAdmin(): Promise<{ adminName: string } | null> {
   const supabase = await createClient()
@@ -251,10 +252,21 @@ export async function PATCH(request: Request) {
     }
   }
 
-  // Only send status-change emails for borrower conditions
+  // Only send status-change emails for borrower conditions. Rejections
+  // get the dedicated "A condition needs your attention" email (with
+  // the reason + re-upload link, no rejector name); other statuses keep
+  // the generic update email. Both route broker-first via
+  // getLoanContacts. Skip the rejection email when the condition was
+  // already Rejected (re-saving shouldn't re-email).
   if (condition && status && condition.assigned_to === 'borrower') {
     try {
-      await sendBorrowerStatusNotification({ adminClient, condition, status, rejectionReason })
+      if (status === 'Rejected') {
+        if ((condition.status as string | null) !== 'Rejected') {
+          await sendConditionRejectedEmail(condition.loan_id, condition.title, rejectionReason)
+        }
+      } else {
+        await sendBorrowerStatusNotification({ adminClient, condition, status, rejectionReason })
+      }
     } catch (err) {
       console.error('Borrower notification error (status change):', err)
     }

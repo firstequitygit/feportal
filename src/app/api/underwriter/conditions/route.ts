@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/mailer'
 import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { notifyUwIfUrgentReceived } from '@/lib/notify-urgent-received'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
+import { sendConditionRejectedEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -163,10 +164,11 @@ export async function PATCH(req: NextRequest) {
 
   // Verify the condition belongs to a loan this underwriter owns. Status
   // is captured so we can fire the urgent-received notification on an
-  // Outstanding/Rejected → Received transition.
+  // Outstanding/Rejected → Received transition; assigned_to gates the
+  // rejection email to borrower-facing conditions.
   const { data: condition } = await adminClient
     .from('conditions')
-    .select('id, title, loan_id, status')
+    .select('id, title, loan_id, status, assigned_to')
     .eq('id', conditionId)
     .single()
   if (!condition) return NextResponse.json({ error: 'Condition not found' }, { status: 404 })
@@ -191,6 +193,15 @@ export async function PATCH(req: NextRequest) {
   // Urgent-received email — helper handles the "is this actually a
   // Received transition + is the condition urgent" checks.
   await notifyUwIfUrgentReceived({ adminClient, conditionId, newStatus: status, previousStatus })
+
+  // Rejection alert to the loan's outside contact (broker, else
+  // borrower) — only for borrower-facing conditions, and only on the
+  // actual transition into Rejected (re-saving an already-rejected
+  // condition shouldn't re-email anyone).
+  if (status === 'Rejected' && previousStatus !== 'Rejected' && condition.assigned_to === 'borrower') {
+    try { await sendConditionRejectedEmail(condition.loan_id, condition.title, rejectionReason) }
+    catch (err) { console.error('Condition rejected email error:', err) }
+  }
 
   try {
     await adminClient.from('loan_events').insert({

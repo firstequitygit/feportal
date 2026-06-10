@@ -299,6 +299,75 @@ export async function sendLoanApprovedEmail(loanId: string) {
 }
 
 /**
+ * "A condition needs your attention" — sent when a borrower-facing
+ * condition is rejected so the outside party re-submits quickly.
+ *
+ * Recipients follow the brokered-loan rule via getLoanContacts():
+ * broker(s) only when a broker is assigned (borrowers stay silent),
+ * otherwise the registered borrowers.
+ *
+ * Deliberately does NOT say who rejected the condition — the email
+ * carries the condition title, the reason, and a re-upload link only.
+ */
+export async function sendConditionRejectedEmail(
+  loanId: string,
+  conditionTitle: string,
+  rejectionReason?: string | null,
+) {
+  const contacts = await getLoanContacts(loanId)
+  if (contacts.length === 0) return
+
+  const adminClient = createAdminClient()
+  const { data: loan } = await adminClient
+    .from('loans')
+    .select('property_address')
+    .eq('id', loanId)
+    .single()
+
+  const property = loan?.property_address ?? 'your loan'
+  const reason = rejectionReason?.trim() || null
+
+  await Promise.all(contacts.map(c => {
+    const greeting = c.name ? c.name.split(/\s+/)[0] : 'there'
+    // Deep-link straight to the loan so re-uploading is one click away.
+    const link = c.kind === 'broker'
+      ? `${PORTAL_URL}/broker/loans/${loanId}`
+      : `${PORTAL_URL}/loans/${loanId}`
+    return sendEmail({
+      to: c.email,
+      subject: `A condition needs your attention — ${property}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+          <div style="background-color: #1F5D8F; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white; font-size: 18px;">A Condition Needs Your Attention</h1>
+          </div>
+          <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <p style="font-size: 15px; margin-top: 0;">Hi ${greeting},</p>
+            <p style="font-size: 15px;">
+              A submitted condition for <strong>${property}</strong> was not accepted and
+              needs to be re-submitted.
+            </p>
+            <table style="font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+              <tr><td style="padding: 4px 16px 4px 0; color: #666;">Condition</td><td><strong>${conditionTitle}</strong></td></tr>
+              ${reason ? `<tr><td style="padding: 4px 16px 4px 0; color: #666; vertical-align: top;">Reason</td><td>${reason}</td></tr>` : ''}
+            </table>
+            <p style="margin-top: 24px;">
+              <a href="${link}"
+                 style="background-color: #1F5D8F; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">
+                Re-upload in Portal
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+            <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+          </div>
+        </div>
+      `,
+    }).catch(err => console.error(`Condition rejected email to ${c.email} failed:`, err))
+  }))
+}
+
+/**
  * Hardcoded alert to Omayra (LP) every time a loan hits 'Conditionally
  * Approved'. She tracks the conditionally-approved pipeline and wants a
  * heads-up the moment each loan lands there. Includes a full loan summary

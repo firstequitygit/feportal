@@ -9,6 +9,7 @@ import { validateStaffIdExists, getStaffContact } from '@/lib/loan-staff'
 import { setConditionReceived } from '@/lib/condition-set-received'
 import { processMentions } from '@/lib/process-mentions'
 import { loanContextBlockHtml } from '@/lib/email-loan-context'
+import { sendConditionRejectedEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const block = await assertNotImpersonating()
@@ -163,7 +164,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
   const { data: condition } = await adminClient
-    .from('conditions').select('id, loan_id, title').eq('id', conditionId).single()
+    .from('conditions').select('id, loan_id, title, status, assigned_to').eq('id', conditionId).single()
   if (!condition) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const loanQ = adminClient.from('loans').select('id').eq('id', condition.loan_id)
@@ -171,6 +172,8 @@ export async function PUT(req: NextRequest) {
     ? loanQ.single()
     : loanQ.or(`loan_processor_id.eq.${lp.id},loan_processor_id_2.eq.${lp.id}`).single())
   if (!loan) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const previousStatus = (condition.status as string | null) ?? null
 
   const updatePayload: Record<string, unknown> = { status }
   if (status === 'Rejected') updatePayload.rejection_reason = rejectionReason?.trim() || null
@@ -180,6 +183,13 @@ export async function PUT(req: NextRequest) {
     .from('conditions').update(updatePayload).eq('id', conditionId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Rejection alert to the loan's outside contact (broker, else
+  // borrower) — borrower-facing conditions only, transition only.
+  if (status === 'Rejected' && previousStatus !== 'Rejected' && condition.assigned_to === 'borrower') {
+    try { await sendConditionRejectedEmail(condition.loan_id, condition.title, rejectionReason) }
+    catch (err) { console.error('Condition rejected email error:', err) }
+  }
 
   try {
     await adminClient.from('loan_events').insert({
