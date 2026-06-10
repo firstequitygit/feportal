@@ -92,16 +92,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     lineHeight: 1.25,
   },
-  // Letterhead row — logo left, contact lines right.
+  // Letterhead row — logo flush to the left margin, contact lines
+  // flush to the right margin. Logo bumped 50% (200 → 300pt wide).
   letterhead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   logo: {
-    width: 200,
-    height: 23.8, // 200 / 724 * 86 ≈ 23.8
+    width: 300,
+    height: 35.6, // 300 / 724 * 86 ≈ 35.6
     objectFit: 'contain',
+    alignSelf: 'flex-start',
   },
   brandWordmark: {
     color: '#1F5D8F',
