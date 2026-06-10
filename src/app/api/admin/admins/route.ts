@@ -67,6 +67,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: rowErr.message }, { status: 500 })
   }
 
+  // staff_users is the identity layer the page-level redirects resolve
+  // against (getEffectiveStaffContext). Without this row the new admin
+  // bounces forever between /admin and /dashboard — admin_users sends
+  // them to /admin, which can't resolve a staff context and sends them
+  // back. (This is exactly what broke Alexis Vega, Kelli Tanner, and
+  // Mark Presto — created after the one-time staff_users backfill.)
+  const { error: staffErr } = await adminClient.from('staff_users').insert({
+    auth_user_id: created.user.id,
+    email,
+    full_name,
+    base_role: null,
+    is_admin: true,
+    is_super: false,
+    last_view_mode: 'admin',
+  })
+  if (staffErr) {
+    // Roll back both — a login that can't reach any page is worse
+    // than a clean failure the super-admin can retry.
+    await adminClient.from('admin_users').delete().eq('id', row.id)
+    await adminClient.auth.admin.deleteUser(created.user.id)
+    return NextResponse.json({ error: staffErr.message }, { status: 500 })
+  }
+
   return NextResponse.json({ success: true, admin: row, tempPassword })
 }
 
@@ -91,9 +114,17 @@ export async function PATCH(request: Request) {
     .from('admin_users')
     .update({ full_name: trimmed })
     .eq('id', id)
-    .select('id, full_name, email, is_super, created_at')
+    .select('id, auth_user_id, full_name, email, is_super, created_at')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Keep the staff_users identity row in sync — it feeds the shell
+  // header and @mention pickers.
+  if (row.auth_user_id) {
+    await adminClient.from('staff_users')
+      .update({ full_name: trimmed })
+      .eq('auth_user_id', row.auth_user_id)
+  }
 
   return NextResponse.json({ success: true, admin: row })
 }
@@ -119,6 +150,9 @@ export async function DELETE(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (target.auth_user_id) {
+    // Remove the staff_users identity row too — leaving it orphaned
+    // would let a re-created login inherit stale flags.
+    await adminClient.from('staff_users').delete().eq('auth_user_id', target.auth_user_id)
     const { error: authErr } = await adminClient.auth.admin.deleteUser(target.auth_user_id)
     if (authErr) console.error('Admin auth delete error:', authErr.message)
   }
