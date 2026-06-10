@@ -11,7 +11,7 @@ import { AdminLoanNotes } from '@/components/admin-loan-notes'
 import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
-import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
+import { EditableBorrowerContact } from '@/components/editable-borrower-contact'
 import { type Condition, type Document } from '@/lib/types'
 import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
@@ -68,10 +68,10 @@ export default async function UnderwriterLoanPage({
 
   const loanQuery = isImpersonating
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
+        .select('*, borrowers!borrower_id(id, auth_user_id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
         .eq('id', id).single()
     : adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
+        .select('*, borrowers!borrower_id(id, auth_user_id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), loan_officers(id, full_name, email), loan_processors!loan_processor_id(id, full_name, email, phone), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone), underwriters(id, full_name, email)')
         .eq('id', id)
         .eq('underwriter_id', uw.id).single()
   const { data: loan } = await loanQuery
@@ -106,7 +106,7 @@ export default async function UnderwriterLoanPage({
     if (doc.signedUrl) signedUrlMap[doc.id] = doc.signedUrl
   }
 
-  const borrower = loan.borrowers as unknown as { full_name: string | null; email: string; phone: string | null } | null
+  const borrower = loan.borrowers as unknown as { auth_user_id: string | null; full_name: string | null; email: string; phone: string | null } | null
   const loanOfficer = loan.loan_officers as unknown as { full_name: string; email: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null } | null
   const loanProcessor2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null; phone: string | null } | null }).loan_processor_2
@@ -260,22 +260,7 @@ export default async function UnderwriterLoanPage({
           <CollapsibleCard title="Borrower">
             <div className="space-y-2 text-sm">
               {borrower ? (
-                <>
-                  {borrower.full_name && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Name</span>
-                      <span className="font-medium">{borrower.full_name}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Email</span>
-                    <a href={`mailto:${borrower.email}`} className="font-medium text-primary hover:opacity-80">{borrower.email}</a>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Phone</span>
-                    <EditableBorrowerPhone loanId={id} currentPhone={borrower.phone} />
-                  </div>
-                </>
+                <EditableBorrowerContact loanId={id} borrower={borrower} />
               ) : (
                 <p className="text-gray-400 italic">No borrower assigned</p>
               )}

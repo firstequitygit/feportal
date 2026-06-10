@@ -12,7 +12,7 @@ import { AdminLoanNotes } from '@/components/admin-loan-notes'
 import { fetchMentionableStaff } from '@/lib/mentionable-staff'
 import { LoanActivity } from '@/components/loan-activity'
 import { EditableClosingDate } from '@/components/editable-closing-date'
-import { EditableBorrowerPhone } from '@/components/editable-borrower-phone'
+import { EditableBorrowerContact } from '@/components/editable-borrower-contact'
 import { AdminBorrowerAssign } from '@/components/admin-borrower-assign'
 import { CoBorrowersAssign } from '@/components/co-borrowers-assign'
 import { BrokerAssign } from '@/components/broker-assign'
@@ -75,10 +75,10 @@ export default async function LoanOfficerLoanPage({
   // Verify this loan is assigned to this LO (admins previewing bypass)
   const loanQuery = isImpersonating
     ? adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
+        .select('*, borrowers!borrower_id(id, auth_user_id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
         .eq('id', id).single()
     : adminClient.from('loans')
-        .select('*, borrowers!borrower_id(id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
+        .select('*, borrowers!borrower_id(id, auth_user_id, full_name, email, phone, current_address_street, current_address_city, current_address_state, current_address_zip, at_current_address_2y, prior_address_street, prior_address_city, prior_address_state, prior_address_zip), brokers!broker_id(id, full_name, email, company_name, phone),broker_2:brokers!broker_id_2(id, full_name, email, company_name, phone), loan_officers(id, full_name, email, phone, title), loan_processors!loan_processor_id(id, full_name, email, phone, title), loan_processor_2:loan_processors!loan_processor_id_2(id, full_name, email, phone, title), underwriters(id, full_name, email, phone, title)')
         .eq('id', id)
         .eq('loan_officer_id', lo.id).single()
   const { data: loan } = await loanQuery
@@ -132,7 +132,7 @@ export default async function LoanOfficerLoanPage({
   // picker and the manage-views modal.
   const detailViewBundle = await fetchLoanDetailViews(adminClient, user.id)
 
-  const borrower = loan.borrowers as { full_name: string | null; email: string; phone: string | null } | null
+  const borrower = loan.borrowers as { auth_user_id: string | null; full_name: string | null; email: string; phone: string | null } | null
   const loanProcessor = loan.loan_processors as unknown as { full_name: string; email: string | null; phone: string | null; title: string | null } | null
   const loanProcessor2 = (loan as unknown as { loan_processor_2: { full_name: string; email: string | null; phone: string | null; title: string | null } | null }).loan_processor_2
   const loanProcessors = [loanProcessor, loanProcessor2].filter((p): p is { full_name: string; email: string | null; phone: string | null; title: string | null } => !!p)
@@ -290,26 +290,9 @@ export default async function LoanOfficerLoanPage({
             />
 
             <CollapsibleCard title="Borrower">
-              <div className="space-y-2 text-sm">
+              <div className="text-sm">
                 {borrower ? (
-                  <>
-                    {borrower.full_name && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Name</span>
-                        <span className="font-medium">{borrower.full_name}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Email</span>
-                      <a href={`mailto:${borrower.email}`} className="font-medium text-primary hover:opacity-80">
-                        {borrower.email}
-                      </a>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Phone</span>
-                      <EditableBorrowerPhone loanId={id} currentPhone={borrower.phone} />
-                    </div>
-                  </>
+                  <EditableBorrowerContact loanId={id} borrower={borrower} />
                 ) : (
                   <p className="text-gray-400 italic">No borrower assigned</p>
                 )}
