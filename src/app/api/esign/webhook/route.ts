@@ -27,13 +27,10 @@ const STATUS_BY_EVENT: Record<string, string> = {
 }
 
 export async function POST(req: Request) {
-  // Raw body is required for HMAC verification — parse JSON after.
+  // Raw body is required for HMAC verification — keep it as text and
+  // parse JSON separately.
   const rawBody = await req.text()
   const signature = req.headers.get('x-boldsign-signature')
-
-  if (!verifyWebhookSignature(rawBody, signature)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-  }
 
   let payload: {
     event?: { eventType?: string }
@@ -47,6 +44,19 @@ export async function POST(req: Request) {
   }
 
   const eventType = payload.event?.eventType ?? ''
+
+  // BoldSign's "Verify" button (API → Webhooks → Add Webhook) sends a
+  // Verification ping and requires a 200 within 10 seconds. The
+  // signing secret isn't known until AFTER the webhook is saved, so
+  // this one event type is acknowledged without signature
+  // verification. It carries no document data and triggers no writes.
+  if (eventType === 'Verification') {
+    return NextResponse.json({ ok: true, verified: true })
+  }
+
+  if (!verifyWebhookSignature(rawBody, signature)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
   // BoldSign nests the document under `document` for document events;
   // tolerate `data` as well in case the shape shifts.
   const documentId = payload.document?.documentId ?? payload.data?.documentId
