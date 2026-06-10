@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -131,6 +132,9 @@ function ConditionRow({
   const [statusChanging, setStatusChanging] = useState(false)
   const [pendingRejection, setPendingRejection] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
+  // Satisfied cards start minimized — the work is done, so the full
+  // card (docs, notes, upload) is collapsed to one line until expanded.
+  const [expanded, setExpanded] = useState(false)
   const faded = condition.status === 'Satisfied' || condition.status === 'Waived'
 
   async function handleDelete(docId: string, fileName: string) {
@@ -164,6 +168,43 @@ function ConditionRow({
     setStatusChanging(false)
     setPendingRejection(false)
     setRejectionReason('')
+  }
+
+  // Minimized one-line view for Satisfied conditions.
+  if (condition.status === 'Satisfied' && !expanded) {
+    return (
+      <div className={`border rounded-lg px-4 py-2 opacity-60 ${selected ? 'bg-primary/5 border-primary/40' : ''}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!selectable}
+            onChange={onToggleSelect}
+            className="accent-primary disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+            aria-label={`Select ${condition.title}`}
+          />
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="flex-1 min-w-0 text-left cursor-pointer"
+            title="Expand condition details"
+          >
+            <span className="font-medium text-gray-900 text-sm truncate block">{condition.title}</span>
+          </button>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 ${statusColor(condition.status)}`}>
+            {condition.status}
+          </span>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-gray-400 hover:text-gray-600 shrink-0"
+            title="Expand condition details"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -241,6 +282,16 @@ function ConditionRow({
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusColor(condition.status)}`}>
             {condition.status}
           </span>
+          {condition.status === 'Satisfied' && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Minimize"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
