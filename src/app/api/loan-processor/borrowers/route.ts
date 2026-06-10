@@ -15,10 +15,10 @@ export async function PATCH(req: NextRequest) {
 
   const adminClient = createAdminClient()
   const { data: lp } = await adminClient
-    .from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single()
+    .from('loan_processors').select('id, full_name, is_ops_manager').eq('auth_user_id', user.id).single()
   if (!lp) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { id, full_name, email, phone } = await req.json()
+  const { id, full_name, email, phone, loanId } = await req.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
 
@@ -62,6 +62,17 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await adminClient.from('borrowers').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Audit log when the edit came from a specific loan's borrower card.
+  if (loanId) {
+    try {
+      await adminClient.from('loan_events').insert({
+        loan_id: loanId,
+        event_type: 'borrower_contact_updated',
+        description: `Borrower contact details updated${lp.full_name ? ` by ${lp.full_name}` : ''}`,
+      })
+    } catch (err) { console.error('Event log error:', err) }
+  }
 
   return NextResponse.json({ success: true })
 }
