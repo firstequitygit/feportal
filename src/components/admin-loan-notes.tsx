@@ -41,12 +41,13 @@ interface SectionMeta {
   placeholder: string
 }
 
-// Render order — top to bottom in the card. Matches the typical loan
-// lifecycle handoff: LO → Processor → Underwriter → Closer.
+// Render order — fills a 2-column grid left-to-right, so this gives:
+//   Loan Officer | Underwriter
+//   Processor    | Closer
 const SECTIONS: SectionMeta[] = [
   { key: 'loan_officer', title: 'Loan Officer Notes', placeholder: 'Add a loan officer note…' },
-  { key: 'processor',    title: 'Processor Notes',    placeholder: 'Add a processor note…' },
   { key: 'underwriter',  title: 'Underwriter Notes',  placeholder: 'Add an underwriter note…' },
+  { key: 'processor',    title: 'Processor Notes',    placeholder: 'Add a processor note…' },
   { key: 'closer',       title: 'Closer Notes',       placeholder: 'Add a closer note…' },
 ]
 
@@ -144,7 +145,9 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
           <span className="ml-2 text-xs font-normal text-gray-400">internal — not visible to borrower</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      {/* 2-up grid: LO | UW on the first row, Processor | Closer on the
+          second. Single column on small screens. */}
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
         {SECTIONS.map((section, idx) => {
           const sectionNotes = notesByCategory[section.key]
           const draft = drafts[section.key]
@@ -152,10 +155,9 @@ export function AdminLoanNotes({ loanId, initialNotes, apiPath = '/api/admin/not
           return (
             <section
               key={section.key}
-              // Light divider between sections — same card so the whole
-              // thing reads as one Staff Notes block, but the buckets are
-              // visually distinct.
-              className={idx === 0 ? '' : 'pt-6 border-t border-gray-100'}
+              // Light divider above the second row (and between stacked
+              // sections on mobile).
+              className={idx >= 2 ? 'pt-6 border-t border-gray-100' : ''}
             >
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 {section.title}

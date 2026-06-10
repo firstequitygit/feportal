@@ -406,7 +406,9 @@ export default async function UnderwriterLoanPage({
           hasReminderRecipient={!!(loan.borrower_id || loan.borrower_id_2 || loan.borrower_id_3 || loan.borrower_id_4 || loan.broker_id || loan.broker_id_2)}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        {/* Staff Notes full-width (2-up note buckets inside), Activity
+            Log stacked below. */}
+        <div className="space-y-6 mt-6">
           <AdminLoanNotes
             loanId={id}
             initialNotes={notes ?? []}
