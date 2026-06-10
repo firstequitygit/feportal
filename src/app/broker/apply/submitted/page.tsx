@@ -1,111 +1,83 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { PortalShell } from '@/components/portal-shell'
-import { resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { CopyLinkButton } from './_components/copy-link-button'
+import { PORTAL_URL } from '@/lib/portal-url'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-export const metadata = { title: 'Application submitted - First Equity Funding' }
+export const metadata = { title: 'Submitted - Broker Application' }
 
-const FALLBACK_PORTAL_URL = 'https://firstequity.irongateportals.com'
-
-export default async function BrokerApplySubmittedPage({
+// Public confirmation page. The ?token= URL param is the auth — anyone who
+// has the token (i.e. the broker who just submitted) can see this page.
+// Without the token we 404.
+export default async function BrokerSubmittedPage({
   searchParams,
 }: {
   searchParams: Promise<{ [k: string]: string | string[] | undefined }>
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const admin = createAdminClient()
-
   const sp = await searchParams
-  const impersonation = await resolveImpersonation(admin, user.id, sp)
-  const isImpersonating = impersonation?.kind === 'broker'
-
-  const { data: broker } = isImpersonating
-    ? await admin.from('brokers').select('*').eq('id', impersonation.id).maybeSingle()
-    : await admin.from('brokers').select('*').eq('auth_user_id', user.id).maybeSingle()
-  if (!broker) redirect('/login')
-
-  const tokenParam = sp.token
-  const token = typeof tokenParam === 'string' ? tokenParam : null
+  const token = typeof sp.token === 'string' ? sp.token : null
   if (!token) notFound()
 
+  const admin = createAdminClient()
   const { data: loan } = await admin
     .from('loans')
-    .select('id, property_address, submitted_by_broker_id, authorize_token, borrowers!borrower_id(full_name, email)')
+    .select('id, application_kind, authorize_token, property_address, borrower_id')
     .eq('authorize_token', token)
     .maybeSingle()
-  if (!loan || loan.submitted_by_broker_id !== broker.id) notFound()
+  if (!loan || loan.application_kind !== 'broker') notFound()
 
-  const borrower = loan.borrowers as unknown as { full_name: string | null; email: string | null } | null
-  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL ?? FALLBACK_PORTAL_URL
-  const authorizeUrl = `${portalUrl}/authorize/${token}`
+  const { data: borrower } = loan.borrower_id
+    ? await admin.from('borrowers').select('full_name').eq('id', loan.borrower_id).maybeSingle()
+    : { data: null }
 
-  const subject = encodeURIComponent('Please complete your loan authorization')
-  const body = encodeURIComponent(
-    `Hi ${borrower?.full_name?.split(' ')[0] ?? 'there'},\n\n` +
-    `I've submitted your loan application to First Equity Funding. To finish, please complete the credit authorization and pay the application fee at the secure link below:\n\n` +
-    `${authorizeUrl}\n\n` +
-    `Thanks,\n${broker.full_name ?? broker.email}`,
+  const authorizeUrl = `${PORTAL_URL}/authorize/${token}`
+  const borrowerName = (borrower as { full_name: string | null } | null)?.full_name ?? 'your borrower'
+  const propertyAddress = loan.property_address ?? 'the property'
+
+  const mailtoSubject = encodeURIComponent('Action needed: complete your loan authorization')
+  const mailtoBody = encodeURIComponent(
+    `Hi,\n\nWe submitted a loan application for ${propertyAddress} on your behalf. ` +
+    `To move forward, please complete the credit and identity authorization at the link below:\n\n${authorizeUrl}\n\n` +
+    `This is a secure form hosted by First Equity Funding.\n\nThanks.`
   )
-  const mailto = borrower?.email
-    ? `mailto:${borrower.email}?subject=${subject}&body=${body}`
-    : `mailto:?subject=${subject}&body=${body}`
 
   return (
-    <PortalShell
-      userName={broker.full_name ?? broker.email}
-      userRole="Broker"
-      dashboardHref="/broker"
-      variant="broker"
-      impersonation={isImpersonating ? {
-        kind: 'broker',
-        name: broker.full_name,
-        exitHref: impersonationExitHref(),
-      } : null}
-    >
-      <div className="mx-auto max-w-2xl">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-gray-900">
-            Application submitted - ready for borrower
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            We've created the loan{loan.property_address ? <> for <strong className="font-medium text-gray-900">{loan.property_address}</strong></> : null}.
-            The borrower still needs to complete the credit authorization and pay the application fee.
-            Forward the secure link below to {borrower?.full_name ?? 'the borrower'} so they can finish.
+    <div className="mx-auto max-w-2xl px-6 py-12">
+      <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-[#1F5D8F]">Application submitted</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Forward the secure link below to {borrowerName}. They will complete the credit
+          authorization and save a card on file to finish the application.
+        </p>
+
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Borrower authorization link</p>
+          <p className="mt-1 break-all font-mono text-sm text-gray-900">{authorizeUrl}</p>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <CopyLinkButton url={authorizeUrl} />
+          <a
+            href={`mailto:?subject=${mailtoSubject}&body=${mailtoBody}`}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-gray-300 px-5 text-sm text-gray-700 transition-colors hover:border-gray-400"
+          >
+            Email link to borrower
+          </a>
+        </div>
+
+        <div className="mt-8 border-t border-gray-200 pt-6 text-sm text-gray-600">
+          <p>Once the borrower completes the form, our team will review the application and reach out.</p>
+          <p className="mt-2">
+            <Link href="/broker/apply" className="text-[#1F5D8F] underline hover:text-[#0F3A5E]">
+              Submit another application
+            </Link>
           </p>
-
-          <div className="mt-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Borrower authorization link</p>
-            <code className="mt-1 block break-all rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
-              {authorizeUrl}
-            </code>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <CopyLinkButton url={authorizeUrl} />
-              <a
-                href={mailto}
-                className="inline-flex h-9 items-center rounded-md bg-[#1F5D8F] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E]"
-              >
-                Email link to borrower
-              </a>
-            </div>
-          </div>
-
-          <hr className="my-6 border-gray-100" />
-
-          <Link href="/broker" className="text-sm font-medium text-[#1F5D8F] hover:underline">
-            Return to dashboard
-          </Link>
         </div>
       </div>
-    </PortalShell>
+    </div>
   )
 }

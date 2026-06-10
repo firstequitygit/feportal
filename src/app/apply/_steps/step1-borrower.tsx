@@ -23,7 +23,10 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOffic
       const cur = (d.primary as Record<string, unknown>) ?? {}
       return { primary: { ...cur, [name]: value } }
     })
-    if (name === 'email' && typeof value === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
+    // Trigger ensureDraft on either the borrower's email (borrower variant) or
+    // the broker's email (broker variant) — whichever the user blurs first.
+    // The wizard guards against double-creation via its own `if (token) return`.
+    if ((name === 'email' || name === 'broker_email') && typeof value === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
       ensureDraft(value, (primary.first_name as string) ?? '')
   }
   return (
