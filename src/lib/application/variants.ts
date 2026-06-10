@@ -1,9 +1,9 @@
 import type {
-  ApplicationData, FieldDef,
+  ApplicationData, FieldDef, StepDef,
 } from '@/lib/application-fields'
 import {
   BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, DEAL_FIELDS, UNIT_FIELDS,
-  DECLARATION_FIELDS, HMDA_FIELDS, EXPERIENCE_FIELDS,
+  DECLARATION_FIELDS, HMDA_FIELDS, EXPERIENCE_FIELDS, STEPS,
 } from '@/lib/application-fields'
 import { BROKER_PRIMARY_EXTRA_FIELDS } from '@/lib/application-fields.broker'
 
@@ -75,6 +75,9 @@ export interface VariantConfig {
   redirects: VariantRedirects
   features: VariantFeatures
   storageKeys: VariantStorageKeys
+  /** Five-step Wizard config. Drives the stepper labels, the per-step card
+   *  heading + subtitle, and the "Continue to <next>" button copy. */
+  steps: StepDef[]
 }
 
 /** Captures today's borrower behavior verbatim. Anything that branches on
@@ -118,6 +121,7 @@ export const BORROWER_VARIANT: VariantConfig = {
     sendBorrowerToAuthorize: 'auto',
     duplicateAccountBehavior: 'block',
   },
+  steps: STEPS,
   // Borrower keeps the legacy unprefixed keys so an admin's saved test overrides
   // survive this refactor. Broker variant uses prefixed keys to avoid bleed.
   storageKeys: {
@@ -202,6 +206,17 @@ export const BROKER_VARIANT: VariantConfig = {
     testData: 'fe-broker-apply-test-data',
     testOverrides: 'fe-broker-apply-test-overrides',
   },
+  // Step 1 is renamed so the page header doesn't say "Borrower Info" right
+  // above a "Broker Information" section. Same StepId values as the borrower
+  // variant so the shared StepId routing (getMissingRequiredFields etc.) keeps
+  // working unchanged.
+  steps: [
+    { id: 'borrower',      title: 'Application Info', subtitle: "Tell us about you (the broker) and your client (the borrower).", estimateMinutes: 6 },
+    STEPS[1], // Deal Info
+    STEPS[2], // Experience
+    STEPS[3], // Declarations
+    STEPS[4], // Submit
+  ],
 }
 
 /** Client-side variant lookup. Server components pass `variantKind` as a string
