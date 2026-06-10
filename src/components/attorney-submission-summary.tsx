@@ -2,10 +2,7 @@
 
 // Attorney Submission Summary — single page handed to the closing
 // attorney. Fields come straight from Loan Details + Loan Summary.
-// Miscellaneous Notes is editable inline so the UW can drop in
-// loan-specific context before printing.
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Download } from 'lucide-react'
@@ -26,7 +23,6 @@ interface Props {
   titleEmail: string | null
   titlePhone: string | null
   estimatedClosingDate: string | null
-  initialNotes: string | null
   backHref: string
 }
 
@@ -44,11 +40,8 @@ export function AttorneySubmissionSummary({
   titleEmail,
   titlePhone,
   estimatedClosingDate,
-  initialNotes,
   backHref,
 }: Props) {
-  const [notes, setNotes] = useState<string>(initialNotes ?? '')
-
   const guarantors = joinGuarantors(borrowerName, ...coBorrowerNames)
   const titleContactDisplay = [titleContactName, titleCompany]
     .filter((x): x is string => !!x && x.trim().length > 0)
@@ -90,11 +83,9 @@ export function AttorneySubmissionSummary({
             <ArrowLeft className="w-4 h-4" />
             Back to Loan
           </Link>
-          {/* Server-rendered PDF download. The current notes-textarea
-              edit is passed through as ?notes= so the printed file
-              matches what the UW typed on screen. */}
+          {/* Server-rendered PDF download. */}
           <a
-            href={`/api/attorney-submission/${loanId}/pdf?notes=${encodeURIComponent(notes)}`}
+            href={`/api/attorney-submission/${loanId}/pdf`}
             className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
           >
             <Download className="w-4 h-4" />
@@ -137,17 +128,6 @@ export function AttorneySubmissionSummary({
               label="Desired closing date:"
               value={estimatedClosingDate ? formatDate(estimatedClosingDate) : ''}
             />
-
-            <div className="mt-8">
-              <p className="font-semibold">Miscellaneous Notes:</p>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                rows={8}
-                className="editable-text mt-1"
-                placeholder="Add any deal-specific context for the closing attorney…"
-              />
-            </div>
           </div>
         </div>
       </div>

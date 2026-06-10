@@ -26,7 +26,7 @@ async function isStaff(authUserId: string): Promise<boolean> {
   return !!(adminUser || lo || lp || uw)
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,12 +34,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!(await isStaff(user.id))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-
-  // Notes are passed live from the UI textarea so the PDF reflects
-  // whatever the UW typed before clicking Download. Fall back to the
-  // saved underwriter_notes if the query string is missing.
-  const url = new URL(req.url)
-  const notesParam = url.searchParams.get('notes')
 
   const adminClient = createAdminClient()
 
@@ -58,7 +52,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const { data: details } = await adminClient
     .from('loan_details')
-    .select('title_company, title_contact_name, title_email, title_phone, underwriter_notes')
+    .select('title_company, title_contact_name, title_email, title_phone')
     .eq('loan_id', id)
     .maybeSingle()
 
@@ -68,8 +62,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const co3 = (loan as unknown as { borrower_4: { full_name: string | null } | null }).borrower_4
   const coBorrowerNames = [co1?.full_name, co2?.full_name, co3?.full_name]
     .filter((x): x is string => !!x)
-
-  const notes = notesParam !== null ? notesParam : (details?.underwriter_notes ?? null)
 
   const pdf = await renderAttorneySubmissionPdf({
     propertyAddress: loan.property_address,
@@ -84,7 +76,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     titleEmail: details?.title_email ?? null,
     titlePhone: details?.title_phone ?? null,
     estimatedClosingDate: loan.estimated_closing_date,
-    notes,
   })
 
   const safeFileSeed =

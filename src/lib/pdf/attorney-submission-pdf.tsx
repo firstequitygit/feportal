@@ -1,9 +1,7 @@
 // React-PDF version of the Attorney Submission Summary. Produces a
 // downloadable PDF instead of relying on the browser print dialog.
 // Mirrors the field list from the HTML version in
-// src/components/attorney-submission-summary.tsx. Miscellaneous
-// Notes is passed in from the UI so the UW's edits in the preview
-// show up in the printed file.
+// src/components/attorney-submission-summary.tsx.
 
 import React from 'react'
 import fs from 'fs'
@@ -25,9 +23,6 @@ export interface AttorneySubmissionInput {
   titleEmail: string | null
   titlePhone: string | null
   estimatedClosingDate: string | null
-  /** Miscellaneous Notes — captured live from the UW's textarea in
-   *  the preview, so the printed file matches what they saw. */
-  notes: string | null
 }
 
 let cachedLogo: Buffer | null = null
@@ -92,14 +87,6 @@ const styles = StyleSheet.create({
   fieldValue: {
     flexShrink: 1,
   },
-  notesHeading: {
-    marginTop: 24,
-    fontFamily: 'Helvetica-Bold',
-  },
-  notesBody: {
-    marginTop: 6,
-    minHeight: 110,
-  },
 })
 
 function HeaderLogo() {
@@ -122,7 +109,7 @@ export async function renderAttorneySubmissionPdf(input: AttorneySubmissionInput
     propertyAddress, loanNumber, loanType, termMonths,
     borrowerName, coBorrowerNames, entityName,
     titleCompany, titleContactName, titleEmail, titlePhone,
-    estimatedClosingDate, notes,
+    estimatedClosingDate,
   } = input
 
   const guarantors = joinGuarantors(borrowerName, ...coBorrowerNames)
@@ -153,9 +140,6 @@ export async function renderAttorneySubmissionPdf(input: AttorneySubmissionInput
             label="Desired closing date:"
             value={estimatedClosingDate ? formatDate(estimatedClosingDate) : ''}
           />
-
-          <Text style={styles.notesHeading}>Miscellaneous Notes:</Text>
-          <Text style={styles.notesBody}>{notes ?? ''}</Text>
         </View>
       </Page>
     </Document>
