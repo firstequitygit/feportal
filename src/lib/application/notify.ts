@@ -63,15 +63,14 @@ export async function sendBrokerSubmittedNotifications(args: NotifyArgs) {
   const loanAmount = m.loan.loan_amount
   const amount = fmtAmount(loanAmount)
   const loanOfficerName = m.meta.loanOfficerName
-  const brokerageName = (primary.brokerage_name as string | null) ?? (broker?.company_name as string | null) ?? null
-  const brokerLicense = (primary.broker_license_number as string | null) ?? null
-  const brokerLicenseState = (primary.broker_license_state as string | null) ?? null
+  const commissionStructure = (primary.commission_split_percent as string | null) ?? null
+  const referralSource = (primary.referral_source as string | null) ?? null
   // Broker contact: prefer authenticated brokers row (legacy auth flow), fall
   // back to form-entered values (anonymous public flow).
   const brokerEmail = (broker?.email as string | null) ?? (primary.broker_email as string | null) ?? null
   const brokerFullName = (broker?.full_name as string | null)
     ?? (typeof primary.broker_full_name === 'string' ? (primary.broker_full_name as string) : null)
-    ?? brokerageName
+    ?? null
 
   // 1. Broker confirmation email.
   if (brokerEmail && authorizeUrl) {
@@ -117,8 +116,9 @@ export async function sendBrokerSubmittedNotifications(args: NotifyArgs) {
     const html = wrap('New broker-submitted application', `
       <p style="font-size: 15px; margin-top: 0;">A broker just submitted a new application.</p>
       <p style="font-size: 15px;">
-        <strong>Broker:</strong> ${brokerFullName ?? brokerEmail ?? 'Unknown'}${brokerageName && brokerageName !== brokerFullName ? ` (${brokerageName})` : ''}<br/>
-        ${brokerLicense ? `<strong>License #:</strong> ${brokerLicense}${brokerLicenseState ? ` (${brokerLicenseState})` : ''}<br/>` : ''}
+        <strong>Broker:</strong> ${brokerFullName ?? brokerEmail ?? 'Unknown'}<br/>
+        ${referralSource ? `<strong>Referral source:</strong> ${referralSource}<br/>` : ''}
+        ${commissionStructure ? `<strong>Commission structure:</strong> ${commissionStructure}<br/>` : ''}
         <strong>Borrower:</strong> ${borrowerName}<br/>
         <strong>Property:</strong> ${propertyAddress}<br/>
         ${loanTypeLabel ? `<strong>Loan type:</strong> ${loanTypeLabel}<br/>` : ''}

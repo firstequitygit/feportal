@@ -14,12 +14,11 @@ export function Step5BrokerAttestation({ data, set, missingFields, onEdit, varia
   variantCopy: { step5AttestationLabel: string; step5AttestationBody: string }
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
-  const printed = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
+  const borrowerPrinted = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
   const signature = (data.broker_attestation_signature as string) ?? ''
   const isSignatureInvalid = missingFields?.includes('broker_attestation_signature') ?? false
-  const brokerageName = (primary.brokerage_name as string) ?? ''
-  const licenseNumber = (primary.broker_license_number as string) ?? ''
-  const licenseState = (primary.broker_license_state as string) ?? ''
+  const brokerName = (primary.broker_full_name as string) ?? ''
+  const brokerEmail = (primary.broker_email as string) ?? ''
 
   return (
     <div className="space-y-5">
@@ -40,21 +39,19 @@ export function Step5BrokerAttestation({ data, set, missingFields, onEdit, varia
       <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <h3 className="text-base font-semibold text-gray-900">Signature</h3>
 
-        {/* Pre-filled read-only context from the broker's profile */}
+        {/* Pre-filled context — broker from Step 1, borrower from the form data */}
         <dl className="grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2">
           <div>
-            <dt className="text-xs text-gray-500">Brokerage Name</dt>
-            <dd className="font-medium text-gray-900">{brokerageName || '-'}</dd>
+            <dt className="text-xs text-gray-500">Broker</dt>
+            <dd className="font-medium text-gray-900">{brokerName || '-'}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">NMLS / State License #</dt>
-            <dd className="font-medium text-gray-900">
-              {licenseNumber || '-'}{licenseState ? ` (${licenseState})` : ''}
-            </dd>
+            <dt className="text-xs text-gray-500">Email</dt>
+            <dd className="font-medium text-gray-900">{brokerEmail || '-'}</dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-500">Printed name</dt>
-            <dd className="font-medium text-gray-900">{printed || '-'}</dd>
+            <dt className="text-xs text-gray-500">Borrower</dt>
+            <dd className="font-medium text-gray-900">{borrowerPrinted || '-'}</dd>
           </div>
           <div>
             <dt className="text-xs text-gray-500">Date</dt>
