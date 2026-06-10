@@ -66,11 +66,17 @@ export async function sendBrokerSubmittedNotifications(args: NotifyArgs) {
   const brokerageName = (primary.brokerage_name as string | null) ?? (broker?.company_name as string | null) ?? null
   const brokerLicense = (primary.broker_license_number as string | null) ?? null
   const brokerLicenseState = (primary.broker_license_state as string | null) ?? null
+  // Broker contact: prefer authenticated brokers row (legacy auth flow), fall
+  // back to form-entered values (anonymous public flow).
+  const brokerEmail = (broker?.email as string | null) ?? (primary.broker_email as string | null) ?? null
+  const brokerFullName = (broker?.full_name as string | null)
+    ?? (typeof primary.broker_full_name === 'string' ? (primary.broker_full_name as string) : null)
+    ?? brokerageName
 
   // 1. Broker confirmation email.
-  if (broker?.email && authorizeUrl) {
+  if (brokerEmail && authorizeUrl) {
     const html = wrap('Application submitted - share the authorization link with your borrower', `
-      <p style="font-size: 15px; margin-top: 0;">Hi ${(broker.full_name as string | null)?.split(' ')[0] ?? 'there'},</p>
+      <p style="font-size: 15px; margin-top: 0;">Hi ${brokerFullName?.split(' ')[0] ?? 'there'},</p>
       <p style="font-size: 15px;">
         We've received the loan application you submitted for <strong>${borrowerName}</strong>.
         To finish, your borrower needs to complete the credit authorization and pay the application fee
@@ -93,12 +99,12 @@ export async function sendBrokerSubmittedNotifications(args: NotifyArgs) {
       </p>`)
     try {
       await getTransporter().sendMail({
-        to: broker.email as string,
+        to: brokerEmail,
         subject: 'Application submitted - share the authorization link with your borrower',
         html,
       })
     } catch (err) {
-      console.error(`Broker confirmation email to ${broker.email} failed:`, err)
+      console.error(`Broker confirmation email to ${brokerEmail} failed:`, err)
     }
   }
 
@@ -111,7 +117,7 @@ export async function sendBrokerSubmittedNotifications(args: NotifyArgs) {
     const html = wrap('New broker-submitted application', `
       <p style="font-size: 15px; margin-top: 0;">A broker just submitted a new application.</p>
       <p style="font-size: 15px;">
-        <strong>Broker:</strong> ${broker?.full_name ?? broker?.email ?? 'Unknown'}${brokerageName ? ` (${brokerageName})` : ''}<br/>
+        <strong>Broker:</strong> ${brokerFullName ?? brokerEmail ?? 'Unknown'}${brokerageName && brokerageName !== brokerFullName ? ` (${brokerageName})` : ''}<br/>
         ${brokerLicense ? `<strong>License #:</strong> ${brokerLicense}${brokerLicenseState ? ` (${brokerLicenseState})` : ''}<br/>` : ''}
         <strong>Borrower:</strong> ${borrowerName}<br/>
         <strong>Property:</strong> ${propertyAddress}<br/>

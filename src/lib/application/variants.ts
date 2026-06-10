@@ -174,7 +174,7 @@ export const BROKER_VARIANT: VariantConfig = {
     titleText: 'Loan Application (Broker)',
   },
   copy: {
-    saveAndFinishLaterToast: "Saved. You can return to finish this application from the broker dashboard.",
+    saveAndFinishLaterToast: "Saved. Use the link in your earlier email to come back any time.",
     submitButtonLabel: 'Submit Application',
     finalStepHeading: 'Broker Certification',
     step5AttestationLabel: 'Broker Certification and Electronic Signature',
@@ -186,8 +186,8 @@ export const BROKER_VARIANT: VariantConfig = {
   features: {
     showTestMode: false,
     autosaveEnabled: true,
-    createDraftOnLoad: true,
-    prefillFromAuthenticatedUser: true,
+    createDraftOnLoad: false,
+    prefillFromAuthenticatedUser: false,
     sendBorrowerToAuthorize: 'broker-forwards',
     duplicateAccountBehavior: 'warn',
   },

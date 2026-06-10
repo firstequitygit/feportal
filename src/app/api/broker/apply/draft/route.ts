@@ -1,63 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
-// Auth helper - resolves the authenticated broker row or returns null.
-async function getCallingBroker() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: broker } = await admin
-    .from('brokers')
-    .select('id, email')
-    .eq('auth_user_id', user.id)
-    .maybeSingle()
-  if (!broker) return null
-  return { admin, broker }
-}
-
-// POST: ensure a draft exists for the calling broker. The page already
-// server-side seeds a draft on load, so this is mainly a safety fallback for
-// the Wizard's email-blur ensureDraft() path.
+// POST: create a new broker-variant draft. Public — anyone filling out a
+// broker application can save progress without first creating a portal
+// account. Mirrors /api/apply/draft's shape but stamps application_kind='broker'.
 export async function POST(req: NextRequest) {
   if (!rateLimit(`broker-draft-create:${clientIp(req)}`, 10, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
-  const ctx = await getCallingBroker()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { admin, broker } = ctx
+  let body: { email?: string; firstName?: string; data?: Record<string, unknown> }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Bad JSON' }, { status: 400 }) }
 
-  try { await req.json() } catch { return NextResponse.json({ error: 'Bad JSON' }, { status: 400 }) }
-
-  const { data: existing } = await admin
-    .from('loan_applications')
-    .select('id, resume_token')
-    .eq('submitted_by_broker_id', broker.id)
-    .eq('status', 'draft')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (existing) {
-    return NextResponse.json({ success: true, id: existing.id, resumeToken: existing.resume_token })
+  const email = (body.email ?? '').trim().toLowerCase()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return NextResponse.json({ error: 'A valid email is required to save your progress.' }, { status: 400 })
   }
 
-  // Authoritative seeding happens in /broker/apply/page.tsx server-side; this
-  // POST is the wizard's email-blur fallback. We intentionally do NOT trust
-  // any client-supplied data blob here — the broker can poison their own JSONB
-  // payload otherwise, and the page already wrote the broker-identity fields.
+  const admin = createAdminClient()
   const { data: row, error } = await admin
     .from('loan_applications')
     .insert({
       status: 'draft',
       current_step: 1,
       application_kind: 'broker',
-      submitted_by_broker_id: broker.id,
-      resume_email: broker.email,
-      data: {},
+      resume_email: email,
+      data: body.data ?? {},
     })
     .select('id, resume_token')
     .single()
@@ -66,25 +36,23 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true, id: row.id, resumeToken: row.resume_token })
 }
 
-// PATCH: autosave. Verifies the broker owns the draft before touching it.
+// PATCH: autosave. Authorized by resume_token; the application_kind check
+// stops a borrower resume_token from being used to PATCH a broker draft.
 export async function PATCH(req: NextRequest) {
   if (!rateLimit(`broker-draft-save:${clientIp(req)}`, 120, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
-  const ctx = await getCallingBroker()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { admin, broker } = ctx
-
   let body: { resumeToken?: string; data?: Record<string, unknown>; currentStep?: number }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Bad JSON' }, { status: 400 }) }
   if (!body.resumeToken) return NextResponse.json({ error: 'Missing token' }, { status: 400 })
 
+  const admin = createAdminClient()
   const { data: existing } = await admin
     .from('loan_applications')
-    .select('id, status, submitted_by_broker_id')
+    .select('id, status, application_kind')
     .eq('resume_token', body.resumeToken)
     .maybeSingle()
-  if (!existing || existing.submitted_by_broker_id !== broker.id) {
+  if (!existing || existing.application_kind !== 'broker') {
     return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
   }
   if (existing.status === 'submitted') return NextResponse.json({ error: 'Already submitted' }, { status: 409 })
