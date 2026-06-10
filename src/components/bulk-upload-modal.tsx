@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import type { Condition, ConditionCategory } from '@/lib/types'
+import type { Condition, ConditionCategory, ConditionTemplate } from '@/lib/types'
 import { CONDITION_CATEGORIES } from '@/lib/types'
 
 export type BulkDoc = {
@@ -27,9 +27,18 @@ type Props = {
   initialDocs?: BulkDoc[]
   /** Called after a successful save so the parent can refresh data. */
   onSaved?: () => void
+  /** Optional: templates available to apply on this loan. Only LP and UW
+   *  views pass these in today; LO and borrower fall back to the plain
+   *  empty-state message. */
+  templates?: ConditionTemplate[]
+  /** Companion to `templates`. Receives the selected template ids,
+   *  creates conditions via the parent's role-specific endpoint, and
+   *  returns counts. The parent should also call router.refresh() so
+   *  the new conditions flow back through the `conditions` prop. */
+  onAddConditions?: (templateIds: string[]) => Promise<{ addedCount: number; failed: number }>
 }
 
-export function BulkUploadModal({ loanId, conditions, open, onClose, initialDocs, onSaved }: Props) {
+export function BulkUploadModal({ loanId, conditions, open, onClose, initialDocs, onSaved, templates, onAddConditions }: Props) {
   const [phase, setPhase] = useState<'drop' | 'match'>(initialDocs && initialDocs.length > 0 ? 'match' : 'drop')
   const [docs, setDocs] = useState<BulkDoc[]>(initialDocs ?? [])
   const [uploading, setUploading] = useState(false)
@@ -76,6 +85,8 @@ export function BulkUploadModal({ loanId, conditions, open, onClose, initialDocs
               docs={docs}
               setDocs={setDocs}
               conditions={conditions}
+              templates={templates}
+              onAddConditions={onAddConditions}
               saving={saving}
               error={saveError}
               onCancel={onClose}
@@ -209,11 +220,13 @@ function DropPhase({
 }
 
 function MatchPhase({
-  docs, setDocs, conditions, saving, error, onCancel, onSave,
+  docs, setDocs, conditions, templates, onAddConditions, saving, error, onCancel, onSave,
 }: {
   docs: BulkDoc[]
   setDocs: (updater: (prev: BulkDoc[]) => BulkDoc[]) => void
   conditions: Condition[]
+  templates?: ConditionTemplate[]
+  onAddConditions?: (templateIds: string[]) => Promise<{ addedCount: number; failed: number }>
   saving: boolean
   error: string | null
   onCancel: () => void
@@ -294,12 +307,12 @@ function MatchPhase({
         <section className="flex flex-col overflow-hidden">
           <h3 className="text-sm font-semibold mb-2">Conditions</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-            {conditions.length === 0 && (
-              <div className="text-sm text-gray-500 border border-dashed border-gray-200 rounded p-4">
-                This loan has no conditions yet. Add conditions first, then come back to match these files.
-                Files you uploaded stay on the loan as Unmatched until you do.
-              </div>
-            )}
+            <TemplatePicker
+              conditions={conditions}
+              templates={templates}
+              docCount={docs.length}
+              onAddConditions={onAddConditions}
+            />
             {[...CONDITION_CATEGORIES, { value: 'uncategorized' as const, label: 'Other' }].map(cat => {
               const list = grouped[cat.value] ?? []
               if (list.length === 0) return null
@@ -359,5 +372,116 @@ function MatchPhase({
         </div>
       </footer>
     </>
+  )
+}
+
+function TemplatePicker({
+  conditions, templates, docCount, onAddConditions,
+}: {
+  conditions: Condition[]
+  templates?: ConditionTemplate[]
+  docCount: number
+  onAddConditions?: (templateIds: string[]) => Promise<{ addedCount: number; failed: number }>
+}) {
+  // Render nothing when this loan view has no template support (LO, borrower)
+  // or no callback was provided. The plain empty-state below this picker
+  // still fires when conditions.length === 0.
+  const hasTemplateSupport = templates && templates.length > 0 && onAddConditions
+  const sparse = conditions.length < docCount
+  // Auto-expand if conditions look sparse for the number of files being
+  // matched - that's the case the user actually needs help with.
+  const [open, setOpen] = useState(sparse)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastAddedCount, setLastAddedCount] = useState(0)
+
+  const addedTitles = useMemo(() => new Set(conditions.map(c => c.title)), [conditions])
+  const candidates = useMemo(() => {
+    if (!templates) return []
+    return templates.filter(t => !addedTitles.has(t.title))
+  }, [templates, addedTitles])
+
+  if (!hasTemplateSupport) {
+    if (conditions.length === 0) {
+      return (
+        <div className="text-sm text-gray-500 border border-dashed border-gray-200 rounded p-4">
+          This loan has no conditions yet. Add conditions first, then come back to match these files.
+          Files you uploaded stay on the loan as Unmatched until you do.
+        </div>
+      )
+    }
+    return null
+  }
+
+  if (candidates.length === 0 && conditions.length > 0) return null // nothing to add
+
+  function toggle(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  async function handleAdd() {
+    const ids = Array.from(selected)
+    if (ids.length === 0 || !onAddConditions) return
+    setSaving(true); setError(null)
+    const result = await onAddConditions(ids).catch(() => ({ addedCount: 0, failed: ids.length }))
+    setSaving(false)
+    setSelected(new Set())
+    setLastAddedCount(result.addedCount)
+    if (result.failed > 0) setError(`${result.failed} of ${ids.length} failed to add`)
+  }
+
+  const headerText = sparse
+    ? `You have ${docCount} file${docCount === 1 ? '' : 's'} but only ${conditions.length} condition${conditions.length === 1 ? '' : 's'} on this loan. Add more below.`
+    : 'Add more conditions from templates.'
+
+  return (
+    <div className="border rounded p-3 bg-amber-50 border-amber-200">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-medium text-amber-900">{headerText}</span>
+        <span className="text-xs text-amber-700">{open ? 'Hide' : 'Show'} templates</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2">
+          {lastAddedCount > 0 && (
+            <p className="text-xs text-green-700">Added {lastAddedCount} condition{lastAddedCount === 1 ? '' : 's'}.</p>
+          )}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <ul className="max-h-48 overflow-y-auto space-y-1 bg-white rounded border border-amber-200 p-2">
+            {candidates.map(t => (
+              <li key={t.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={selected.has(t.id)}
+                  onChange={() => toggle(t.id)}
+                  disabled={saving}
+                  aria-label={`Select template ${t.title}`}
+                />
+                <span className="flex-1 truncate" title={t.title}>{t.title}</span>
+                {t.category && <span className="text-xs text-gray-500 uppercase">{t.category.replace('_', ' ')}</span>}
+              </li>
+            ))}
+            {candidates.length === 0 && (
+              <li className="text-xs text-gray-500 italic">All templates already added.</li>
+            )}
+          </ul>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={handleAdd} disabled={saving || selected.size === 0}>
+              {saving ? 'Adding...' : `Add ${selected.size} selected`}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
