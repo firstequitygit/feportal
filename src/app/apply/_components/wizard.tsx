@@ -363,6 +363,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
           onAutoSubmit={(overrides, label, scenarioData) => testSubmit(overrides, label, scenarioData)}
           busy={testSubmitting}
           overridesStorageKey={testOverridesKey}
+          variantKind={variantKind}
         />
       )}
 
