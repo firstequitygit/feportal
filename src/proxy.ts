@@ -77,13 +77,15 @@ export async function proxy(request: NextRequest) {
   }
 
   // Unauthenticated: send to login (API routes handle their own auth) and reset the timer.
-  // /apply is the public loan-application intake — must not be gated.
+  // /apply and /broker/apply are public loan-application intakes — must not be
+  // gated. /authorize is also public; it slips through via the /auth prefix.
   if (!user) {
     if (
       !pathname.startsWith('/login') &&
       !pathname.startsWith('/auth') &&
       !pathname.startsWith('/api/') &&
-      !pathname.startsWith('/apply')
+      !pathname.startsWith('/apply') &&
+      !pathname.startsWith('/broker/apply')
     ) {
       return clearTracking(redirectTo('/login'))
     }
