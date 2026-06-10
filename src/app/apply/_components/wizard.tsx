@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { STEPS, STEP_TITLES, TOTAL_STEPS, ALL_FIELDS, getMissingRequiredFields, type ApplicationData, type StepId } from '@/lib/application-fields'
+import { ALL_FIELDS, getMissingRequiredFields, type ApplicationData, type StepId } from '@/lib/application-fields'
 import { VARIANTS_BY_KIND, type VariantKind } from '@/lib/application/variants'
 import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
@@ -51,6 +51,9 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   variantKind?: VariantKind
 }) {
   const variant = VARIANTS_BY_KIND[variantKind]
+  const STEPS = variant.steps
+  const TOTAL_STEPS = STEPS.length
+  const STEP_TITLES = STEPS.map(s => s.title)
   const testModeKey = variant.storageKeys.testMode
   const testDataKey = variant.storageKeys.testData
   const testOverridesKey = variant.storageKeys.testOverrides
