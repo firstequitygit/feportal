@@ -19,22 +19,33 @@ export function EmbedHeightReporter() {
     if (!embed) return
     if (typeof window === 'undefined' || window.parent === window) return
 
+    // CHANGE_THRESHOLD: ignore sub-pixel jitter from sub-element reflows so
+    // the parent does not get spammed (and we do not nudge the iframe height
+    // by a few pixels in a way that could re-trigger the next reflow).
+    // MAX_HEIGHT: hard ceiling. Real wizard content tops out around 3500px
+    // on the busiest step; 6000 leaves ample margin while still capping any
+    // pathological runaway.
+    const CHANGE_THRESHOLD = 8
+    const MAX_HEIGHT = 6000
+
     let last = 0
     const post = () => {
-      const h = Math.max(
+      const raw = Math.max(
         document.documentElement.scrollHeight,
         document.body.scrollHeight,
       )
-      if (h !== last) {
-        last = h
-        window.parent.postMessage({ type: 'fef-apply-height', height: h }, '*')
-      }
+      const h = Math.min(raw, MAX_HEIGHT)
+      if (Math.abs(h - last) < CHANGE_THRESHOLD) return
+      last = h
+      window.parent.postMessage({ type: 'fef-apply-height', height: h }, '*')
     }
 
     post()
     const ro = new ResizeObserver(post)
     ro.observe(document.body)
-    const t = setInterval(post, 1000) // catch async updates ResizeObserver misses
+    // 1s safety interval catches async DOM updates ResizeObserver misses
+    // (e.g. images finishing load, lazy fonts settling).
+    const t = setInterval(post, 1000)
 
     return () => {
       ro.disconnect()
