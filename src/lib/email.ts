@@ -266,8 +266,8 @@ export async function sendLoanApprovedEmail(loanId: string) {
           </p>
           ${contextBlock}
           <p style="font-size: 15px;">
-            Your loan has been approved by underwriting and submitted to committee for final
-            clear-to-close. Our team will be in touch shortly with next steps and closing details.
+            Your loan has been approved by underwriting and submitted to closing committee.
+            Our team will be in touch shortly with next steps and closing details.
           </p>
           <p style="font-size: 15px;">
             You can log in to the portal at any time to review your loan details and any remaining items.
