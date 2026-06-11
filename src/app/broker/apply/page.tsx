@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Wizard } from '@/app/apply/_components/wizard'
+import { isValidEmbedTestKey } from '@/lib/application/embed-test'
 
 export const metadata = { title: 'Broker Application - First Equity Funding' }
 
@@ -40,16 +41,6 @@ async function checkIsAdmin(): Promise<boolean> {
   }
 }
 
-// When the form runs inside the WordPress iframe, the admin session cookie is
-// third-party and never arrives, so checkIsAdmin() can't see it. A secret
-// ?testkey=<BROKER_EMBED_TEST_KEY> in the embed URL unlocks test mode without a
-// cookie. The matching API route (test-submit) honors the same secret as a
-// header. Keep the secret URL off public pages.
-function embedTestUnlocked(testKey: string | null): boolean {
-  const envKey = process.env.BROKER_EMBED_TEST_KEY ?? ''
-  return envKey.length > 0 && testKey === envKey
-}
-
 export default async function BrokerApplyPage({
   searchParams,
 }: {
@@ -61,7 +52,10 @@ export default async function BrokerApplyPage({
     checkIsAdmin(),
     fetchLoanOfficerOptions(),
   ])
-  const isAdmin = realAdmin || embedTestUnlocked(testKey)
+  // Inside the WordPress iframe the admin cookie is third-party and never
+  // arrives, so checkIsAdmin() can't see it. A matching ?testkey unlocks test
+  // mode without a cookie. See lib/application/embed-test.
+  const isAdmin = realAdmin || isValidEmbedTestKey(testKey)
   return (
     <Suspense>
       <Wizard

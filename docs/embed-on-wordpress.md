@@ -22,6 +22,19 @@ Open the WordPress page you want the application to appear on, add a **Custom HT
 (function () {
   var iframe = document.getElementById('fef-loan-application');
   if (!iframe) return;
+  // Admin test mode: if THIS page is opened with ?testkey=... in its URL,
+  // forward that secret to the embedded app so the admin-only Test mode
+  // toggle unlocks inside the iframe. Normal visitors never have this param,
+  // so they always see the standard live form. The secret only ever lives in
+  // the admin's address bar, never in this page's HTML.
+  try {
+    var pk = new URLSearchParams(window.location.search).get('testkey');
+    if (pk) {
+      var u = new URL(iframe.src);
+      u.searchParams.set('testkey', pk);
+      iframe.src = u.toString();
+    }
+  } catch (e) {}
   window.addEventListener('message', function (event) {
     if (event.origin !== 'https://firstequity.irongateportals.com') return;
     var data = event.data;
@@ -50,6 +63,22 @@ Open the WordPress page you want the application to appear on, add a **Custom HT
 2. The form should render with the security badges at the top but no FEF logo (your page header still shows your FEF branding).
 3. Click through Step 1 → Step 2 → Step 3 → etc. The iframe should grow / shrink to fit each step. No internal scrollbar.
 4. On Step 5, the Square card input should render normally.
+
+## Admin test mode (embedded)
+
+Inside the iframe the form is cross-site, so your admin login cookie never reaches it and the normal admin Test mode toggle stays hidden for everyone. To run a **test submission** from the live embedded page, the snippet forwards a secret `testkey` from the page URL into the iframe.
+
+**To use it:** open the embed page with `?testkey=<EMBED_TEST_KEY>` appended, e.g.
+
+```
+https://firstequityfundingllc.com/apply-now-new?testkey=YOUR_SECRET_HERE
+```
+
+The **Test mode** toggle then appears at the top of the embedded form. Flip it on, fill the form (or pick a test scenario), and submit. Test submissions send to the override email addresses only and never create a real loan; they're rate-limited to 10/min.
+
+- Without the param, the page is the normal live form. No toggle, no test path.
+- The secret only lives in the admin's address bar, never in the page HTML, so it isn't exposed to ordinary visitors.
+- The secret is the `EMBED_TEST_KEY` Vercel environment variable. To rotate it, change that value (and use the new value in the URL). Get the current value from the dev team / Vercel project settings.
 
 ## Security posture
 
