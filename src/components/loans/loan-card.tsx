@@ -6,6 +6,7 @@ import { ChevronRight, MapPin, MessageSquareText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type PipelineStage, type OutstandingCounts } from '@/lib/types'
 import { formatLoanName } from '@/lib/format-loan-name'
+import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
 
 type LoanCardLoan = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
@@ -17,6 +18,9 @@ interface Props {
   linkPrefix: string
   /** Most recent Closer Notes entry on this loan, when one exists. */
   latestCloserNote?: string | null
+  /** Last LP / UW activity timestamps — renders the staleness stamps
+   *  when provided. */
+  roleActivity?: RoleActivity | null
 }
 
 const ZERO: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
@@ -75,7 +79,7 @@ function accentClass(loan: LoanCardLoan, outstanding: OutstandingCounts): string
   return 'border-l-green-400'
 }
 
-export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNote }: Props) {
+export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNote, roleActivity }: Props) {
   const isClosed = loan.pipeline_stage === 'Closed'
   const isOnHold = loan.loan_status === 'on_hold'
   const isCancelled = loan.loan_status === 'cancelled'
@@ -157,6 +161,10 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNot
               )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* LP / UW staleness stamps — oldest-touched files are the
+                  ones staff need to chase, so these sit ahead of the
+                  count badges. */}
+              {roleActivity && <RoleActivityStamps activity={roleActivity} />}
               {outstanding.you > 0 && (
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
                   You {outstanding.you}

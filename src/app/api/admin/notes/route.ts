@@ -62,6 +62,20 @@ export async function POST(request: Request) {
     } catch (err) { console.error('processMentions failed:', err) }
   }
 
+  // Audit-log the note. This route is admin-only, so actor_role='admin'
+  // — deliberately does NOT move the LP/UW activity clocks (per Adam:
+  // admin actions don't count).
+  try {
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'staff_note_added',
+      description: `${user.email ?? 'Admin'} added a staff note`,
+      actor_role: 'admin',
+    })
+  } catch (err) {
+    console.error('Staff note event log error:', err)
+  }
+
   return NextResponse.json({ success: true, note: data })
 }
 

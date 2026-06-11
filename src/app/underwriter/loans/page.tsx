@@ -7,6 +7,7 @@ import { AvailableLoans } from '@/components/available-loans'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { fetchLatestCloserNotesByLoan } from '@/lib/fetch-closer-notes'
+import { fetchLoanActivityMaps } from '@/lib/loans/fetch-loan-activity'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -68,14 +69,13 @@ export default async function UnderwriterLoansPage() {
 
   const loanIds = (loans ?? []).map((l: Loan) => l.id)
 
-  const [outstandingRes, eventsRes] = await Promise.all([
+  const [outstandingRes, activityMaps] = await Promise.all([
     loanIds.length > 0
       ? adminClient.from('conditions').select('loan_id, assigned_to').in('loan_id', loanIds).or('status.eq.Outstanding,status.eq.Rejected,status.eq.Received,status.eq.Under Review')
       : Promise.resolve({ data: [] }),
-    loanIds.length > 0
-      ? adminClient.from('loan_events').select('loan_id, created_at').in('loan_id', loanIds).order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] }),
+    fetchLoanActivityMaps(adminClient, loanIds),
   ])
+  const { lastUpdatedMap, roleActivityMap } = activityMaps
 
   const outstandingMap: Record<string, OutstandingCounts> = {}
   for (const c of outstandingRes.data ?? []) {
@@ -85,11 +85,6 @@ export default async function UnderwriterLoansPage() {
     else                                        counts.team++
     counts.total++
     outstandingMap[c.loan_id] = counts
-  }
-
-  const lastUpdatedMap: Record<string, string> = {}
-  for (const e of eventsRes.data ?? []) {
-    if (!lastUpdatedMap[e.loan_id]) lastUpdatedMap[e.loan_id] = e.created_at
   }
 
   const activeLoans = (loans ?? []).filter((l: Loan) => l.pipeline_stage !== 'Closed' && !archivedSet.has(l.id))
@@ -127,6 +122,8 @@ export default async function UnderwriterLoansPage() {
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
         latestCloserNoteByLoan={latestCloserNoteByLoan}
+        roleActivityMap={roleActivityMap}
+        defaultSort={{ sort: 'uw_activity', dir: 'asc' }}
         linkPrefix="/underwriter"
       />
     </PortalShell>

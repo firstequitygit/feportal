@@ -112,6 +112,28 @@ export async function POST(req: NextRequest) {
     } catch (err) { console.error('processMentions failed:', err) }
   }
 
+  // Audit-log the note so it counts toward the LP/UW activity clocks on
+  // the loan lists. actor_role reflects the author's staff role — for
+  // dual-role users only the non-admin role counts (per Adam: admin
+  // actions don't move the clocks). Content stays out of the log; the
+  // note itself is the record.
+  try {
+    const actorRole =
+      ctx.loId ? 'loan_officer' :
+      ctx.lpId ? 'loan_processor' :
+      ctx.uwId ? 'underwriter' :
+      'admin'
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'staff_note_added',
+      description: `${ctx.userEmail ?? 'Staff'} added a staff note`,
+      actor_role: actorRole,
+    })
+  } catch (err) {
+    // Non-fatal — also tolerates the actor_role column not existing yet.
+    console.error('Staff note event log error:', err)
+  }
+
   return NextResponse.json({ success: true, note: data })
 }
 

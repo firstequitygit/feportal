@@ -10,6 +10,8 @@ export interface SortOption {
 
 export const SORT_OPTIONS: SortOption[] = [
   { field: 'last_updated',           label: 'Last updated',       directional: true },
+  { field: 'lp_activity',            label: 'LP activity',        directional: true },
+  { field: 'uw_activity',            label: 'UW activity',        directional: true },
   { field: 'pipeline_stage',         label: 'Pipeline stage',     directional: true },
   { field: 'loan_amount',            label: 'Loan amount',        directional: true },
   { field: 'estimated_closing_date', label: 'Est. closing date',  directional: true },

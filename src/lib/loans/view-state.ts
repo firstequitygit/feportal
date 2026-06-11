@@ -5,6 +5,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 
 export type SortField =
   | 'last_updated'
+  | 'lp_activity'
+  | 'uw_activity'
   | 'pipeline_stage'
   | 'loan_amount'
   | 'estimated_closing_date'
@@ -63,8 +65,17 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   view: 'list',
 }
 
+/** Per-page override for the default sort — used by the LP/UW/LO loan
+ *  lists where the default is "stalest LP (or UW) activity first". */
+export interface SortDefaults {
+  sort: SortField
+  dir: SortDir
+}
+
 const SORT_FIELDS: ReadonlyArray<SortField> = [
   'last_updated',
+  'lp_activity',
+  'uw_activity',
   'pipeline_stage',
   'loan_amount',
   'estimated_closing_date',
@@ -84,16 +95,17 @@ const GROUP_FIELDS: ReadonlyArray<GroupField> = [
   'closing_month',
 ]
 
-function asSortField(raw: string | null): SortField {
-  return SORT_FIELDS.includes(raw as SortField) ? (raw as SortField) : DEFAULT_VIEW_STATE.sort
+function asSortField(raw: string | null, fallback: SortField): SortField {
+  return SORT_FIELDS.includes(raw as SortField) ? (raw as SortField) : fallback
 }
 
 function asGroupField(raw: string | null): GroupField {
   return GROUP_FIELDS.includes(raw as GroupField) ? (raw as GroupField) : DEFAULT_VIEW_STATE.group
 }
 
-function asDir(raw: string | null): SortDir {
-  return raw === 'asc' ? 'asc' : 'desc'
+function asDir(raw: string | null, fallback: SortDir): SortDir {
+  if (raw === 'asc' || raw === 'desc') return raw
+  return fallback
 }
 
 function asView(raw: string | null): 'list' | 'board' {
@@ -112,7 +124,7 @@ function parseNumber(raw: string | null): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-export function parseViewState(params: URLSearchParams): ViewState {
+export function parseViewState(params: URLSearchParams, defaults?: SortDefaults): ViewState {
   const filters: FilterValues = {}
 
   const stage = parseMulti(params.get('filter.stage'))
@@ -165,18 +177,18 @@ export function parseViewState(params: URLSearchParams): ViewState {
   if (borrowerQuery) filters.borrower_query = borrowerQuery
 
   return {
-    sort: asSortField(params.get('sort')),
-    dir: asDir(params.get('dir')),
+    sort: asSortField(params.get('sort'), defaults?.sort ?? DEFAULT_VIEW_STATE.sort),
+    dir: asDir(params.get('dir'), defaults?.dir ?? DEFAULT_VIEW_STATE.dir),
     group: asGroupField(params.get('group')),
     filters,
     view: asView(params.get('view')),
   }
 }
 
-export function serializeViewState(state: ViewState): URLSearchParams {
+export function serializeViewState(state: ViewState, defaults?: SortDefaults): URLSearchParams {
   const out = new URLSearchParams()
-  if (state.sort !== DEFAULT_VIEW_STATE.sort) out.set('sort', state.sort)
-  if (state.dir !== DEFAULT_VIEW_STATE.dir) out.set('dir', state.dir)
+  if (state.sort !== (defaults?.sort ?? DEFAULT_VIEW_STATE.sort)) out.set('sort', state.sort)
+  if (state.dir !== (defaults?.dir ?? DEFAULT_VIEW_STATE.dir)) out.set('dir', state.dir)
   if (state.group !== DEFAULT_VIEW_STATE.group) out.set('group', state.group)
   if (state.view !== DEFAULT_VIEW_STATE.view) out.set('view', state.view)
 
@@ -223,7 +235,7 @@ export function countActiveFilters(filters: FilterValues): number {
   return n
 }
 
-export function useLoanListView(): {
+export function useLoanListView(defaults?: SortDefaults): {
   state: ViewState
   setState: (next: ViewState) => void
   patch: (partial: Partial<ViewState>) => void
@@ -234,12 +246,15 @@ export function useLoanListView(): {
   const pathname = usePathname()
   const params = useSearchParams()
 
-  const state = useMemo(() => parseViewState(new URLSearchParams(params.toString())), [params])
+  const state = useMemo(
+    () => parseViewState(new URLSearchParams(params.toString()), defaults),
+    [params, defaults],
+  )
 
   const setState = useCallback((next: ViewState) => {
-    const query = serializeViewState(next).toString()
+    const query = serializeViewState(next, defaults).toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-  }, [router, pathname])
+  }, [router, pathname, defaults])
 
   const patch = useCallback((partial: Partial<ViewState>) => {
     setState({ ...state, ...partial })

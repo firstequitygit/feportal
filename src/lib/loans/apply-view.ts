@@ -23,6 +23,11 @@ export interface ViewGroup<L> {
 
 export interface ApplyViewOptions {
   lastUpdatedMap?: Record<string, string>
+  /** loan_id → last LP / UW activity timestamps (from loan_events
+   *  tagged with actor_role). Drives the lp_activity / uw_activity
+   *  sorts: never-touched loans sort FIRST ascending — "stalest at
+   *  the top" so LPs/UWs see neglected files before fresh ones. */
+  roleActivityMap?: Record<string, { lp: string | null; uw: string | null }>
 }
 
 const PIPELINE_INDEX: Record<string, number> = Object.fromEntries(
@@ -32,6 +37,14 @@ const PIPELINE_INDEX: Record<string, number> = Object.fromEntries(
 function lastUpdated(loan: ViewLoan, opts: ApplyViewOptions): number {
   const iso = opts.lastUpdatedMap?.[loan.id] ?? loan.created_at
   return new Date(iso).getTime()
+}
+
+/** Epoch ms of the last LP/UW activity. Never-touched loans return
+ *  MIN_SAFE_INTEGER (not -Infinity — Infinity minus Infinity is NaN in
+ *  the comparator) so they sort to the very top when ascending. */
+function roleActivity(loan: ViewLoan, role: 'lp' | 'uw', opts: ApplyViewOptions): number {
+  const iso = opts.roleActivityMap?.[loan.id]?.[role]
+  return iso ? new Date(iso).getTime() : Number.MIN_SAFE_INTEGER
 }
 
 function isThisWeek(date: Date): boolean {
@@ -140,6 +153,12 @@ function compareLoans(state: ViewState, opts: ApplyViewOptions): (a: ViewLoan, b
     switch (state.sort) {
       case 'last_updated': {
         return (lastUpdated(a, opts) - lastUpdated(b, opts)) * dir
+      }
+      case 'lp_activity': {
+        return (roleActivity(a, 'lp', opts) - roleActivity(b, 'lp', opts)) * dir
+      }
+      case 'uw_activity': {
+        return (roleActivity(a, 'uw', opts) - roleActivity(b, 'uw', opts)) * dir
       }
       case 'pipeline_stage': {
         const ai = PIPELINE_INDEX[a.pipeline_stage ?? ''] ?? 999

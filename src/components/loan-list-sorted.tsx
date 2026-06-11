@@ -9,9 +9,10 @@ import { type Loan, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
 import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
-import { useLoanListView } from '@/lib/loans/view-state'
+import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
 import { formatLoanName } from '@/lib/format-loan-name'
+import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
@@ -31,6 +32,12 @@ interface Props {
   lastUpdatedMap: Record<string, string>
   /** loan_id → most recent Closer Notes excerpt, when one exists. */
   latestCloserNoteByLoan?: Record<string, string>
+  /** loan_id → last LP / UW activity timestamps. Enables the staleness
+   *  stamps on cards and the lp_activity / uw_activity sorts. */
+  roleActivityMap?: Record<string, RoleActivity>
+  /** Page-level default sort (e.g. stalest-LP-first on the LP page).
+   *  Users can still change the sort in the toolbar. */
+  defaultSort?: SortDefaults
   linkPrefix: string
   /**
    * When true, hides Loan-officer filter / group dimensions in the toolbar.
@@ -71,10 +78,18 @@ export function LoanListSorted({
   outstandingMap,
   lastUpdatedMap,
   latestCloserNoteByLoan,
+  roleActivityMap,
+  defaultSort,
   linkPrefix,
   hideLoanOfficerDimensions = false,
 }: Props) {
-  const { state, patch, patchFilters, clearFilters } = useLoanListView()
+  // Memoized so the object identity is stable across renders — the
+  // view-state hook keys its memos on it.
+  const sortDefaults = useMemo(
+    () => defaultSort,
+    [defaultSort?.sort, defaultSort?.dir], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const { state, patch, patchFilters, clearFilters } = useLoanListView(sortDefaults)
 
   const allLoans = useMemo<LoanWithBorrower[]>(
     () => [...activeLoans, ...closedLoans],
@@ -108,8 +123,8 @@ export function LoanListSorted({
   )
 
   const groups = useMemo(
-    () => applyView(allLoans as ViewLoan[], state, { lastUpdatedMap }) as ReturnType<typeof applyView<LoanWithBorrower>>,
-    [allLoans, state, lastUpdatedMap],
+    () => applyView(allLoans as ViewLoan[], state, { lastUpdatedMap, roleActivityMap }) as ReturnType<typeof applyView<LoanWithBorrower>>,
+    [allLoans, state, lastUpdatedMap, roleActivityMap],
   )
 
   // On Hold loans live in a separate bucket at the bottom of the list,
@@ -163,7 +178,11 @@ export function LoanListSorted({
       />
 
       {state.view === 'board' && (
-        <BoardView loans={groups.flatMap(g => g.loans)} linkPrefix={linkPrefix} />
+        <BoardView
+          loans={groups.flatMap(g => g.loans)}
+          linkPrefix={linkPrefix}
+          roleActivityMap={roleActivityMap}
+        />
       )}
 
       {state.view === 'list' && (
@@ -185,6 +204,7 @@ export function LoanListSorted({
                   outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                   linkPrefix={linkPrefix}
                   latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                  roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                 />
               ))}
             </div>
@@ -208,6 +228,7 @@ export function LoanListSorted({
                           outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                           linkPrefix={linkPrefix}
                           latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                          roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                         />
                       ))}
                     </div>
@@ -246,6 +267,7 @@ export function LoanListSorted({
                       outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                       linkPrefix={linkPrefix}
                       latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                      roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                     />
                   ))}
                 </div>
@@ -258,7 +280,11 @@ export function LoanListSorted({
   )
 }
 
-function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefix: string }) {
+function BoardView({ loans, linkPrefix, roleActivityMap }: {
+  loans: LoanWithBorrower[]
+  linkPrefix: string
+  roleActivityMap?: Record<string, RoleActivity>
+}) {
   const columns = BOARD_STAGES.map(stage => ({
     stage,
     loans: loans.filter(l => l.pipeline_stage === stage),
@@ -305,6 +331,11 @@ function BoardView({ loans, linkPrefix }: { loans: LoanWithBorrower[]; linkPrefi
                           {formatCurrency(loan.loan_amount)}
                         </span>
                       </div>
+                      {roleActivityMap && (
+                        <div className="mt-1.5">
+                          <RoleActivityStamps activity={roleActivityMap[loan.id] ?? { lp: null, uw: null }} />
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </Link>
