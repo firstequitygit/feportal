@@ -221,9 +221,18 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     setTestSubmitting(true)
     setSubmitErrors(null)
     try {
+      // Inside the WordPress iframe the admin cookie isn't sent, so the API
+      // can't authorize via session. If the page was opened with a ?testkey
+      // secret (embed test mode), forward it as a header so the test-submit
+      // route can authorize without the cookie. No-op for normal admin use.
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const embedTestKey = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('testkey')
+        : null
+      if (embedTestKey) headers['x-embed-test-key'] = embedTestKey
       const res = await fetch(variant.endpoints.testSubmit, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ data: submissionData, overrides, scenarioLabel }),
       })
       const j = await res.json()
