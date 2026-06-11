@@ -27,7 +27,9 @@ export interface LoanStaffSummary {
 
 export interface StaffDirectorySummary {
   loan_officers: Array<{ id: string; full_name: string }>
-  loan_processors: Array<{ id: string; full_name: string }>
+  /** title distinguishes Operations staff (e.g. Alexis Vega) — stored in
+   *  loan_processors but displayed under an "Operations" group. */
+  loan_processors: Array<{ id: string; full_name: string; title?: string | null }>
   underwriters: Array<{ id: string; full_name: string }>
 }
 
@@ -773,9 +775,12 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                       ))}
                     </optgroup>
                   )}
-                  {staffDirectory.loan_processors.length > 0 && (
+                  {/* Operations staff (title === 'Operations') live in the
+                      loan_processors table for assignment plumbing but get
+                      their own display group below. */}
+                  {staffDirectory.loan_processors.some(p => p.title !== 'Operations') && (
                     <optgroup label="Loan Processors">
-                      {staffDirectory.loan_processors.map(p => (
+                      {staffDirectory.loan_processors.filter(p => p.title !== 'Operations').map(p => (
                         <option key={p.id} value={p.id}>{p.full_name}</option>
                       ))}
                     </optgroup>
@@ -783,6 +788,13 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
                   {staffDirectory.underwriters.length > 0 && (
                     <optgroup label="Underwriters">
                       {staffDirectory.underwriters.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {staffDirectory.loan_processors.some(p => p.title === 'Operations') && (
+                    <optgroup label="Operations">
+                      {staffDirectory.loan_processors.filter(p => p.title === 'Operations').map(p => (
                         <option key={p.id} value={p.id}>{p.full_name}</option>
                       ))}
                     </optgroup>

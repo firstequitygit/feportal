@@ -66,7 +66,10 @@ export async function validateStaffIdExists(
 
 export interface StaffDirectory {
   loan_officers: Array<{ id: string; full_name: string }>
-  loan_processors: Array<{ id: string; full_name: string }>
+  /** title distinguishes Operations staff (Alexis Vega) — they live in
+   *  the loan_processors table for assignment/notification plumbing but
+   *  display under their own "Operations" group in the pickers. */
+  loan_processors: Array<{ id: string; full_name: string; title?: string | null }>
   underwriters: Array<{ id: string; full_name: string }>
 }
 
@@ -81,12 +84,12 @@ export async function fetchStaffDirectory(adminClient: AdminClient): Promise<Sta
   // Palmiotto, etc). Admin-only users (no staff row) are naturally absent.
   const [{ data: los }, { data: lps }, { data: uws }] = await Promise.all([
     adminClient.from('loan_officers').select('id, full_name').order('full_name'),
-    adminClient.from('loan_processors').select('id, full_name').order('full_name'),
+    adminClient.from('loan_processors').select('id, full_name, title').order('full_name'),
     adminClient.from('underwriters').select('id, full_name').order('full_name'),
   ])
   return {
     loan_officers:   (los ?? []) as { id: string; full_name: string }[],
-    loan_processors: (lps ?? []) as { id: string; full_name: string }[],
+    loan_processors: (lps ?? []) as { id: string; full_name: string; title?: string | null }[],
     underwriters:    (uws ?? []) as { id: string; full_name: string }[],
   }
 }
