@@ -13,6 +13,7 @@ import { Step5BrokerAttestation } from '../_steps/step5-broker-attestation'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
 import { TestModePanel, type TestOverridesState } from './test-mode-panel'
+import { EmbedHeightReporter } from './embed-height-reporter'
 
 // Resolve a prefixed field name to its current value in data.
 // "primary.first_name"  -> data.primary?.first_name
@@ -295,6 +296,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-5">
+      <EmbedHeightReporter />
       {existingAccountEmail && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
