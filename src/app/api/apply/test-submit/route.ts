@@ -9,6 +9,7 @@ import {
 import { renderApplicationPdf } from '@/lib/pdf/application-pdf'
 import { sendApplicationTestNotifications, type TestOverrides } from '@/lib/apply-notify-test'
 import { rateLimit } from '@/lib/rate-limit'
+import { isValidEmbedTestKey } from '@/lib/application/embed-test'
 
 export const runtime = 'nodejs'
 
@@ -75,10 +76,15 @@ function validEmail(s: unknown): s is string {
 }
 
 export async function POST(req: NextRequest) {
+  // Embed test mode: inside the WordPress iframe the admin cookie is third-party
+  // and never arrives, so requireAdmin() can't authorize. A matching secret
+  // header (set by the wizard from the ?testkey embed URL param) authorizes the
+  // test submit instead. See lib/application/embed-test.
   const adminUserId = await requireAdmin()
-  if (!adminUserId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const actorId = adminUserId ?? (isValidEmbedTestKey(req.headers.get('x-embed-test-key')) ? 'embed-test' : null)
+  if (!actorId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  if (!rateLimit(`test-submit:${adminUserId}`, 10, 60_000)) {
+  if (!rateLimit(`test-submit:${actorId}`, 10, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 

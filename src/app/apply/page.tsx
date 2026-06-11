@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Wizard } from './_components/wizard'
+import { isValidEmbedTestKey } from '@/lib/application/embed-test'
 
 export const metadata = { title: 'Loan Application - First Equity Funding' }
 
@@ -38,11 +39,21 @@ async function fetchLoanOfficerOptions(): Promise<string[]> {
   }
 }
 
-export default async function ApplyPage() {
-  const [isAdmin, loanOfficerOptions] = await Promise.all([
+export default async function ApplyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const sp = await searchParams
+  const testKey = typeof sp.testkey === 'string' ? sp.testkey : null
+  const [realAdmin, loanOfficerOptions] = await Promise.all([
     checkIsAdmin(),
     fetchLoanOfficerOptions(),
   ])
+  // Inside the WordPress iframe the admin cookie is third-party and never
+  // arrives, so checkIsAdmin() can't see it. A matching ?testkey unlocks test
+  // mode without a cookie. See lib/application/embed-test.
+  const isAdmin = realAdmin || isValidEmbedTestKey(testKey)
   return (
     <Suspense>
       <Wizard
