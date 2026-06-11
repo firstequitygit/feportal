@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAllDeals } from '@/lib/pipedrive'
 import { findOrLinkBorrower } from '@/lib/borrower-sync'
 import { findOrLinkBroker } from '@/lib/broker-sync'
+import { autoAssignDefaultUnderwriter } from '@/lib/auto-assign-underwriter'
 
 /**
  * Only set `key` on `obj` when `value` is something Pipedrive actually has.
@@ -145,12 +146,31 @@ export async function GET(request: Request) {
         if (loId) payload.loan_officer_id = loId
       }
 
-      const { error } = await supabase
+      const { data: upserted, error } = await supabase
         .from('loans')
         .upsert(payload, { onConflict: 'pipedrive_deal_id' })
+        .select('id')
+        .single()
 
       if (error) errors++
       else synced++
+
+      // Pre-Underwriting transition: auto-assign the default underwriter
+      // (Alicyn) when no UW is set. The cron used to skip this — it was
+      // the "silent backfill path" back when auto-assign sent an email.
+      // The email is gone (June 2026), so the assignment is safe to run
+      // from every sync path; this is how the Omvir Singh loan slipped
+      // through unassigned. autoAssignDefaultUnderwriter no-ops when an
+      // underwriter is already set.
+      if (
+        !error &&
+        upserted?.id &&
+        effectivePipedriveStage === 'Pre-Underwriting' &&
+        portalStage !== 'Pre-Underwriting'
+      ) {
+        try { await autoAssignDefaultUnderwriter(supabase, upserted.id) }
+        catch (err) { console.error(`Auto-assign UW failed for deal ${deal.pipedrive_deal_id}:`, err) }
+      }
     }
 
     console.log(`Cron sync complete: ${synced} synced, ${errors} errors, ${borrowersLinked} borrowers linked`)

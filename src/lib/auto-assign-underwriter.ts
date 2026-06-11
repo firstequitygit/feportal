@@ -10,9 +10,9 @@
 //   - Loan already has underwriter_id set (don't clobber a manual pick)
 //   - Default UW row not found (name typo / staff turnover)
 //
-// Called from /api/loans/stage, /api/sync, /api/webhooks/pipedrive. Cron
-// sync does not call this (cron is the silent backfill path, matches the
-// existing email-trigger policy).
+// Called from /api/loans/stage, /api/sync, /api/webhooks/pipedrive, and
+// /api/cron/sync. The cron used to be excluded (back when this sent an
+// email); now that it's silent, every stage-change path assigns.
 
 import type { createAdminClient } from '@/lib/supabase/admin'
 
