@@ -33,11 +33,22 @@ function validEmail(s: unknown): s is string {
   return typeof s === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)
 }
 
+// Embed test mode: inside the WordPress iframe the admin cookie is third-party
+// and never arrives, so requireAdmin() can't authorize. A matching secret
+// header (set by the wizard from the ?testkey embed URL param) authorizes the
+// test submit instead. Gated on a non-empty BROKER_EMBED_TEST_KEY env var.
+function hasValidEmbedKey(req: NextRequest): boolean {
+  const envKey = process.env.BROKER_EMBED_TEST_KEY ?? ''
+  if (!envKey) return false
+  return req.headers.get('x-embed-test-key') === envKey
+}
+
 export async function POST(req: NextRequest) {
   const adminUserId = await requireAdmin()
-  if (!adminUserId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const actorId = adminUserId ?? (hasValidEmbedKey(req) ? 'embed-test' : null)
+  if (!actorId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  if (!rateLimit(`test-submit-broker:${adminUserId}`, 10, 60_000)) {
+  if (!rateLimit(`test-submit-broker:${actorId}`, 10, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 

@@ -40,11 +40,28 @@ async function checkIsAdmin(): Promise<boolean> {
   }
 }
 
-export default async function BrokerApplyPage() {
-  const [isAdmin, loanOfficerOptions] = await Promise.all([
+// When the form runs inside the WordPress iframe, the admin session cookie is
+// third-party and never arrives, so checkIsAdmin() can't see it. A secret
+// ?testkey=<BROKER_EMBED_TEST_KEY> in the embed URL unlocks test mode without a
+// cookie. The matching API route (test-submit) honors the same secret as a
+// header. Keep the secret URL off public pages.
+function embedTestUnlocked(testKey: string | null): boolean {
+  const envKey = process.env.BROKER_EMBED_TEST_KEY ?? ''
+  return envKey.length > 0 && testKey === envKey
+}
+
+export default async function BrokerApplyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const sp = await searchParams
+  const testKey = typeof sp.testkey === 'string' ? sp.testkey : null
+  const [realAdmin, loanOfficerOptions] = await Promise.all([
     checkIsAdmin(),
     fetchLoanOfficerOptions(),
   ])
+  const isAdmin = realAdmin || embedTestUnlocked(testKey)
   return (
     <Suspense>
       <Wizard
