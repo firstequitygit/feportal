@@ -1422,6 +1422,10 @@ export function LoanDetailsCard({
                   placeholder="50000"
                 />
               </DetailRow>
+              {/* Auto-fills from the construction budget on F&F / New
+                  Construction loans via the loans_draw_fee_autofill DB
+                  trigger ($390 at $200k+, $277.50 under). Stays editable
+                  for custom pricing; DSCR loans stay blank. */}
               <DetailRow fieldKey="draw_fee" label="Draw Fee">
                 <EditableLoanField
                   loanId={loanId}
@@ -1429,7 +1433,7 @@ export function LoanDetailsCard({
                   type="currency"
                   currentValue={d.draw_fee ?? null}
                   display={formatCurrency(d.draw_fee)}
-                  placeholder="250"
+                  placeholder="390"
                 />
               </DetailRow>
               {/* Portal-only — no Pipedrive or Airtable mapping. */}
