@@ -6,7 +6,7 @@ import { LoanListSorted } from '@/components/loan-list-sorted'
 import { AvailableLoans } from '@/components/available-loans'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
-import { fetchLatestCloserNotesByLoan } from '@/lib/fetch-closer-notes'
+import { fetchLatestStaffNotesByLoan } from '@/lib/fetch-closer-notes'
 import { fetchLoanActivityMaps } from '@/lib/loans/fetch-loan-activity'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
@@ -121,7 +121,7 @@ export default async function LoanProcessorLoansPage() {
   })
 
   // Latest Closer Notes per loan for inline display on each card.
-  const latestCloserNoteByLoan = await fetchLatestCloserNotesByLoan(adminClient, loanIds)
+  const latestNotesByLoan = await fetchLatestStaffNotesByLoan(adminClient, loanIds)
 
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_processor'
@@ -145,7 +145,7 @@ export default async function LoanProcessorLoansPage() {
         closedLoans={closedLoans}
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
-        latestCloserNoteByLoan={latestCloserNoteByLoan}
+        latestNotesByLoan={latestNotesByLoan}
         roleActivityMap={roleActivityMap}
         defaultSort={{ sort: 'lp_activity', dir: 'asc' }}
         linkPrefix="/loan-processor"

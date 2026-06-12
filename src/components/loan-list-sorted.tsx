@@ -13,6 +13,7 @@ import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
 import { formatLoanName } from '@/lib/format-loan-name'
 import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
+import type { LatestStaffNotes } from '@/lib/fetch-closer-notes'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
@@ -30,8 +31,8 @@ interface Props {
   closedLoans: LoanWithBorrower[]
   outstandingMap: Record<string, OutstandingCounts>
   lastUpdatedMap: Record<string, string>
-  /** loan_id → most recent Closer Notes excerpt, when one exists. */
-  latestCloserNoteByLoan?: Record<string, string>
+  /** loan_id → most recent LP / UW / Closer note excerpts. */
+  latestNotesByLoan?: Record<string, LatestStaffNotes>
   /** loan_id → last LP / UW activity timestamps. Enables the staleness
    *  stamps on cards and the lp_activity / uw_activity sorts. */
   roleActivityMap?: Record<string, RoleActivity>
@@ -77,7 +78,7 @@ export function LoanListSorted({
   closedLoans,
   outstandingMap,
   lastUpdatedMap,
-  latestCloserNoteByLoan,
+  latestNotesByLoan,
   roleActivityMap,
   defaultSort,
   linkPrefix,
@@ -203,7 +204,7 @@ export function LoanListSorted({
                   loan={loan}
                   outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                   linkPrefix={linkPrefix}
-                  latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                  latestNotes={latestNotesByLoan?.[loan.id] ?? null}
                   roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                 />
               ))}
@@ -227,7 +228,7 @@ export function LoanListSorted({
                           loan={loan}
                           outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                           linkPrefix={linkPrefix}
-                          latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                          latestNotes={latestNotesByLoan?.[loan.id] ?? null}
                           roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                         />
                       ))}
@@ -266,7 +267,7 @@ export function LoanListSorted({
                       loan={loan}
                       outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
                       linkPrefix={linkPrefix}
-                      latestCloserNote={latestCloserNoteByLoan?.[loan.id] ?? null}
+                      latestNotes={latestNotesByLoan?.[loan.id] ?? null}
                       roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
                     />
                   ))}

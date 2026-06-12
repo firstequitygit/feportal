@@ -4,7 +4,7 @@ import { PortalShell } from '@/components/portal-shell'
 import { LoanListSorted } from '@/components/loan-list-sorted'
 import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
-import { fetchLatestCloserNotesByLoan } from '@/lib/fetch-closer-notes'
+import { fetchLatestStaffNotesByLoan } from '@/lib/fetch-closer-notes'
 import { fetchLoanActivityMaps } from '@/lib/loans/fetch-loan-activity'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
@@ -96,7 +96,7 @@ export default async function LoanOfficerLoansPage() {
 
   // Pre-fetch the most recent Closer Notes entry per loan so the card
   // can surface it inline. One query, scoped to this LO's loan ids.
-  const latestCloserNoteByLoan = await fetchLatestCloserNotesByLoan(adminClient, loanIds)
+  const latestNotesByLoan = await fetchLatestStaffNotesByLoan(adminClient, loanIds)
 
   const impersonation = await resolveImpersonation(adminClient, ctx.staff_user.auth_user_id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_officer'
@@ -115,7 +115,7 @@ export default async function LoanOfficerLoansPage() {
         closedLoans={closedLoans}
         outstandingMap={outstandingMap}
         lastUpdatedMap={lastUpdatedMap}
-        latestCloserNoteByLoan={latestCloserNoteByLoan}
+        latestNotesByLoan={latestNotesByLoan}
         roleActivityMap={roleActivityMap}
         // LOs track processor progress — their default sort is by the
         // LP's last update (stalest first), per Adam's spec.

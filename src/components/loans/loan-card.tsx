@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type PipelineStage, type OutstandingCounts } from '@/lib/types'
 import { formatLoanName } from '@/lib/format-loan-name'
 import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
+import type { LatestStaffNotes } from '@/lib/fetch-closer-notes'
 
 type LoanCardLoan = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
@@ -16,11 +17,38 @@ interface Props {
   loan: LoanCardLoan
   outstanding: OutstandingCounts
   linkPrefix: string
-  /** Most recent Closer Notes entry on this loan, when one exists. */
-  latestCloserNote?: string | null
+  /** Most recent LP / UW / Closer note on this loan, when any exist. */
+  latestNotes?: LatestStaffNotes | null
   /** Last LP / UW activity timestamps — renders the staleness stamps
    *  when provided. */
   roleActivity?: RoleActivity | null
+}
+
+type CardNoteKey = 'processor' | 'underwriter' | 'closer'
+
+const NOTE_LABELS: Record<CardNoteKey, string> = {
+  processor: 'LP',
+  underwriter: 'UW',
+  closer: 'Closer',
+}
+
+/** Which note line leads depends on where the loan is in its life —
+ *  the role currently driving the file shows first (per Adam):
+ *    Processing / Pre-UW          → LP, UW, Closer
+ *    Underwriting / Cond. Appr.   → UW, LP, Closer
+ *    Approved / Closed            → Closer, UW, LP
+ */
+function noteOrderForStage(stage: PipelineStage | null): CardNoteKey[] {
+  switch (stage) {
+    case 'Underwriting':
+    case 'Conditionally Approved':
+      return ['underwriter', 'processor', 'closer']
+    case 'Approved':
+    case 'Closed':
+      return ['closer', 'underwriter', 'processor']
+    default: // New Application, Processing, Pre-Underwriting
+      return ['processor', 'underwriter', 'closer']
+  }
 }
 
 const ZERO: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
@@ -79,7 +107,7 @@ function accentClass(loan: LoanCardLoan, outstanding: OutstandingCounts): string
   return 'border-l-green-400'
 }
 
-export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNote, roleActivity }: Props) {
+export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, roleActivity }: Props) {
   const isClosed = loan.pipeline_stage === 'Closed'
   const isOnHold = loan.loan_status === 'on_hold'
   const isCancelled = loan.loan_status === 'cancelled'
@@ -146,19 +174,24 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestCloserNot
                   ) : null
                 })()}
               </p>
-              {/* Latest Closer Notes entry on this loan, when one exists.
-                  Rendered on its own line so the dates row stays clean.
-                  Truncate covers anything longer than the card width. */}
-              {latestCloserNote && (
-                <p
-                  className="text-xs text-gray-500 italic mt-0.5 ml-5 truncate flex items-center gap-1"
-                  title={latestCloserNote}
-                >
-                  <MessageSquareText className="w-3 h-3 text-gray-400 shrink-0" aria-hidden />
-                  <span className="font-medium text-gray-600 not-italic">Closer:</span>
-                  <span className="truncate">{latestCloserNote}</span>
-                </p>
-              )}
+              {/* Latest LP / UW / Closer note, one line each, ordered by
+                  the stage's driving role. Buckets without a note render
+                  nothing. Truncate covers anything longer than the card. */}
+              {latestNotes && noteOrderForStage(loan.pipeline_stage).map(key => {
+                const note = latestNotes[key]
+                if (!note) return null
+                return (
+                  <p
+                    key={key}
+                    className="text-xs text-gray-500 italic mt-0.5 ml-5 truncate flex items-center gap-1"
+                    title={note}
+                  >
+                    <MessageSquareText className="w-3 h-3 text-gray-400 shrink-0" aria-hidden />
+                    <span className="font-medium text-gray-600 not-italic">{NOTE_LABELS[key]}:</span>
+                    <span className="truncate">{note}</span>
+                  </p>
+                )
+              })}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {/* LP / UW staleness stamps — oldest-touched files are the
