@@ -186,6 +186,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // Construction / Rehab
   construction_holdback: { type: 'number', table: 'loan_details' },
   draw_fee:              { type: 'number', table: 'loan_details' },
+  interest_reserve:      { type: 'number', table: 'loan_details' },
 
   // DSCR inputs
   qualifying_rent:           { type: 'number', table: 'loan_details' },
@@ -303,7 +304,8 @@ async function maybeAutoAddAppraisalCondition(
             `<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">${conditionHtml}</table>` +
             `<p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-officer" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>` +
             `<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`
-          await sendEmail({            to: lo.email,
+          await sendEmail({
+            to: lo.email,
             subject: `New condition assigned to you — ${addr}`,
             html,
           })

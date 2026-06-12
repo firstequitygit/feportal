@@ -85,6 +85,7 @@ export interface LoanDetails {
   // Construction / Rehab
   construction_holdback?: number | null
   draw_fee?: number | null
+  interest_reserve?: number | null
 
   // DSCR inputs
   qualifying_rent?: number | null
@@ -1429,6 +1430,17 @@ export function LoanDetailsCard({
                   currentValue={d.draw_fee ?? null}
                   display={formatCurrency(d.draw_fee)}
                   placeholder="250"
+                />
+              </DetailRow>
+              {/* Portal-only — no Pipedrive or Airtable mapping. */}
+              <DetailRow fieldKey="interest_reserve" label="Interest Reserve">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="interest_reserve"
+                  type="currency"
+                  currentValue={d.interest_reserve ?? null}
+                  display={formatCurrency(d.interest_reserve)}
+                  placeholder="25000"
                 />
               </DetailRow>
             </Section>

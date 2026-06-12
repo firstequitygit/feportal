@@ -154,6 +154,8 @@ export const LOAN_DETAILS_FIELDS: LoanDetailsFieldDef[] = [
   // Construction / Rehab
   { key: 'construction_holdback',  label: 'Construction Holdback',          section: 'Construction / Rehab' },
   { key: 'draw_fee',               label: 'Draw Fee',                       section: 'Construction / Rehab' },
+  // Portal-only — no Pipedrive or Airtable mapping exists for this.
+  { key: 'interest_reserve',       label: 'Interest Reserve',               section: 'Construction / Rehab' },
 
   // DSCR
   { key: 'qualifying_rent',        label: 'Qualifying Rent (monthly)',      section: 'DSCR' },
