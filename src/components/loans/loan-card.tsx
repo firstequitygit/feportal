@@ -196,8 +196,9 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
             <div className="flex items-center gap-1.5 shrink-0">
               {/* LP / UW staleness stamps — oldest-touched files are the
                   ones staff need to chase, so these sit ahead of the
-                  count badges. */}
-              {roleActivity && <RoleActivityStamps activity={roleActivity} />}
+                  count badges. Hidden on closed loans: the work is done,
+                  staleness is meaningless there. */}
+              {roleActivity && !isClosed && <RoleActivityStamps activity={roleActivity} />}
               {outstanding.you > 0 && (
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
                   You {outstanding.you}
