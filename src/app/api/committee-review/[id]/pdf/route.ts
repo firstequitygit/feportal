@@ -62,7 +62,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .from('loan_details')
     .select(`
       loan_type_one, credit_score, points, broker_points, purchase_price, value_as_is,
-      initial_loan_amount, underwriting_fee, exceptions, qualifying_rent,
+      initial_loan_amount, underwriting_fee, prepayment_penalty, exceptions, qualifying_rent,
       annual_property_tax, annual_insurance_premium, annual_flood_insurance, annual_hoa_dues,
       amortization_schedule
     `)
@@ -100,6 +100,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       value_as_is: details?.value_as_is ?? null,
       initial_loan_amount: details?.initial_loan_amount ?? null,
       underwriting_fee: details?.underwriting_fee ?? null,
+      prepayment_penalty: details?.prepayment_penalty ?? null,
       exceptions: details?.exceptions ?? null,
       qualifying_rent: details?.qualifying_rent ?? null,
       annual_property_tax: details?.annual_property_tax ?? null,

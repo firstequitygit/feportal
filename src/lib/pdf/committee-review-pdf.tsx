@@ -44,6 +44,7 @@ export interface CommitteeReviewDetails {
   value_as_is: number | null
   initial_loan_amount: number | null
   underwriting_fee: number | null
+  prepayment_penalty: string | null
   exceptions: string | null
   qualifying_rent: number | null
   annual_property_tax: number | null
@@ -400,6 +401,7 @@ export async function renderCommitteeReviewPdf(input: CommitteeReviewInput): Pro
           <KvRow label="Wholesaler Profits" value="" />
           <KvRow label="Origination Fee" value={fmtCurrency(originationFee)} />
           <KvRow label="Commitment Fee" value={fmtCurrency(commitmentFee)} />
+          <KvRow label="Prepayment Penalty" value={details.prepayment_penalty ?? ''} />
           {!isDscr && <KvRow label="Properties Verified?" value="" />}
           <KvRow label="Exceptions Note(s)" value={details.exceptions ?? ''} />
           {isDscr && (
