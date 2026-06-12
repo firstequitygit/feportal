@@ -359,7 +359,9 @@ export function LoanDetailsCard({
   loanArv,
   originationDate,
   maturityDate,
-  defaultOpen = false,
+  // Card defaults OPEN so the section list is visible at a glance;
+  // the sections themselves default collapsed (see Section below).
+  defaultOpen = true,
   views = [],
   defaultViewId = null,
   initialHiddenFields = [],
