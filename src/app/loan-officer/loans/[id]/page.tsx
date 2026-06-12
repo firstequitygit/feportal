@@ -24,6 +24,7 @@ import { LoanStatusControl } from '@/components/loan-status-control'
 import { EditableLoanField } from '@/components/editable-loan-field'
 import { FieldRow } from '@/components/field-row'
 import { CollapsibleCard } from '@/components/collapsible-card'
+import { CopyableAddress } from '@/components/copyable-address'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
 import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
 import { formatLoanName } from '@/lib/format-loan-name'
@@ -158,6 +159,7 @@ export default async function LoanOfficerLoanPage({
                 loanNumber: loan.loan_number,
               })}
             </h2>
+            <CopyableAddress address={loan.property_address} />
             <div className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
               <span>Stage:</span>
               <EditableLoanStage loanId={id} currentStage={loan.pipeline_stage} />

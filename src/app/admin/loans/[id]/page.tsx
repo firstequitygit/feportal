@@ -16,6 +16,7 @@ import { FieldRow } from '@/components/field-row'
 import { LoanDetailsCard, type LoanDetails } from '@/components/loan-details-card'
 import { fetchLoanDetailViews } from '@/lib/fetch-loan-detail-views'
 import { formatLoanName } from '@/lib/format-loan-name'
+import { CopyableAddress } from '@/components/copyable-address'
 import { BorrowerAddressCard, type BorrowerAddressFields } from '@/components/borrower-address-card'
 import { LoanDemographicsCard, type LoanDemographics } from '@/components/loan-demographics-card'
 import { LoanType } from '@/lib/types'
@@ -152,6 +153,7 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
                 loanNumber: loan.loan_number,
               })}
             </h2>
+            <CopyableAddress address={loan.property_address} />
             <div className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
               <span>Stage:</span>
               <EditableLoanStage loanId={id} currentStage={loan.pipeline_stage} />
