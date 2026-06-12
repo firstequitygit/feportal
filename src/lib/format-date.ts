@@ -18,3 +18,20 @@ export function formatDate(val: string | null | undefined): string {
     month: 'short', day: 'numeric', year: 'numeric',
   })
 }
+
+/**
+ * Format a timestamp as 'Mon D, h:mm AM/PM' (current year) or
+ * 'Mon D, YYYY, h:mm AM/PM' (other years). Used for upload / response
+ * stamps on condition cards.
+ */
+export function formatDateTime(val: string | null | undefined): string {
+  if (!val) return '—'
+  const d = new Date(val)
+  if (Number.isNaN(d.getTime())) return '—'
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    hour: 'numeric', minute: '2-digit',
+  })
+}

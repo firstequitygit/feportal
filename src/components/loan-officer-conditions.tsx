@@ -15,6 +15,7 @@ import { useImpersonation } from '@/components/impersonation-provider'
 import { BulkUploadModal, type BulkDoc } from '@/components/bulk-upload-modal'
 import { UnmatchedDocumentsCard, type UnmatchedDoc } from '@/components/unmatched-documents-card'
 import { suggestConditionId } from '@/lib/match-condition'
+import { formatDateTime } from '@/lib/format-date'
 import { NotifyUnderwriterButton } from '@/components/notify-underwriter-button'
 import { ConditionReminderButton } from '@/components/condition-reminder-button'
 
@@ -238,7 +239,12 @@ function ConditionRow({
           )}
           {condition.response && (
             <div className="mt-2 bg-blue-50 border border-blue-100 rounded px-3 py-2">
-              <p className="text-xs text-gray-500 font-medium mb-0.5">Text response</p>
+              <p className="text-xs text-gray-500 font-medium mb-0.5">
+                Text response
+                {condition.response_at && (
+                  <span className="font-normal text-gray-400"> · {formatDateTime(condition.response_at)}</span>
+                )}
+              </p>
               <p className="text-xs text-gray-800">{condition.response}</p>
             </div>
           )}
@@ -368,6 +374,7 @@ function ConditionRow({
                 ) : (
                   <span className="text-gray-600">{doc.file_name}</span>
                 )}
+                <span className="text-gray-400 whitespace-nowrap">{formatDateTime(doc.created_at)}</span>
                 <button onClick={() => handleDelete(doc.id, doc.file_name)} disabled={deletingId === doc.id}
                   className="ml-1 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50" title="Delete document">
                   {deletingId === doc.id ? '…' : '✕'}

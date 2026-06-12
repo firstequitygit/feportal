@@ -55,10 +55,26 @@ export async function setConditionReceived({
     .single()
   const previousStatus = (prev?.status as string | null) ?? null
 
-  const { error } = await adminClient
+  // Text responses get a timestamp so the card can show when the
+  // reply came in. Stamped here (the single chokepoint every
+  // response-writing route funnels through) rather than per-route.
+  const payload: Record<string, unknown> = { status: 'Received', ...extra }
+  if ('response' in extra) payload.response_at = new Date().toISOString()
+
+  let { error } = await adminClient
     .from('conditions')
-    .update({ status: 'Received', ...extra })
+    .update(payload)
     .eq('id', conditionId)
+
+  // Deploy-order tolerance: if the response_at column doesn't exist yet
+  // (migration not run), retry without it rather than failing the save.
+  if (error && 'response_at' in payload && /response_at/.test(error.message)) {
+    delete payload.response_at
+    ;({ error } = await adminClient
+      .from('conditions')
+      .update(payload)
+      .eq('id', conditionId))
+  }
 
   if (error) return { error: { message: error.message } }
 

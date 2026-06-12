@@ -165,6 +165,9 @@ export interface Condition {
   category: ConditionCategory | null
   rejection_reason: string | null
   response: string | null
+  /** When the text response was submitted. Optional — predates the
+   *  response_at migration on old rows. */
+  response_at?: string | null
   /**
    * When true, the loan's underwriter is emailed the moment the
    * condition status flips into 'Received'. Toggled via
