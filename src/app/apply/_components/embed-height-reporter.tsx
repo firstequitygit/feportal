@@ -22,11 +22,14 @@ export function EmbedHeightReporter() {
     // CHANGE_THRESHOLD: ignore sub-pixel jitter from sub-element reflows so
     // the parent does not get spammed (and we do not nudge the iframe height
     // by a few pixels in a way that could re-trigger the next reflow).
-    // MAX_HEIGHT: hard ceiling. Real wizard content tops out around 3500px
-    // on the busiest step; 6000 leaves ample margin while still capping any
-    // pathological runaway.
+    // MAX_HEIGHT: backstop against a pathological runaway only; it must stay
+    // ABOVE any real form height. Desktop tops out ~4700px, but at narrow
+    // mobile widths a fully-filled multi-unit application's review step runs
+    // past 6000px, so the old 6000 cap clipped the iframe and forced an
+    // internal scrollbar. 40000 clears any realistic content while still
+    // capping a true runaway.
     const CHANGE_THRESHOLD = 8
-    const MAX_HEIGHT = 6000
+    const MAX_HEIGHT = 40000
 
     let last = 0
     const post = () => {
