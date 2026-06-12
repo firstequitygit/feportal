@@ -18,6 +18,12 @@ function setIfPresent(obj: Record<string, unknown>, key: string, value: unknown)
 
 // Called automatically by Vercel cron.
 // Also protected by CRON_SECRET so only Vercel can trigger it.
+
+// Full-pipeline Pipedrive sweep — paginates every deal. Now that it
+// runs every 15 minutes (Pro plan), give it the same runtime headroom
+// as the Airtable cron rather than the 15s Pro default.
+export const maxDuration = 300
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
