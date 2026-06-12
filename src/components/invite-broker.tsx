@@ -115,12 +115,15 @@ export function InviteBroker({ apiEndpoint = '/api/invite-broker', collapsed = f
                 {result.emailSent ? 'Need to copy the link manually instead?' : 'Show invite link'}
               </summary>
               <div className="mt-2 flex gap-2">
+                {/* min-w-0 lets the input actually shrink inside the flex
+                    row — without it the long URL pushes the Copy button
+                    past the card edge. shrink-0 keeps the button whole. */}
                 <input
                   readOnly
                   value={result.inviteLink}
-                  className="flex-1 text-xs border rounded px-2 py-1.5 bg-gray-50 truncate"
+                  className="flex-1 min-w-0 text-xs border rounded px-2 py-1.5 bg-gray-50 truncate"
                 />
-                <Button size="sm" onClick={handleCopy}>
+                <Button size="sm" onClick={handleCopy} className="shrink-0">
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
               </div>
