@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { renderApplicationPdf } from '@/lib/pdf/application-pdf'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
+import { isValidEmbedTestKey } from '@/lib/application/embed-test'
 import type { ApplicationData } from '@/lib/application-fields'
 
 export const runtime = 'nodejs'
@@ -25,7 +26,12 @@ async function requireAdmin(): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAdmin())) {
+  // Embed test mode: inside the WordPress iframe the admin cookie is third-party
+  // and never arrives, so requireAdmin() can't authorize. A matching secret
+  // header (forwarded by the test panel from the ?testkey embed URL param)
+  // authorizes instead. See lib/application/embed-test.
+  const authed = (await requireAdmin()) || isValidEmbedTestKey(req.headers.get('x-embed-test-key'))
+  if (!authed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   if (!rateLimit(`test-pdf:${clientIp(req)}`, 20, 60_000)) {

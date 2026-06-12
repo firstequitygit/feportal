@@ -72,9 +72,17 @@ export function TestModePanel(props: {
 
   async function previewPdf() {
     try {
+      // Inside the WordPress iframe the admin cookie isn't sent. If the page
+      // was opened with a ?testkey secret, forward it so the route can
+      // authorize without the cookie. No-op for normal admin use.
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const embedTestKey = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('testkey')
+        : null
+      if (embedTestKey) headers['x-embed-test-key'] = embedTestKey
       const res = await fetch('/api/apply/test-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ data }),
       })
       if (!res.ok) { toast.error('PDF preview failed'); return }
