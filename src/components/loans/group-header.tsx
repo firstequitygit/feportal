@@ -4,7 +4,7 @@
 import { ChevronDown } from 'lucide-react'
 
 /** Compact money for group subtotals: $4.2M / $850K / $500. */
-export function formatCompactCurrency(val: number): string {
+function formatCompactCurrency(val: number): string {
   if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`
   if (val >= 1_000) return `$${Math.round(val / 1_000)}K`
   return `$${Math.round(val).toLocaleString('en-US')}`
