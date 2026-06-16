@@ -1,11 +1,22 @@
 // src/components/loan-list-sorted.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { FileX } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { Card, CardContent } from '@/components/ui/card'
-import { type Loan, type OutstandingCounts, PIPELINE_STAGES } from '@/lib/types'
+import { type Loan, type OutstandingCounts, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
 import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
@@ -13,6 +24,7 @@ import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
 import { formatLoanName } from '@/lib/format-loan-name'
 import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
+import { useImpersonation } from '@/components/impersonation-provider'
 import type { LatestStaffNotes } from '@/lib/fetch-closer-notes'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
@@ -96,6 +108,59 @@ export function LoanListSorted({
     () => [...activeLoans, ...closedLoans],
     [activeLoans, closedLoans],
   )
+
+  // Board drag-and-drop: optimistic per-loan stage overrides. Cleared when
+  // the page refreshes after a successful PATCH /api/loans/stage. On failure
+  // we delete the override and surface a transient inline error.
+  const router = useRouter()
+  const { isImpersonating } = useImpersonation()
+  const [stageOverrides, setStageOverrides] = useState<Record<string, PipelineStage>>({})
+  const [lastError, setLastError] = useState<{ loanId: string; stage: PipelineStage; message: string } | null>(null)
+
+  const effectiveStage = useCallback(
+    (loanId: string, serverStage: PipelineStage | null): PipelineStage | null =>
+      stageOverrides[loanId] ?? serverStage,
+    [stageOverrides],
+  )
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  )
+
+  const onDragEnd = useCallback(async (event: DragEndEvent) => {
+    if (isImpersonating) return
+    const { active, over } = event
+    if (!over) return
+    const loanId = String(active.id)
+    const newStage = String(over.id) as PipelineStage
+    const loan = allLoans.find(l => l.id === loanId)
+    if (!loan) return
+    const currentStage = stageOverrides[loanId] ?? loan.pipeline_stage
+    if (currentStage === newStage) return
+
+    setStageOverrides(prev => ({ ...prev, [loanId]: newStage }))
+    setLastError(null)
+
+    try {
+      const res = await fetch('/api/loans/stage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId, stage: newStage }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!data?.success) throw new Error(data?.error ?? 'Could not change stage')
+      router.refresh()
+    } catch (err) {
+      setStageOverrides(prev => {
+        const next = { ...prev }
+        delete next[loanId]
+        return next
+      })
+      setLastError({ loanId, stage: newStage, message: (err as Error).message })
+      window.setTimeout(() => setLastError(null), 4000)
+    }
+  }, [allLoans, isImpersonating, router, stageOverrides])
 
   const loanOfficers = useMemo(
     () =>
@@ -182,7 +247,13 @@ export function LoanListSorted({
         <BoardView
           loans={groups.flatMap(g => g.loans)}
           linkPrefix={linkPrefix}
+          outstandingMap={outstandingMap}
           roleActivityMap={roleActivityMap}
+          effectiveStage={effectiveStage}
+          lastError={lastError}
+          sensors={dndSensors}
+          onDragEnd={onDragEnd}
+          dragDisabled={isImpersonating}
         />
       )}
 
@@ -281,75 +352,202 @@ export function LoanListSorted({
   )
 }
 
-function BoardView({ loans, linkPrefix, roleActivityMap }: {
-  loans: LoanWithBorrower[]
-  linkPrefix: string
-  roleActivityMap?: Record<string, RoleActivity>
+function formatCompactCurrency(val: number | null): string {
+  if (val === null) return '—'
+  if (val === 0) return '$0'
+  if (Math.abs(val) < 1000) return `$${Math.round(val)}`
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(val)
+}
+
+function boardAccentClass(loan: LoanWithBorrower, outstanding: OutstandingCounts): string {
+  if (loan.loan_status === 'cancelled') return 'border-l-red-300'
+  if (loan.loan_status === 'on_hold') return 'border-l-amber-400'
+  if (loan.pipeline_stage === 'Closed') return 'border-l-gray-300'
+  if (outstanding.you > 0) return 'border-l-red-400'
+  if (outstanding.total > 0) return 'border-l-amber-300'
+  return 'border-l-green-400'
+}
+
+function boardStatusChip(
+  loan: LoanWithBorrower,
+  outstanding: OutstandingCounts,
+): { text: string; className: string } | null {
+  if (loan.loan_status === 'cancelled') return { text: 'Cancelled', className: 'bg-red-100 text-red-700' }
+  if (loan.loan_status === 'on_hold') return { text: 'On Hold', className: 'bg-amber-100 text-amber-800' }
+  if (outstanding.you > 0) return { text: `You ${outstanding.you}`, className: 'bg-red-100 text-red-700' }
+  if (outstanding.borrower > 0) return { text: `Borrower ${outstanding.borrower}`, className: 'bg-amber-100 text-amber-700' }
+  if (outstanding.team > 0) return { text: `Team ${outstanding.team}`, className: 'bg-gray-100 text-gray-600' }
+  return null
+}
+
+function BoardDroppableColumn({
+  stage,
+  errorMessage,
+  children,
+}: {
+  stage: PipelineStage
+  errorMessage: string | null
+  children: React.ReactNode
 }) {
-  const columns = BOARD_STAGES.map(stage => ({
-    stage,
-    loans: loans.filter(l => l.pipeline_stage === stage),
-  }))
+  const { setNodeRef, isOver } = useDroppable({ id: stage })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-48 shrink-0 snap-start rounded-md transition-colors ${
+        isOver ? 'bg-blue-50 ring-1 ring-blue-200' : ''
+      }`}
+    >
+      {children}
+      {errorMessage && (
+        <p className="mt-1 px-1 text-[10px] text-red-600 truncate" title={errorMessage}>
+          {errorMessage}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function BoardDraggableCard({
+  loan,
+  outstanding,
+  linkPrefix,
+  roleActivity,
+  errored,
+  disabled,
+}: {
+  loan: LoanWithBorrower
+  outstanding: OutstandingCounts
+  linkPrefix: string
+  roleActivity?: RoleActivity
+  errored: boolean
+  disabled: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: loan.id,
+    disabled,
+  })
+
+  const accent = boardAccentClass(loan, outstanding)
+  const chip = boardStatusChip(loan, outstanding)
+  const isDimmed = loan.loan_status === 'cancelled' || loan.pipeline_stage === 'Closed'
+
+  const style: React.CSSProperties = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
+    : {}
 
   return (
-    <div className="pb-4">
-      <div className="flex gap-4 overflow-x-auto pb-2 snap-x -mx-2 px-2">
-        {columns.map(({ stage, loans: stageLoans }) => (
-          <div key={stage} className="w-70 shrink-0 snap-start">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
-                {formatStage(stage)}
-              </h3>
-              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full ml-2 shrink-0">
-                {stageLoans.length}
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <Link
+        href={`${linkPrefix}/loans/${loan.id}`}
+        onClick={e => { if (isDragging) e.preventDefault() }}
+        className={`block rounded-md border border-gray-200 border-l-4 ${accent} bg-white px-2 py-1.5 transition-all duration-150 hover:shadow-sm hover:border-gray-300 ${
+          isDimmed ? 'opacity-70' : ''
+        } ${loan.loan_status === 'on_hold' ? 'bg-amber-50/40' : ''} ${
+          isDragging ? 'scale-[1.02] shadow-lg cursor-grabbing' : disabled ? 'cursor-default' : 'cursor-grab'
+        } ${errored ? 'ring-2 ring-red-400' : ''}`}
+      >
+        <div className="flex items-baseline justify-between gap-1.5">
+          <p className="text-[11px] font-semibold text-gray-900 leading-tight truncate min-w-0 flex-1">
+            {formatLoanName({
+              borrowerName: loan.borrowers?.full_name,
+              propertyAddress: loan.property_address,
+              loanNumber: loan.loan_number,
+            })}
+          </p>
+          <p className="text-[11px] font-semibold text-gray-900 whitespace-nowrap">
+            {formatCompactCurrency(loan.loan_amount)}
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-1 mt-0.5">
+          <p className="text-[10px] text-gray-500 truncate min-w-0 flex-1">
+            {loan.loan_type ?? '—'}
+          </p>
+          <div className="flex items-center gap-1 shrink-0">
+            {roleActivity && <RoleActivityStamps activity={roleActivity} />}
+            {chip && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${chip.className}`}>
+                {chip.text}
               </span>
-            </div>
-            <div className="space-y-2">
-              {stageLoans.map(loan => (
-                <Link key={loan.id} href={`${linkPrefix}/loans/${loan.id}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-3">
-                      <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
-                        {formatLoanName({
-                          borrowerName: loan.borrowers?.full_name,
-                          propertyAddress: loan.property_address,
-                          loanNumber: loan.loan_number,
-                        })}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 truncate">
-                        {/* City/state/ZIP from the address; borrower name
-                            already in the title above. */}
-                        {(() => {
-                          const addr = loan.property_address?.trim() ?? ''
-                          const i = addr.indexOf(',')
-                          const rest = i >= 0 ? addr.slice(i + 1).trim() : ''
-                          return rest || <span className="italic">No city set</span>
-                        })()}
-                      </p>
-                      <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
-                        <span className="text-xs text-gray-500">{loan.loan_type ?? '—'}</span>
-                        <span className="text-xs font-medium text-gray-900 whitespace-nowrap">
-                          {formatCurrency(loan.loan_amount)}
-                        </span>
-                      </div>
-                      {roleActivityMap && (
-                        <div className="mt-1.5">
-                          <RoleActivityStamps activity={roleActivityMap[loan.id] ?? { lp: null, uw: null }} />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-              {stageLoans.length === 0 && (
-                <div className="border-2 border-dashed border-gray-200 rounded-lg h-16 flex items-center justify-center">
-                  <p className="text-xs text-gray-400">Empty</p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        ))}
-      </div>
+        </div>
+      </Link>
     </div>
+  )
+}
+
+function BoardView({
+  loans,
+  linkPrefix,
+  outstandingMap,
+  roleActivityMap,
+  effectiveStage,
+  lastError,
+  sensors,
+  onDragEnd,
+  dragDisabled,
+}: {
+  loans: LoanWithBorrower[]
+  linkPrefix: string
+  outstandingMap: Record<string, OutstandingCounts>
+  roleActivityMap?: Record<string, RoleActivity>
+  effectiveStage: (loanId: string, serverStage: PipelineStage | null) => PipelineStage | null
+  lastError: { loanId: string; stage: PipelineStage; message: string } | null
+  sensors: ReturnType<typeof useSensors>
+  onDragEnd: (event: DragEndEvent) => void
+  dragDisabled: boolean
+}) {
+  const columns = BOARD_STAGES.map(stage => {
+    const stageLoans = loans.filter(l => effectiveStage(l.id, l.pipeline_stage) === stage)
+    const total = stageLoans.reduce((sum, l) => sum + (l.loan_amount ?? 0), 0)
+    return { stage, loans: stageLoans, total }
+  })
+
+  return (
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <div className="pb-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 snap-x -mx-2 px-2">
+          {columns.map(({ stage, loans: stageLoans, total }) => (
+            <BoardDroppableColumn
+              key={stage}
+              stage={stage}
+              errorMessage={lastError && lastError.stage === stage ? lastError.message : null}
+            >
+              <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
+                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">
+                  {formatStage(stage)}
+                </h3>
+                <span className="text-[10px] text-gray-500 shrink-0 whitespace-nowrap">
+                  {stageLoans.length}{total > 0 ? ` · ${formatCompactCurrency(total)}` : ''}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {stageLoans.map(loan => (
+                  <BoardDraggableCard
+                    key={loan.id}
+                    loan={loan}
+                    outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
+                    linkPrefix={linkPrefix}
+                    roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : undefined}
+                    errored={lastError?.loanId === loan.id}
+                    disabled={dragDisabled}
+                  />
+                ))}
+                {stageLoans.length === 0 && (
+                  <div className="border border-dashed border-gray-200 rounded-md h-10 flex items-center justify-center">
+                    <p className="text-[10px] text-gray-400">Empty</p>
+                  </div>
+                )}
+              </div>
+            </BoardDroppableColumn>
+          ))}
+        </div>
+      </div>
+    </DndContext>
   )
 }
