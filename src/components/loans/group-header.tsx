@@ -34,7 +34,11 @@ export function GroupHeader({ label, count, amount, collapsed, onToggle, tone = 
       type="button"
       onClick={onToggle}
       aria-expanded={!collapsed}
-      className="w-full flex items-center gap-3 py-2 mb-2 group sticky top-14 z-10 bg-gray-50"
+      // Sticky highlighted bar: an elevated white band with border +
+      // shadow reads clearly against the gray-50 page as you scroll
+      // (plain bg-gray-50 blended in). top-14 sits just below the fixed
+      // top nav.
+      className="w-full flex items-center gap-3 px-3 py-2 mb-2 group sticky top-14 z-10 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-sm"
     >
       <ChevronDown
         className={`w-3.5 h-3.5 transition-transform ${t.text} ${collapsed ? '-rotate-90' : ''}`}

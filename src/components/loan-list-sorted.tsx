@@ -303,6 +303,9 @@ export function LoanListSorted({
                           linkPrefix={linkPrefix}
                           latestNotes={latestNotesByLoan?.[loan.id] ?? null}
                           roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
+                          // Grouped by stage → sticky stage header makes
+                          // the per-card stage pill redundant.
+                          hideStagePill={state.group === 'pipeline_stage'}
                         />
                       ))}
                     </div>

@@ -22,6 +22,10 @@ interface Props {
   /** Last LP / UW activity timestamps — renders the staleness stamps
    *  when provided. */
   roleActivity?: RoleActivity | null
+  /** Hide the stage pill — redundant when the list is grouped by stage
+   *  under a sticky stage header. Status badges (On Hold / Cancelled)
+   *  still render. */
+  hideStagePill?: boolean
 }
 
 type CardNoteKey = 'processor' | 'underwriter' | 'closer'
@@ -107,7 +111,7 @@ function accentClass(loan: LoanCardLoan, outstanding: OutstandingCounts): string
   return 'border-l-green-400'
 }
 
-export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, roleActivity }: Props) {
+export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, roleActivity, hideStagePill = false }: Props) {
   const isClosed = loan.pipeline_stage === 'Closed'
   const isOnHold = loan.loan_status === 'on_hold'
   const isCancelled = loan.loan_status === 'cancelled'
@@ -229,13 +233,15 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
                   Cancelled
                 </span>
               )}
-              <span
-                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap text-center min-w-28 ${stageBadgeColor(
-                  loan.pipeline_stage,
-                )}`}
-              >
-                {isClosed ? 'Closed' : formatStage(loan.pipeline_stage)}
-              </span>
+              {!hideStagePill && (
+                <span
+                  className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap text-center min-w-28 ${stageBadgeColor(
+                    loan.pipeline_stage,
+                  )}`}
+                >
+                  {isClosed ? 'Closed' : formatStage(loan.pipeline_stage)}
+                </span>
+              )}
               <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
             </div>
           </div>
