@@ -112,6 +112,11 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
   const isOnHold = loan.loan_status === 'on_hold'
   const isCancelled = loan.loan_status === 'cancelled'
   const accent = accentClass(loan, outstanding)
+  const loanName = formatLoanName({
+    borrowerName: loan.borrowers?.full_name,
+    propertyAddress: loan.property_address,
+    loanNumber: loan.loan_number,
+  })
 
   return (
     <Link href={`${linkPrefix}/loans/${loan.id}`} className="block group">
@@ -125,19 +130,15 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <p className="font-semibold text-gray-900 truncate text-sm leading-tight">
-                  {formatLoanName({
-                    borrowerName: loan.borrowers?.full_name,
-                    propertyAddress: loan.property_address,
-                    loanNumber: loan.loan_number,
-                  })}
+                <p className="font-semibold text-gray-900 truncate text-sm leading-tight" title={loanName}>
+                  {loanName}
                 </p>
               </div>
               {/* Subtitle: city/state/ZIP from the address (skip the
                   street since it's already in the title), then loan
                   type + amount + dates. Borrower name is intentionally
                   not repeated here — it's in the title above. */}
-              <p className="text-xs text-gray-500 mt-px ml-5 truncate">
+              <p className="text-xs text-gray-500 mt-px ml-5 truncate tabular-nums">
                 {(() => {
                   // Everything after the first comma in property_address,
                   // trimmed. Falls back to '—' when only the street was
@@ -151,7 +152,7 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
                 {loan.loan_type ? <span className="text-gray-300"> · </span> : null}
                 {loan.loan_type}
                 <span className="text-gray-300"> · </span>
-                {formatCurrency(loan.loan_amount)}
+                <span className="font-semibold text-gray-700">{formatCurrency(loan.loan_amount)}</span>
                 {/* Estimated closing + rate lock expiration. Each only
                     renders when set — keeps cards without dates clean
                     instead of showing "Close —". */}
@@ -198,7 +199,11 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
                   ones staff need to chase, so these sit ahead of the
                   count badges. Hidden on closed loans: the work is done,
                   staleness is meaningless there. */}
-              {roleActivity && !isClosed && <RoleActivityStamps activity={roleActivity} />}
+              {roleActivity && !isClosed && (
+                <div className="flex justify-end min-w-20">
+                  <RoleActivityStamps activity={roleActivity} />
+                </div>
+              )}
               {outstanding.you > 0 && (
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
                   You {outstanding.you}
@@ -225,7 +230,7 @@ export function LoanCard({ loan, outstanding = ZERO, linkPrefix, latestNotes, ro
                 </span>
               )}
               <span
-                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ${stageBadgeColor(
+                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap text-center min-w-28 ${stageBadgeColor(
                   loan.pipeline_stage,
                 )}`}
               >

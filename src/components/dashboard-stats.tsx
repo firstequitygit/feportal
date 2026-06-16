@@ -95,7 +95,7 @@ export function DashboardStats({
                 <s.icon className={`w-5 h-5 ${s.iconColorClass}`} />
               </div>
               <div className="min-w-0">
-                <p className={`text-2xl font-bold ${s.emphasizeDanger && parseInt(s.value, 10) > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <p className={`text-2xl font-bold tabular-nums ${s.emphasizeDanger && parseInt(s.value, 10) > 0 ? 'text-red-600' : 'text-gray-900'}`}>
                   {s.value}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5 leading-tight">{s.label}</p>

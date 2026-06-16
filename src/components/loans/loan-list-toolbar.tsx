@@ -85,6 +85,7 @@ export function LoanListToolbar({
       <Popover>
         <PopoverTrigger
           type="button"
+          aria-label={`Sort by ${activeSortLabel(state.sort)}, ${state.dir === 'desc' ? 'descending' : 'ascending'}`}
           className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:border-gray-400 transition-colors text-gray-700"
         >
           <span className="text-gray-500">Sort:</span>
@@ -101,6 +102,7 @@ export function LoanListToolbar({
               <button
                 key={opt.field}
                 type="button"
+                aria-pressed={active}
                 onClick={() => onSortChange(opt.field, state.dir)}
                 className={`w-full text-left flex items-center justify-between text-sm px-2.5 py-1.5 rounded hover:bg-gray-50 ${
                   active ? 'text-primary font-medium' : 'text-gray-700'

@@ -175,13 +175,13 @@ export function PortalShellClient({
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-20 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Top bar — full width, logo top-right */}
-      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-10 bg-white border-b border-gray-200">
+      <header className="fixed top-0 left-0 right-0 h-14 flex items-center z-20 bg-white border-b border-gray-200">
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(true)}
@@ -352,7 +352,7 @@ export function PortalShellClient({
 
       {/* Main content */}
       <main className={`min-h-screen bg-gray-50 transition-all duration-200 ${pinned ? 'md:ml-60' : 'md:ml-16'}`}>
-        <div className={`pt-20 md:pt-20 pb-8 ${maxWidth} mx-auto px-4 md:px-8`}>
+        <div className={`pt-20 md:pt-20 pb-16 ${maxWidth} mx-auto px-4 md:px-8`}>
           <ImpersonationProvider value={{ isImpersonating: !!impersonation }}>
             {children}
           </ImpersonationProvider>
