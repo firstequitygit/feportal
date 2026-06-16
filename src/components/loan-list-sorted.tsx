@@ -18,7 +18,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type OutstandingCounts, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
-import { GroupHeader, formatCompactCurrency } from '@/components/loans/group-header'
+import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
 import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
