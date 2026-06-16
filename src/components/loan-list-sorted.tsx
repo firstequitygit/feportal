@@ -18,7 +18,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type OutstandingCounts, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
-import { GroupHeader } from '@/components/loans/group-header'
+import { GroupHeader, formatCompactCurrency } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
 import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
@@ -214,7 +214,7 @@ export function LoanListSorted({
   const total = allLoans.length
   if (total === 0) {
     return (
-      <Card className="border border-gray-200">
+      <Card className="border border-gray-200 max-w-4xl mx-auto">
         <CardContent className="py-16 flex flex-col items-center gap-3">
           <FileX className="w-10 h-10 text-gray-300" />
           <div className="text-center">
@@ -229,7 +229,7 @@ export function LoanListSorted({
   const filteredTotal = groups.reduce((acc, g) => acc + g.loans.length, 0)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-4xl mx-auto">
       <LoanListToolbar
         state={state}
         onSortChange={(sort, dir) => patch({ sort, dir })}
@@ -283,11 +283,13 @@ export function LoanListSorted({
           ) : (
             groups.map(group => {
               const isCollapsed = collapsed.has(group.key)
+              const groupAmount = group.loans.reduce((sum, l) => sum + (l.loan_amount ?? 0), 0)
               return (
                 <section key={group.key}>
                   <GroupHeader
                     label={group.label}
                     count={group.loans.length}
+                    amount={groupAmount}
                     collapsed={isCollapsed}
                     onToggle={() => toggleGroup(group.key)}
                   />
@@ -323,7 +325,11 @@ export function LoanListSorted({
                 className="w-full flex items-center gap-3 mt-2 mb-2 group"
               >
                 <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-widest whitespace-nowrap group-hover:text-amber-900 transition-colors">
-                  {onHoldExpanded ? '▾' : '▸'} On Hold — {onHoldLoans.length}
+                  {onHoldExpanded ? '▾' : '▸'} On Hold — {onHoldLoans.length}{' '}
+                  <span className="text-amber-300">·</span>{' '}
+                  <span className="tabular-nums tracking-normal">
+                    {formatCompactCurrency(onHoldLoans.reduce((sum, l) => sum + (l.loan_amount ?? 0), 0))}
+                  </span>
                 </h3>
                 <div className="flex-1 h-px bg-amber-200" />
                 <span className="text-xs text-amber-700 group-hover:text-amber-900 transition-colors whitespace-nowrap">
