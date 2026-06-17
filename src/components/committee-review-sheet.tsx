@@ -19,7 +19,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Download } from 'lucide-react'
 import {
-  fmtCurrency,
+  // Committee Review shows dollars AND cents on every money field.
+  fmtCurrencyCents as fmtCurrency,
   fmtLetterDate,
   fmtRatePct,
   fmtRatio,

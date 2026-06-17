@@ -9,7 +9,8 @@ import fs from 'fs'
 import path from 'path'
 import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import {
-  fmtCurrency,
+  // Committee Review shows dollars AND cents on every money field.
+  fmtCurrencyCents as fmtCurrency,
   fmtLetterDate,
   fmtRatePct,
   fmtRatio,
