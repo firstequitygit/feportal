@@ -214,7 +214,7 @@ export function LoanListSorted({
   const total = allLoans.length
   if (total === 0) {
     return (
-      <Card className="border border-gray-200 max-w-4xl mx-auto">
+      <Card className="border border-gray-200">
         <CardContent className="py-16 flex flex-col items-center gap-3">
           <FileX className="w-10 h-10 text-gray-300" />
           <div className="text-center">
@@ -229,7 +229,7 @@ export function LoanListSorted({
   const filteredTotal = groups.reduce((acc, g) => acc + g.loans.length, 0)
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="space-y-5">
       <LoanListToolbar
         state={state}
         onSortChange={(sort, dir) => patch({ sort, dir })}
