@@ -268,6 +268,9 @@ export default async function LoanOfficerLoanPage({
               <FieldRow label="Entity Name">
                 <EditableLoanField loanId={id} field="entity_name" type="text" currentValue={loan.entity_name} display={loan.entity_name ?? '—'} inputWidthClass="w-48" />
               </FieldRow>
+              <FieldRow label="Funding Source">
+                <EditableLoanField loanId={id} field="funding_source" type="enum" options={['In House', 'RAI']} currentValue={loan.funding_source} display={loan.funding_source ?? '—'} />
+              </FieldRow>
               <div className="flex justify-between items-center pt-2 mt-1 border-t border-gray-100">
                 <span className="text-gray-500">Est. Closing Date</span>
                 <EditableClosingDate loanId={id} currentDate={loan.estimated_closing_date} />

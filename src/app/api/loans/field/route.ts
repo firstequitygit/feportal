@@ -58,6 +58,11 @@ const INTEREST_ONLY_OPTION_MAP: Record<string, number | null> = { Yes: 269, No: 
 // directly — no transform needed.
 const RATE_LOCK_EXTENDED_OPTIONS = ['Yes', 'No'] as const
 
+// Funding Source — portal + Airtable only (no Pipedrive equivalent).
+// Mirrors Airtable's "Funding Source" singleSelect ('In House' / 'RAI')
+// directly, so it passes through with no transform.
+const FUNDING_SOURCE_OPTIONS = ['In House', 'RAI'] as const
+
 // "Locked?" is a Pipedrive yes-only enum (only one option id: 148 = "Yes").
 // Portal stores granularity (No / 15 / 30 / 45 days). Push "Yes" for any
 // locked value, null when "No" — and avoid clobbering on pull (see
@@ -103,6 +108,7 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   // it up via the FIELD_MAP entry in airtable-field-map.ts.
   rate_lock_date:     { type: 'date' },
   rate_lock_extended: { type: 'enum',   validValues: RATE_LOCK_EXTENDED_OPTIONS },
+  funding_source:     { type: 'enum',   validValues: FUNDING_SOURCE_OPTIONS },
 
   // ===== loan_details table (portal-only, no Pipedrive sync) =====
   // Loan / Deal Overview

@@ -203,6 +203,14 @@ function mapRateTypeInverse(v: unknown): string | undefined {
   return undefined
 }
 
+// ---- funding_source (portal text ↔ Airtable "Funding Source" singleSelect) ----
+// Identical option set on both sides ('In House' / 'RAI'). Guard the
+// passthrough so a stray value never tries to push an unknown option
+// into Airtable's singleSelect (which would error the whole sync).
+function fundingSourcePass(v: unknown): string | undefined {
+  return v === 'In House' || v === 'RAI' ? v : undefined
+}
+
 // ---- annual ↔ monthly (annual_property_tax ↔ Monthly Property Tax) ----
 function annualToMonthly(v: unknown): number | undefined {
   const n = typeof v === 'number' ? v : Number(v)
@@ -322,6 +330,9 @@ export const FIELD_MAP: FieldMapping[] = [
   // Portal text 'Yes' / 'No' ↔ Airtable singleSelect 'Yes' / 'No'.
   // Direct passthrough — no transform needed.
   s('rate_lock_extended', 'loans', 'Rate Lock Extended'),
+  // Funding Source — portal + Airtable only, identical 'In House' / 'RAI'
+  // options. Guarded passthrough so only valid options sync.
+  s('funding_source', 'loans', 'Funding Source', fundingSourcePass, fundingSourcePass),
 
   // ---- Loan / Deal Overview ----
   s('investor_loan_number', 'loan_details', 'Investor Loan Number'),
