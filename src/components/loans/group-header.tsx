@@ -34,10 +34,12 @@ export function GroupHeader({ label, count, amount, collapsed, onToggle, tone = 
       type="button"
       onClick={onToggle}
       aria-expanded={!collapsed}
-      // Sticky highlighted bar: an elevated light blue band with border
-      // + shadow reads clearly against the gray-50 page as you scroll.
+      // Sticky highlighted bar: an elevated soft-blue band — the
+      // midpoint between slate-100/300 (blue-gray) and blue-100/300
+      // (full blue), so it reads blue without being heavy. Border +
+      // shadow separate it from the gray-50 page as you scroll;
       // top-14 sits just below the fixed top nav.
-      className="w-full flex items-center gap-3 px-3 py-2 mb-2 group sticky top-14 z-10 bg-blue-100/95 backdrop-blur-sm border border-blue-300 rounded-lg shadow-sm"
+      className="w-full flex items-center gap-3 px-3 py-2 mb-2 group sticky top-14 z-10 bg-[#e6f0fc]/95 backdrop-blur-sm border border-[#afcdef] rounded-lg shadow-sm"
     >
       <ChevronDown
         className={`w-3.5 h-3.5 transition-transform ${t.text} ${collapsed ? '-rotate-90' : ''}`}
