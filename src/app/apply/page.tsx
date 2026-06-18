@@ -60,10 +60,11 @@ export default async function ApplyPage({
 }) {
   const sp = await searchParams
   const testKey = typeof sp.testkey === 'string' ? sp.testkey : null
-  // Embed mode: the WordPress iframe is cross-site/unauthenticated and expects
-  // the form directly, so it bypasses the chooser. A valid testkey also bypasses
-  // (admin embed test mode without a cookie).
-  const isEmbed = sp.embed === '1' || isValidEmbedTestKey(testKey)
+  // Embed mode: the WordPress iframe is cross-site/unauthenticated. A valid
+  // testkey is the admin embed-test path (straight to the form, test mode).
+  // Public ?embed=1 now shows the chooser like the standalone page does.
+  const embedTest = isValidEmbedTestKey(testKey)
+  const isEmbed = sp.embed === '1' || embedTest
 
   const loanOfficerOptions = await fetchLoanOfficerOptions()
 
@@ -112,15 +113,16 @@ export default async function ApplyPage({
     }
   }
 
-  // Case 2b: embed (or valid testkey) -> blank form directly, as before.
-  if (isEmbed) {
+  // Case 2b: admin embed test (valid testkey) -> blank form with test mode, so
+  // admins can run a test submission from inside the live WordPress iframe.
+  if (embedTest) {
     return (
       <Suspense>
         <Wizard
           initialData={{}}
           initialStep={1}
           initialToken={null}
-          isAdmin={isValidEmbedTestKey(testKey)}
+          isAdmin
           loanOfficerOptions={loanOfficerOptions}
           variantKind="borrower"
         />
@@ -128,11 +130,12 @@ export default async function ApplyPage({
     )
   }
 
-  // Case 3: everyone else (unauthenticated, or authenticated non-borrower
-  // non-admin) -> the chooser + inline login at this same URL.
+  // Case 3: the new-vs-returning chooser. Shown both standalone and embedded.
+  // In an embed (?embed=1) the returning path breaks out to the portal to sign
+  // in, because auth cookies do not work inside a cross-site iframe.
   return (
     <Suspense>
-      <ApplyGate loanOfficerOptions={loanOfficerOptions} />
+      <ApplyGate loanOfficerOptions={loanOfficerOptions} embed={sp.embed === '1'} />
     </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -8,15 +8,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Wizard } from './wizard'
+import { EmbedHeightReporter } from './embed-height-reporter'
 
 type View = 'choose' | 'new' | 'login'
 type LoginMode = 'email' | 'code'
 
-export function ApplyGate({ loanOfficerOptions }: { loanOfficerOptions: string[] }) {
+export function ApplyGate({ loanOfficerOptions, embed = false }: { loanOfficerOptions: string[]; embed?: boolean }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
-  const [view, setView] = useState<View>('choose')
+  // ?returning=1 (used by the embed breakout below) opens straight to sign-in.
+  const [view, setView] = useState<View>(searchParams.get('returning') === '1' ? 'login' : 'choose')
   const [loginMode, setLoginMode] = useState<LoginMode>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -85,11 +88,28 @@ export function ApplyGate({ loanOfficerOptions }: { loanOfficerOptions: string[]
     router.refresh()
   }
 
+  function handleReturning() {
+    if (embed) {
+      // Auth cookies do not work inside a cross-site iframe, so break out to the
+      // portal (first-party) to sign in; ?returning=1 opens its sign-in view,
+      // and after login the portal /apply shows the pre-filled application.
+      const url = `${window.location.origin}/apply?returning=1`
+      const top = window.top
+      if (top) top.location.href = url
+      else window.location.href = url
+      return
+    }
+    setView('login'); setLoginMode('email'); setError('')
+  }
+
   return (
     <div className="mx-auto max-w-md px-6 py-10">
-      <div className="mb-8 text-center">
-        <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="mx-auto mb-3 h-16 w-auto" />
-      </div>
+      <EmbedHeightReporter />
+      {!embed && (
+        <div className="mb-8 text-center">
+          <Image src="/logo-main.png" alt="First Equity Funding" width={724} height={86} className="mx-auto mb-3 h-16 w-auto" />
+        </div>
+      )}
 
       {view === 'choose' && (
         <Card>
@@ -110,7 +130,7 @@ export function ApplyGate({ loanOfficerOptions }: { loanOfficerOptions: string[]
                 type="button"
                 variant="outline"
                 className="h-12 text-base font-medium"
-                onClick={() => { setView('login'); setLoginMode('email'); setError('') }}
+                onClick={handleReturning}
               >
                 I am a returning customer
               </Button>
