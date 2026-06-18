@@ -50,8 +50,9 @@ Open the WordPress page you want the application to appear on, add a **Custom HT
 
 | Line | Why it's there |
 |---|---|
-| `?embed=1` on the iframe src | Tells our app to hide the FEF logo + wordmark (your WordPress page already brands the section). The three security badges stay visible on every step. |
-| `?embed=1` bypasses the chooser | On the portal, `/apply` now shows a "new vs returning borrower" chooser first. The `?embed=1` flag tells the app to skip that chooser and render the blank application form directly, so the embedded WordPress form behaves exactly as before. Returning-customer sign-in is a portal-native flow and is intentionally not offered inside the iframe. |
+| `?embed=1` on the iframe src | Enables embed mode: hides the FEF logo + wordmark by default (your WordPress page already brands the section), sizes the iframe correctly, and reports height to the parent for auto-resize. The three security badges stay visible on every step. |
+| `&header=1` (optional) | Opts the FEF logo + wordmark header back IN while embedded, for hosts that want the branding shown inside the iframe. Omit it to keep the logo hidden. |
+| New-vs-returning chooser in the embed | `/apply` opens on the "new vs returning borrower" gate. "New borrower" continues in the iframe. "Returning customer" breaks the browser out to the portal to sign in (`/apply?returning=1`), because login cookies do not work inside a cross-site iframe; after signing in there, the borrower gets their pre-filled application on the portal. |
 | `style="width:100%; min-height:800px; border:0; display:block;"` | Full-width, no border. The `min-height` is a fallback for the brief moment before the first height message lands so the iframe isn't collapsed to zero on slow connections. |
 | `allow="payment"` | Required for the Square credit-card form on Step 5 to load. Without it, the browser blocks the Square SDK. |
 | `allow="clipboard-write"` | Lets any "copy to clipboard" buttons inside the form work. |
