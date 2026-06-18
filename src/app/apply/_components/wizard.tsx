@@ -43,13 +43,14 @@ function isStillMissing(prefixedName: string, data: ApplicationData): boolean {
   return v === undefined || v === null || v === ""
 }
 
-export function Wizard({ initialData, initialStep, initialToken, isAdmin = false, loanOfficerOptions, variantKind = 'borrower' }: {
+export function Wizard({ initialData, initialStep, initialToken, isAdmin = false, loanOfficerOptions, variantKind = 'borrower', authenticated = false }: {
   initialData: ApplicationData
   initialStep: number
   initialToken: string | null
   isAdmin?: boolean
   loanOfficerOptions: string[]
   variantKind?: VariantKind
+  authenticated?: boolean
 }) {
   const variant = VARIANTS_BY_KIND[variantKind]
   const STEPS = variant.steps
@@ -145,6 +146,9 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   // show a modal directing them to /login.
   const [existingAccountEmail, setExistingAccountEmail] = useState<string | null>(null)
   const checkAccountIfNeeded = useCallback(async (email: string): Promise<boolean> => {
+    // Authenticated returning borrowers already own this account; the duplicate
+    // gate must not fire for them.
+    if (authenticated) return true
     if (variant.features.duplicateAccountBehavior !== 'block') return true
     if (!email || !email.includes('@')) return true
     try {
@@ -163,7 +167,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       // Fail open: network blip shouldn't block a legitimate applicant.
       return true
     }
-  }, [variant.features.duplicateAccountBehavior])
+  }, [variant.features.duplicateAccountBehavior, authenticated])
 
   // Create the draft once we have the primary email (called by Step 1 on email blur).
   const ensureDraft = useCallback(async (email: string, firstName: string) => {
@@ -181,6 +185,18 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       else toast.error(j.error ?? 'Could not start application')
     } catch { toast.error('Network error - please try again') }
   }, [token, data, testMode, variant.endpoints.draftPost, checkAccountIfNeeded])
+
+  // A returning borrower lands with their email pre-filled and never blurs it,
+  // so kick off the draft on mount. Autosave + submit both need a resume token.
+  useEffect(() => {
+    if (!authenticated || token) return
+    const primary = data.primary as Record<string, unknown> | undefined
+    const email = typeof primary?.email === 'string' ? primary.email : ''
+    const firstName = typeof primary?.first_name === 'string' ? primary.first_name : ''
+    if (email) void ensureDraft(email, firstName)
+    // Run once on mount for the authenticated case; ensureDraft self-guards on token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated])
 
   async function submit() {
     setSubmitting(true)
