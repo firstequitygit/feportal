@@ -103,7 +103,19 @@ export function ApplyGate({ loanOfficerOptions, embed = false }: { loanOfficerOp
   }
 
   return (
-    <div className="mx-auto max-w-md px-6 py-10">
+    <div
+      className={
+        embed
+          // Fixed-height band (px, not vh) so the gate sits vertically centered
+          // with the gray background filling the frame and the footer at the
+          // bottom; the height reporter sends this height to the parent so the
+          // iframe matches it. 736px keeps the reported total above a typical
+          // 800px iframe min-height in both header and no-header modes, so the
+          // iframe never floors at its min-height and leaves a white gap.
+          ? 'mx-auto flex min-h-184 w-full max-w-md flex-col justify-center px-6 py-10'
+          : 'mx-auto max-w-md px-6 py-10'
+      }
+    >
       <EmbedHeightReporter />
       {!embed && (
         <div className="mb-8 text-center">
