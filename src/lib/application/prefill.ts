@@ -11,6 +11,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { ApplicationData } from '@/lib/application-fields'
 import { EXPERIENCE_FIELDS, HMDA_FIELDS } from '@/lib/application-fields'
 
+// Escape LIKE metacharacters so an email containing _ or % cannot widen an
+// ilike match into another borrower's row. Backslash is the default LIKE escape.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 // Root-level (un-prefixed) keys that are person-level and safe to carry over.
 const KEEP_ROOT_KEYS: string[] = [
   ...EXPERIENCE_FIELDS.map((f) => f.name),
@@ -67,7 +73,7 @@ export async function loadBorrowerPrefill(email: string): Promise<ApplicationDat
   const { data: app } = await admin
     .from('loan_applications')
     .select('data, created_at')
-    .ilike('resume_email', email)
+    .ilike('resume_email', escapeLike(email))
     .eq('status', 'submitted')
     .order('created_at', { ascending: false })
     .limit(1)
@@ -80,7 +86,7 @@ export async function loadBorrowerPrefill(email: string): Promise<ApplicationDat
   const { data: b } = await admin
     .from('borrowers')
     .select('full_name, email, phone, entity_name, current_address_street, current_address_city, current_address_state, current_address_zip, prior_address_street, prior_address_city, prior_address_state, prior_address_zip')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .maybeSingle()
 
   if (b) return borrowerRowToPrefill(b as Record<string, unknown>)
