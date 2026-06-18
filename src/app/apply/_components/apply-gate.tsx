@@ -39,19 +39,27 @@ export function ApplyGate({ loanOfficerOptions }: { loanOfficerOptions: string[]
     setError('')
     setLoading(true)
     // shouldCreateUser:false: an unknown email never creates an account here.
-    // We always advance to the code screen to avoid email enumeration.
+    // Supabase returns { error: null } for unknown emails (sends nothing silently),
+    // so we always advance to the code screen for valid sends - avoiding email enumeration.
+    // Only genuine send failures (network/config) take the error path.
     try {
-      await supabase.auth.signInWithOtp({
+      const { error: sendError } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: false,
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/apply`,
         },
       })
+      if (sendError) {
+        setError('Could not send a code. Please check your email address and try again.')
+        return
+      }
+      setLoginMode('code')
+    } catch {
+      setError('Could not send a code. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
-    setLoginMode('code')
   }
 
   async function handleVerifyCode(e: React.FormEvent) {
