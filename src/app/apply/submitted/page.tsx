@@ -26,6 +26,11 @@ export default function SubmittedPage() {
             We just emailed you a secure link to activate your account, where you can track your loan,
             upload documents, and message your team.
           </p>
+          <p className="mt-3 text-sm text-slate-600">
+            If this is your first application with us, check your email for a link to set up
+            access to your portal, where you can track your loan and upload documents. If you
+            already have a portal account, your new loan is connected to it automatically.
+          </p>
         </div>
       </div>
 
