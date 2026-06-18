@@ -152,6 +152,7 @@ function TableView({ groups }: { groups: ViewGroup<LoanWithMeta>[] }) {
               <tr className="border-b text-left text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Property</th>
                 <th className="pb-3 pr-4 font-medium">Borrower</th>
+                <th className="pb-3 pr-4 font-medium">Loan Officer</th>
                 <th className="pb-3 pr-4 font-medium">Type</th>
                 <th className="pb-3 pr-4 font-medium">Amount</th>
                 <th className="pb-3 pr-4 font-medium">Stage</th>
@@ -176,7 +177,7 @@ function RenderGroup({ group, showHeader }: { group: ViewGroup<LoanWithMeta>; sh
     <>
       {showHeader && (
         <tr>
-          <td colSpan={7} className="bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+          <td colSpan={8} className="bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
             {group.label} <span className="text-gray-300">·</span> {group.loans.length}
           </td>
         </tr>
@@ -188,6 +189,9 @@ function RenderGroup({ group, showHeader }: { group: ViewGroup<LoanWithMeta>; sh
           </td>
           <td className="py-3 text-gray-600 pr-4">
             {loan.borrowers?.full_name ?? <span className="text-gray-400 italic">Unassigned</span>}
+          </td>
+          <td className="py-3 text-gray-600 pr-4">
+            {loan.loan_officers?.full_name ?? <span className="text-gray-400 italic">Unassigned</span>}
           </td>
           <td className="py-3 text-gray-600 pr-4">{loan.loan_type ?? '—'}</td>
           <td className="py-3 text-gray-600 pr-4 whitespace-nowrap">{formatCurrency(loan.loan_amount)}</td>
