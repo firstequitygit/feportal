@@ -76,6 +76,10 @@ export interface TermSheetInput {
    *  them into fillable Signature + DateSigned fields. The regular
    *  download/preview PDF omits them. */
   esignTags?: boolean
+  /** Show the First Equity logo at the top of each page. Hidden on
+   *  broker-assigned loans (defaults to shown). A same-height spacer
+   *  takes its place so pagination is identical either way. */
+  showLogo?: boolean
 }
 
 // Lazy-load the logo bitmap from the public folder once per
@@ -117,6 +121,12 @@ const styles = StyleSheet.create({
     height: 28.6, // 83 / 766 * 264 ≈ 28.6
     objectFit: 'contain',
     alignSelf: 'center',
+    marginBottom: 14,
+  },
+  // Stand-in for the logo on broker-assigned loans — same vertical
+  // footprint (height + marginBottom) so page breaks land identically.
+  logoSpacer: {
+    height: 28.6,
     marginBottom: 14,
   },
   // Text fallback used only if the logo file can't be read at
@@ -247,7 +257,11 @@ const styles = StyleSheet.create({
 // Header logo at the top of each page. Falls back to the
 // "First Equity Funding" brand wordmark if the bitmap couldn't
 // be read (e.g., asset missing on disk).
-function HeaderLogo() {
+function HeaderLogo({ show = true }: { show?: boolean }) {
+  // Broker-assigned loans omit FE branding — render a same-height
+  // spacer so the rest of the page lays out exactly as it would with
+  // the logo present.
+  if (!show) return <View style={styles.logoSpacer} />
   const logo = getLogoBuffer()
   if (logo) return <Image src={logo} style={styles.logo} />
   return <Text style={styles.brandWordmark}>First Equity Funding</Text>
@@ -277,7 +291,7 @@ function AppRow({ label, value, last }: { label: string; value: React.ReactNode;
 }
 
 export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer> {
-  const { loan, details, borrower, coBorrowerNames, esignTags = false } = input
+  const { loan, details, borrower, coBorrowerNames, esignTags = false, showLogo = true } = input
 
   const isFixFlip = loan.loan_type === 'Fix & Flip (Bridge)' || loan.loan_type === 'New Construction'
   const llcName = loan.entity_name ?? '—'
@@ -315,7 +329,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
     <Document>
       {/* ====== Page 1 — Cover + Clauses 1-2 ====== */}
       <Page size="LETTER" style={styles.page}>
-        <HeaderLogo />
+        <HeaderLogo show={showLogo} />
 
         <Text style={styles.centerTitle}>LOAN TERM SHEET</Text>
         <Text style={styles.centerDate}>{letterDate}</Text>
@@ -404,7 +418,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
 
       {/* ====== Page 2 — Clauses 5-11 + Acceptance (fits on one page) ====== */}
       <Page size="LETTER" style={styles.page}>
-        <HeaderLogo />
+        <HeaderLogo show={showLogo} />
 
         <Clause num={5} title="Collections Costs.">
           <Text>
@@ -512,7 +526,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
 
       {/* ====== Page 3 — Appendix A ====== */}
       <Page size="LETTER" style={styles.page}>
-        <HeaderLogo />
+        <HeaderLogo show={showLogo} />
         <Text style={styles.appHeader}>Appendix A</Text>
 
         <View style={styles.appTable}>
@@ -587,7 +601,7 @@ export async function renderTermSheetPdf(input: TermSheetInput): Promise<Buffer>
 
       {/* ====== Final page — FEES / TITLE / FLOOD / etc. boilerplate ====== */}
       <Page size="LETTER" style={styles.page}>
-        <HeaderLogo />
+        <HeaderLogo show={showLogo} />
 
         <Text style={styles.paragraph}>
           <Text style={styles.boilerHeading}>FEES:</Text> Borrower shall pay all third-party fees

@@ -161,6 +161,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     borrower,
     coBorrowerNames,
     esignTags: true,
+    // Logo only on borrower-only loans — same branding rule as the
+    // download/preview. The same-height spacer keeps the e-sign tag
+    // positions identical whether the logo shows or not.
+    showLogo: !(loan.broker_id || loan.broker_id_2),
   })
 
   const loanName = formatLoanName({

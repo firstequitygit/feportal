@@ -117,6 +117,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     },
     borrower,
     coBorrowerNames,
+    // Logo only on borrower-only loans; broker-assigned term sheets
+    // go out without FE branding.
+    showLogo: !(loan.broker_id || loan.broker_id_2),
   })
 
   // Filename uses the loan name so the downloaded file is easy to

@@ -150,6 +150,9 @@ export default async function TermSheetPage({ params }: { params: Promise<{ id: 
       borrower={borrower}
       coBorrowerNames={coBorrowerNames}
       backHref={backHref}
+      // Logo only appears on borrower-only loans. When a broker is on
+      // the file, the term sheet goes out without FE branding.
+      showLogo={!(loan.broker_id || loan.broker_id_2)}
       esign={{
         enabled: esignEnabled,
         status: esignStatus,

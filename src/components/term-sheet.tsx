@@ -89,6 +89,9 @@ interface Props {
   coBorrowerNames: string[]
   backHref: string
   esign?: EsignState
+  /** Whether to show the First Equity logo. Hidden on broker-assigned
+   *  loans — those term sheets go out under the broker, not FE branding. */
+  showLogo?: boolean
 }
 
 const ESIGN_STATUS_LABELS: Record<string, { label: string; classes: string }> = {
@@ -101,7 +104,7 @@ const ESIGN_STATUS_LABELS: Record<string, { label: string; classes: string }> = 
   expired:   { label: 'Expired',           classes: 'bg-gray-100 text-gray-600 border-gray-200' },
 }
 
-export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, backHref, esign }: Props) {
+export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, backHref, esign, showLogo = true }: Props) {
   const [sending, setSending] = useState(false)
 
   async function sendForSignature() {
@@ -211,7 +214,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
         >
           {/* ---- Page 1 — Cover ---- */}
           <PageBlock>
-            <LogoBar />
+            <LogoBar show={showLogo} />
 
             <h1 className="text-sm font-bold text-center mt-4">LOAN TERM SHEET</h1>
             <div className="text-center mt-1">
@@ -288,7 +291,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
 
           {/* ---- Page 2 — Clauses 3-11 ---- */}
           <PageBlock>
-            <LogoBar />
+            <LogoBar show={showLogo} />
             <div className="mt-6">
               <NumberedClause num={3} title="Timing.">
                 <p>
@@ -381,7 +384,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
 
           {/* ---- Page 3 — Acceptance ---- */}
           <PageBlock>
-            <LogoBar />
+            <LogoBar show={showLogo} />
             <div className="mt-8">
               <p className="font-semibold underline">Acceptance:</p>
               <p className="mt-3">
@@ -413,7 +416,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
 
           {/* ---- Page 4 — Appendix A ---- */}
           <PageBlock>
-            <LogoBar />
+            <LogoBar show={showLogo} />
             <h2 className="text-center font-bold mt-8">Appendix A</h2>
 
             <div className="mt-4 border border-gray-300">
@@ -500,7 +503,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
           {/* ---- Page 5 — Fix&Flip extras (3-month ext / insurance / expiration / additional fees) ---- */}
           {isFixFlip && (
             <PageBlock>
-              <LogoBar />
+              <LogoBar show={showLogo} />
               <div className="mt-8 border border-gray-300">
                 <AppRow
                   label="3 Month Extension:"
@@ -542,7 +545,7 @@ export function TermSheet({ loanId, loan, details, borrower, coBorrowerNames, ba
 
           {/* ---- Final page — FEES / TITLE / FLOOD / etc. boilerplate ---- */}
           <PageBlock>
-            <LogoBar />
+            <LogoBar show={showLogo} />
             <div className="mt-8 space-y-4">
               <p>
                 <span className="font-bold underline">FEES:</span> Borrower shall pay all third-party fees
@@ -660,7 +663,10 @@ function PrintStyles() {
   )
 }
 
-function LogoBar() {
+function LogoBar({ show = true }: { show?: boolean }) {
+  // Hidden on broker-assigned loans — keep a same-height spacer so the
+  // page's top spacing is unchanged.
+  if (!show) return <div className="h-12" aria-hidden />
   return (
     <Image
       src="/logo-main.png"
