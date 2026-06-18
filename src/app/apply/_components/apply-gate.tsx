@@ -111,8 +111,10 @@ export function ApplyGate({ loanOfficerOptions, embed = false }: { loanOfficerOp
           // bottom; the height reporter sends this height to the parent so the
           // iframe matches it. 736px keeps the reported total above a typical
           // 800px iframe min-height in both header and no-header modes, so the
-          // iframe never floors at its min-height and leaves a white gap.
-          ? 'mx-auto flex min-h-184 w-full max-w-md flex-col justify-center px-6 py-10'
+          // iframe never floors at its min-height and leaves a white gap. The
+          // gate favors the top (justify-start with a comfortable top offset)
+          // rather than dead-center, which reads better on tall mobile frames.
+          ? 'mx-auto flex min-h-184 w-full max-w-md flex-col justify-start px-6 pb-10 pt-16 sm:pt-24'
           : 'mx-auto max-w-md px-6 py-10'
       }
     >
