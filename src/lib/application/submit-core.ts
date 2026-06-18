@@ -7,6 +7,7 @@ import {
   sendBorrowerSubmittedNotifications,
   sendBrokerSubmittedNotifications,
 } from './notify'
+import { sendNewApplicantAccessEmail } from './new-account-email'
 
 export type Variant = 'borrower' | 'broker'
 
@@ -161,6 +162,33 @@ export async function submitApplication(
       console.error('Application notifications failed:', err)
     }
   })
+
+  // 7. New-borrower portal account + access email (borrower variant only),
+  //    off the response critical path. The borrowers row was upserted in step 1
+  //    without an auth_user_id; if it is still unlinked, this is a brand-new
+  //    borrower and we create their account + email them access instructions.
+  //    A returning borrower already has auth_user_id, so this is a no-op and no
+  //    duplicate access email is sent. A mail/auth failure never fails submit.
+  if (variant === 'borrower') {
+    const primaryEmail = m.borrowers[0]?.email?.toLowerCase() ?? null
+    const primaryName = m.borrowers[0]?.full_name ?? undefined
+    if (primaryEmail) {
+      after(async () => {
+        try {
+          const { data: brow } = await admin
+            .from('borrowers')
+            .select('auth_user_id')
+            .eq('email', primaryEmail)
+            .maybeSingle()
+          if (brow && !brow.auth_user_id) {
+            await sendNewApplicantAccessEmail(primaryEmail, primaryName)
+          }
+        } catch (err) {
+          console.error('New applicant access email failed:', err)
+        }
+      })
+    }
+  }
 
   return { ok: true, loanId, authorizeToken }
 }

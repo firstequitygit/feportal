@@ -26,6 +26,8 @@ type Props = {
   afterSection?: Record<string, React.ReactNode>
   /** Replaces the static options/optionsWhen list for the keyed field name. */
   optionsOverride?: Record<string, readonly string[]>
+  /** Field names that should be rendered as read-only (disabled). */
+  readOnlyFields?: string[]
 }
 
 // Shared focus + border classes applied across all input types
@@ -38,7 +40,7 @@ function inputClasses(isInvalid: boolean) {
   return `${baseInputClasses} ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`
 }
 
-export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection, optionsOverride }: Props) {
+export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection, optionsOverride, readOnlyFields }: Props) {
   const [blurErrors, setBlurErrors] = useState<Record<string, string | null>>({})
 
   function handleBlur(name: string, type: string, value: unknown) {
@@ -213,6 +215,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                           placeholder={f.placeholder}
                           className={isInvalid ? 'border-red-500 h-10 pl-10 rounded-md' : `${validBorder} ${focusClasses} h-10 pl-10 rounded-md`}
                           aria-invalid={isInvalid || undefined}
+                          disabled={readOnlyFields?.includes(f.name) || undefined}
                           value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
                           onBlur={() => handleBlur(f.name, f.type, v)} />
                       </div>
@@ -223,6 +226,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         placeholder={f.placeholder}
                         className={isInvalid ? 'border-red-500 h-10 rounded-md' : `${validBorder} ${focusClasses} h-10 rounded-md`}
                         aria-invalid={isInvalid || undefined}
+                        disabled={readOnlyFields?.includes(f.name) || undefined}
                         value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
                         onBlur={() => handleBlur(f.name, f.type, v)} />
                     )

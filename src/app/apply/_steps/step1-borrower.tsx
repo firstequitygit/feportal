@@ -4,7 +4,7 @@ import { BORROWER_FIELDS, PRIMARY_EXTRA_FIELDS, type ApplicationData, type Field
 import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingBorrowers } from '../_components/repeating-borrowers'
 
-export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOfficerOptions, primaryExtraFields, brokerInfoFields }: {
+export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOfficerOptions, primaryExtraFields, brokerInfoFields, readOnlyPrimaryFields }: {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   ensureDraft: (email: string, firstName: string) => void
@@ -17,6 +17,8 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOffic
    *  prominent "Broker Information" block ABOVE the borrower section so
    *  the broker's own info clearly leads the page. */
   brokerInfoFields?: FieldDef[]
+  /** Field names on the primary borrower that should be rendered read-only. */
+  readOnlyPrimaryFields?: string[]
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const setPrimary = (name: string, value: unknown) => {
@@ -44,6 +46,7 @@ export function Step1Borrower({ data, set, ensureDraft, missingFields, loanOffic
         idPrefix="primary."
         missingFields={missingFields}
         optionsOverride={{ loan_officer_assigned: loanOfficerOptions }}
+        readOnlyFields={readOnlyPrimaryFields}
       />
       <div className="pt-2">
         <h3 className="mb-4 text-base font-semibold text-gray-900">Co-Borrowers</h3>
