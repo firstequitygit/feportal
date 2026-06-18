@@ -3,6 +3,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Wizard } from './wizard'
 
 type View = 'choose' | 'new' | 'login'
@@ -88,98 +92,118 @@ export function ApplyGate({ loanOfficerOptions }: { loanOfficerOptions: string[]
       </div>
 
       {view === 'choose' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-gray-900">Apply for a loan</h1>
-          <p className="mt-1 text-sm text-gray-500">Let us know if you have worked with us before.</p>
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setView('new')}
-              className="inline-flex h-12 items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E]"
-            >
-              I am a new borrower
-            </button>
-            <button
-              type="button"
-              onClick={() => { setView('login'); setLoginMode('email'); setError('') }}
-              className="inline-flex h-12 items-center justify-center rounded-md border border-gray-300 px-5 text-base font-medium text-gray-700 transition-colors hover:border-[#1F5D8F] hover:text-[#1F5D8F]"
-            >
-              I am a returning customer
-            </button>
-          </div>
-          <p className="mt-4 text-center text-xs text-gray-400">
-            Returning customers sign in so we can pre-fill your saved information.
-          </p>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply for a loan</CardTitle>
+            <CardDescription>Let us know if you have worked with us before.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                className="h-12 text-base font-semibold"
+                onClick={() => setView('new')}
+              >
+                I am a new borrower
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 text-base font-medium"
+                onClick={() => { setView('login'); setLoginMode('email'); setError('') }}
+              >
+                I am a returning customer
+              </Button>
+            </div>
+            <p className="mt-4 text-center text-xs text-gray-400">
+              Returning customers sign in so we can pre-fill your saved information.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {view === 'login' && loginMode === 'email' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-gray-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-gray-500">Enter your email and we will send you a sign-in code.</p>
-          <form onSubmit={handleSendCode} className="mt-5 space-y-4">
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-11 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#1F5D8F]"
-            />
-            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <Card>
+          <CardHeader>
+            <CardTitle>Welcome back</CardTitle>
+            <CardDescription>Enter your email and we will send you a sign-in code.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSendCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="apply-email">Email address</Label>
+                <Input
+                  id="apply-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              {error && (
+                <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error}</p>
+              )}
+              <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
+                {loading ? 'Sending…' : 'Send sign-in code'}
+              </Button>
+            </form>
             <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] disabled:opacity-60"
+              type="button"
+              onClick={() => { setView('choose'); setError('') }}
+              className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-800"
             >
-              {loading ? 'Sending…' : 'Send sign-in code'}
+              ← I am actually a new borrower
             </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => { setView('choose'); setError('') }}
-            className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-800"
-          >
-            ← I am actually a new borrower
-          </button>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {view === 'login' && loginMode === 'code' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-gray-900">Check your email</h1>
-          <p className="mt-1 text-sm text-gray-500">We sent a 6-digit code to <strong>{email}</strong>. Enter it below.</p>
-          <form onSubmit={handleVerifyCode} className="mt-5 space-y-4">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              placeholder="123456"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              required
-              autoFocus
-              className="h-11 w-full rounded-md border border-gray-300 px-3 text-sm tracking-widest outline-none focus:border-[#1F5D8F]"
-            />
-            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <Card>
+          <CardHeader>
+            <CardTitle>Check your email</CardTitle>
+            <CardDescription>We sent a 6-digit code to <strong>{email}</strong>. Enter it below.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="apply-code">Sign-in code</Label>
+                <Input
+                  id="apply-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  autoFocus
+                  className="tracking-widest"
+                />
+              </div>
+              {error && (
+                <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error}</p>
+              )}
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-semibold"
+                disabled={loading || code.length !== 6}
+              >
+                {loading ? 'Verifying…' : 'Verify and continue'}
+              </Button>
+            </form>
             <button
-              type="submit"
-              disabled={loading || code.length !== 6}
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] disabled:opacity-60"
+              type="button"
+              onClick={() => { setLoginMode('email'); setCode(''); setError('') }}
+              className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-800"
             >
-              {loading ? 'Verifying…' : 'Verify and continue'}
+              Use a different email
             </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => { setLoginMode('email'); setCode(''); setError('') }}
-            className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-800"
-          >
-            Use a different email
-          </button>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
