@@ -6,16 +6,18 @@ import { useSearchParams } from "next/navigation"
 /** Top-of-page branded header for /apply. Renders the FEF logo + wordmark on
  *  top and the three security badges below. When the page is loaded with
  *  ?embed=1 (i.e. inside a WordPress iframe), the logo+wordmark strip hides
- *  to avoid double-branding with the host site — but the security badges
+ *  to avoid double-branding with the host site - but the security badges
  *  persist on every step because they're the only trust signal a user sees
- *  inside the iframe. */
+ *  inside the iframe. Passing ?header=1 alongside ?embed=1 opts back into the
+ *  logo+wordmark strip for hosts that want the FEF branding shown in the iframe. */
 export function BrandedHeader() {
   const searchParams = useSearchParams()
   const embed = searchParams.get('embed') === '1'
+  const showHeader = searchParams.get('header') === '1'
 
   return (
     <>
-      {!embed && (
+      {(!embed || showHeader) && (
         <>
           <div className="h-1 bg-[#1F5D8F]" aria-hidden />
           <header className="border-b border-gray-200 bg-white">
