@@ -8,6 +8,8 @@ import { LoanProgressTracker } from '@/components/loan-progress-tracker'
 import { LoanRealtimeRefresh } from '@/components/loan-realtime-refresh'
 import { PortalShell } from '@/components/portal-shell'
 import { ConditionsList } from '@/components/conditions-list'
+import { CollapsibleCard } from '@/components/collapsible-card'
+import { DocumentsList } from '@/components/documents-list'
 import { formatLoanName } from '@/lib/format-loan-name'
 import { formatDate } from '@/lib/format-date'
 import { formatInterestRate } from '@/lib/format-interest-rate'
@@ -102,6 +104,30 @@ export default async function BrokerLoanPage({
     current_address_state: string | null
     current_address_zip: string | null
   } | null
+
+  // Documents the broker may see: only those attached to a
+  // borrower-assigned condition (null assigned_to counts as borrower,
+  // matching ConditionsList). Docs on internal staff conditions
+  // (LP / UW / closer) stay hidden.
+  const borrowerConditionIds = new Set(
+    (conditions ?? [])
+      .filter(c => !c.assigned_to || c.assigned_to === 'borrower')
+      .map(c => c.id),
+  )
+  const borrowerConditionMap: Record<string, string> = {}
+  for (const c of conditions ?? []) {
+    if (borrowerConditionIds.has(c.id)) borrowerConditionMap[c.id] = c.title
+  }
+  const visibleDocs = (documents ?? [])
+    .filter(d => d.condition_id && borrowerConditionIds.has(d.condition_id))
+    .map(d => ({
+      id: d.id,
+      file_name: d.file_name,
+      file_size: d.file_size,
+      created_at: d.created_at,
+      condition_id: d.condition_id,
+      signedUrl: signedUrlMap[d.id] ?? null,
+    }))
 
   return (
     <PortalShell
@@ -270,6 +296,28 @@ export default async function BrokerLoanPage({
         documents={(documents ?? []) as Document[]}
         signedUrlMap={signedUrlMap}
       />
+
+      {/* Documents — files attached to the borrower's conditions, in
+          one place with select + download. Internal staff-condition
+          docs are filtered out above. */}
+      {visibleDocs.length > 0 && (
+        <div className="mt-6">
+          <CollapsibleCard
+            title={
+              <>
+                Documents
+                <span className="ml-2 text-sm font-normal text-gray-500">{visibleDocs.length} file{visibleDocs.length !== 1 ? 's' : ''}</span>
+              </>
+            }
+          >
+            <DocumentsList
+              documents={visibleDocs}
+              conditionMap={borrowerConditionMap}
+              zipFilenamePrefix={loan.property_address ?? `loan-${loan.id}`}
+            />
+          </CollapsibleCard>
+        </div>
+      )}
 
       {/* Recent Activity is staff-only — surfaces things like underwriter
           assignments and other internal events that don't belong on the
