@@ -33,14 +33,19 @@ export async function DELETE(req: NextRequest) {
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
 
-  // Resolve which role this user holds
-  const [{ data: lo }, { data: lp }, { data: uw }] = await Promise.all([
+  // Resolve which role this user holds. Admins can delete any
+  // document (this powers the Documents-section delete button, which
+  // is admin-only in the UI); LO/LP/UW can delete docs on loans they're
+  // assigned to (per-condition ✕ buttons).
+  const [{ data: admin }, { data: lo }, { data: lp }, { data: uw }] = await Promise.all([
+    adminClient.from('admin_users').select('id').eq('auth_user_id', user.id).single(),
     adminClient.from('loan_officers').select('id').eq('auth_user_id', user.id).single(),
     adminClient.from('loan_processors').select('id, is_ops_manager').eq('auth_user_id', user.id).single(),
     adminClient.from('underwriters').select('id').eq('auth_user_id', user.id).single(),
   ])
 
   const authorized =
+    !!admin ||
     (lo && loan.loan_officer_id === lo.id) ||
     (lp && (lp.is_ops_manager || loan.loan_processor_id === lp.id || loan.loan_processor_id_2 === lp.id)) ||
     (uw && loan.underwriter_id === uw.id)
@@ -67,7 +72,7 @@ export async function DELETE(req: NextRequest) {
 
   // Log event
   try {
-    const actor = lo ? 'Loan Officer' : lp ? 'Loan Processor' : 'Underwriter'
+    const actor = admin ? 'Admin' : lo ? 'Loan Officer' : lp ? 'Loan Processor' : 'Underwriter'
     await adminClient.from('loan_events').insert({
       loan_id: doc.loan_id,
       event_type: 'document_deleted',

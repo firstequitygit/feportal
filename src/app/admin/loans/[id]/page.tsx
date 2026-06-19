@@ -394,6 +394,10 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               }))}
               conditionMap={conditionMap}
               zipFilenamePrefix={loan.property_address ?? `loan-${id}`}
+              // Admin-only: only this page passes canDelete, so the
+              // delete button never appears on LO/LP/UW or borrower
+              // /broker Documents sections.
+              canDelete
             />
         </CollapsibleCard>
         </div>

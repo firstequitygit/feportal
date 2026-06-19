@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import JSZip from 'jszip'
-import { Download, Loader2 } from 'lucide-react'
+import { Download, Loader2, Trash2 } from 'lucide-react'
 import { DocumentPreviewLink } from '@/components/document-preview-link'
 
 export interface DocumentRow {
@@ -20,6 +20,9 @@ interface Props {
   conditionMap?: Record<string, string>
   /** Prefix used in the downloaded zip filename. Spaces/slashes/etc. are sanitized. */
   zipFilenamePrefix?: string
+  /** When true, show a per-row delete button. Admin-only — the API
+   *  (/api/documents DELETE) independently enforces authorization. */
+  canDelete?: boolean
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -46,13 +49,39 @@ function uniquifyName(name: string, used: Set<string>): string {
   return out
 }
 
-export function DocumentsList({ documents, conditionMap, zipFilenamePrefix }: Props) {
-  const downloadable = useMemo(() => documents.filter(d => d.signedUrl), [documents])
+export function DocumentsList({ documents, conditionMap, zipFilenamePrefix, canDelete = false }: Props) {
+  // Local copy so an admin delete drops the row instantly without a
+  // full page reload. Seeded from props (server-rendered once).
+  const [docs, setDocs] = useState<DocumentRow[]>(documents)
+  const downloadable = useMemo(() => docs.filter(d => d.signedUrl), [docs])
 
   // Selection state — only over rows that actually have a signedUrl.
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function deleteDoc(id: string, fileName: string) {
+    if (deletingId) return
+    if (!confirm(`Delete "${fileName}"? This permanently removes the file and cannot be undone.`)) return
+    setDeletingId(id)
+    setError(null)
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.success) throw new Error(data.error ?? 'Delete failed')
+      setDocs(prev => prev.filter(d => d.id !== id))
+      setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const allSelected = downloadable.length > 0 && selected.size === downloadable.length
   const someSelected = selected.size > 0 && !allSelected
@@ -127,7 +156,7 @@ export function DocumentsList({ documents, conditionMap, zipFilenamePrefix }: Pr
     URL.revokeObjectURL(url)
   }
 
-  if (documents.length === 0) {
+  if (docs.length === 0) {
     return <p className="text-sm text-gray-500 py-2">No documents uploaded yet.</p>
   }
 
@@ -168,7 +197,7 @@ export function DocumentsList({ documents, conditionMap, zipFilenamePrefix }: Pr
 
       {/* Rows */}
       <div className="divide-y divide-gray-100">
-        {documents.map(doc => {
+        {docs.map(doc => {
           const conditionLabel = doc.condition_id ? conditionMap?.[doc.condition_id] : undefined
           const isSelectable = !!doc.signedUrl
           return (
@@ -205,6 +234,20 @@ export function DocumentsList({ documents, conditionMap, zipFilenamePrefix }: Pr
                 <span className="text-xs text-gray-400 whitespace-nowrap">
                   {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => deleteDoc(doc.id, doc.file_name)}
+                    disabled={deletingId === doc.id}
+                    title="Delete document"
+                    aria-label={`Delete ${doc.file_name}`}
+                    className="text-gray-300 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {deletingId === doc.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />}
+                  </button>
+                )}
               </div>
             </div>
           )
