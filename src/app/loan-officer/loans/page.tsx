@@ -6,6 +6,7 @@ import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { fetchLatestStaffNotesByLoan } from '@/lib/fetch-closer-notes'
 import { fetchLoanActivityMaps } from '@/lib/loans/fetch-loan-activity'
+import { fetchCardOrder } from '@/lib/loans/fetch-card-order'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 import { getEffectiveStaffContext } from '@/lib/staff-context'
@@ -98,6 +99,9 @@ export default async function LoanOfficerLoansPage() {
   // can surface it inline. One query, scoped to this LO's loan ids.
   const latestNotesByLoan = await fetchLatestStaffNotesByLoan(adminClient, loanIds)
 
+  // This LO's manual card order (null until the migration runs → feature off).
+  const cardOrderMap = await fetchCardOrder(adminClient, ctx.staff_user.auth_user_id, loanIds)
+
   const impersonation = await resolveImpersonation(adminClient, ctx.staff_user.auth_user_id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_officer'
 
@@ -120,6 +124,7 @@ export default async function LoanOfficerLoansPage() {
         // LOs track processor progress — their default sort is by the
         // LP's last update (stalest first), per Adam's spec.
         defaultSort={{ sort: 'lp_activity', dir: 'asc' }}
+        manualOrderMap={cardOrderMap ?? undefined}
         linkPrefix="/loan-officer"
         hideLoanOfficerDimensions
       />

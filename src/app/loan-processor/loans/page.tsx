@@ -8,6 +8,7 @@ import { DashboardStats } from '@/components/dashboard-stats'
 import { computeDashboardMetrics } from '@/lib/dashboard-metrics'
 import { fetchLatestStaffNotesByLoan } from '@/lib/fetch-closer-notes'
 import { fetchLoanActivityMaps } from '@/lib/loans/fetch-loan-activity'
+import { fetchCardOrder } from '@/lib/loans/fetch-card-order'
 import { type Loan, type OutstandingCounts } from '@/lib/types'
 import { getEffectiveRoleRow, resolveImpersonation, impersonationExitHref } from '@/lib/impersonate'
 
@@ -123,6 +124,9 @@ export default async function LoanProcessorLoansPage() {
   // Latest Closer Notes per loan for inline display on each card.
   const latestNotesByLoan = await fetchLatestStaffNotesByLoan(adminClient, loanIds)
 
+  // This LP's manual card order (null until the migration runs → feature off).
+  const cardOrderMap = await fetchCardOrder(adminClient, user.id, loanIds)
+
   const impersonation = await resolveImpersonation(adminClient, user.id, undefined)
   const isImpersonating = impersonation?.kind === 'loan_processor'
 
@@ -148,6 +152,7 @@ export default async function LoanProcessorLoansPage() {
         latestNotesByLoan={latestNotesByLoan}
         roleActivityMap={roleActivityMap}
         defaultSort={{ sort: 'lp_activity', dir: 'asc' }}
+        manualOrderMap={cardOrderMap ?? undefined}
         linkPrefix="/loan-processor"
       />
     </PortalShell>

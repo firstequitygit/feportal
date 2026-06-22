@@ -2,7 +2,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { FileX } from 'lucide-react'
+import { FileX, GripVertical } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -15,20 +15,61 @@ import {
   useDroppable,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent } from '@/components/ui/card'
 import { type Loan, type OutstandingCounts, type PipelineStage, PIPELINE_STAGES } from '@/lib/types'
 import { LoanCard } from '@/components/loans/loan-card'
 import { GroupHeader } from '@/components/loans/group-header'
 import { LoanListToolbar } from '@/components/loans/loan-list-toolbar'
 import { useLoanListView, type SortDefaults } from '@/lib/loans/view-state'
+import { DEFAULT_VIEW_STATE } from '@/lib/loans/view-state'
 import { applyView, type ViewLoan } from '@/lib/loans/apply-view'
 import { formatLoanName } from '@/lib/format-loan-name'
 import { RoleActivityStamps, type RoleActivity } from '@/components/loans/role-activity-stamp'
 import { useImpersonation } from '@/components/impersonation-provider'
 import type { LatestStaffNotes } from '@/lib/fetch-closer-notes'
+import type { CardOrderEntry } from '@/lib/loans/fetch-card-order'
 
 const ZERO_COUNTS: OutstandingCounts = { you: 0, borrower: 0, team: 0, total: 0 }
 const BOARD_STAGES = PIPELINE_STAGES.slice(0, 6) // exclude 'Closed'
+
+/**
+ * Apply a user's manual card pins over a default-sorted stage group.
+ *
+ * Absolute-slot model: un-pinned cards stay in default order; each
+ * pinned card (whose pin.stage matches this group) splices into its
+ * saved slot index. Pins are inserted in ascending slot order; a tie
+ * on the same slot goes to the more recently dragged card. A loan
+ * whose pin was made in a different stage is treated as un-pinned
+ * (its pin reset when it changed stage).
+ */
+function applyManualOrder<L extends { id: string }>(
+  loans: L[],
+  stageKey: string,
+  pins: Record<string, CardOrderEntry>,
+): L[] {
+  const pinned: Array<{ loan: L; position: number; updatedAt: number }> = []
+  const unpinned: L[] = []
+  for (const loan of loans) {
+    const p = pins[loan.id]
+    if (p && p.stage === stageKey) pinned.push({ loan, position: p.position, updatedAt: p.updatedAt })
+    else unpinned.push(loan)
+  }
+  if (pinned.length === 0) return loans
+  pinned.sort((a, b) => a.position - b.position || b.updatedAt - a.updatedAt)
+  const result = unpinned.slice()
+  for (const { loan, position } of pinned) {
+    const idx = Math.max(0, Math.min(Math.round(position), result.length))
+    result.splice(idx, 0, loan)
+  }
+  return result
+}
 
 export type LoanWithBorrower = Loan & {
   borrowers?: { full_name: string | null; email: string } | null
@@ -51,6 +92,10 @@ interface Props {
   /** Page-level default sort (e.g. stalest-LP-first on the LP page).
    *  Users can still change the sort in the toolbar. */
   defaultSort?: SortDefaults
+  /** loan_id → this user's saved manual slot for the stage-grouped list.
+   *  Presence (even when empty) turns ON drag-to-reorder; undefined keeps
+   *  it off (e.g. before the loan_card_order migration has run). */
+  manualOrderMap?: Record<string, CardOrderEntry>
   linkPrefix: string
   /**
    * When true, hides Loan-officer filter / group dimensions in the toolbar.
@@ -93,6 +138,7 @@ export function LoanListSorted({
   latestNotesByLoan,
   roleActivityMap,
   defaultSort,
+  manualOrderMap,
   linkPrefix,
   hideLoanOfficerDimensions = false,
 }: Props) {
@@ -162,6 +208,33 @@ export function LoanListSorted({
     }
   }, [allLoans, isImpersonating, router, stageOverrides])
 
+  // ---- Manual card ordering (list view, grouped by stage, default sort) ----
+  // Optimistic overrides layered over the server's saved pins so a drag
+  // shows instantly; a failed save reverts the override.
+  const [pinOverrides, setPinOverrides] = useState<Record<string, CardOrderEntry>>({})
+  const effectivePins = useMemo<Record<string, CardOrderEntry>>(
+    () => ({ ...(manualOrderMap ?? {}), ...pinOverrides }),
+    [manualOrderMap, pinOverrides],
+  )
+
+  // Manual order applies only on the default sort — an explicit sort the
+  // user picks overrides the saved arrangement (it reappears on default).
+  const sortIsDefault =
+    state.sort === (defaultSort?.sort ?? DEFAULT_VIEW_STATE.sort) &&
+    state.dir === (defaultSort?.dir ?? DEFAULT_VIEW_STATE.dir)
+
+  const manualEnabled =
+    manualOrderMap !== undefined &&
+    !isImpersonating &&
+    state.view === 'list' &&
+    state.group === 'pipeline_stage' &&
+    sortIsDefault
+
+  const listSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
   const loanOfficers = useMemo(
     () =>
       uniquePeople(allLoans, l =>
@@ -192,6 +265,57 @@ export function LoanListSorted({
     () => applyView(allLoans as ViewLoan[], state, { lastUpdatedMap, roleActivityMap }) as ReturnType<typeof applyView<LoanWithBorrower>>,
     [allLoans, state, lastUpdatedMap, roleActivityMap],
   )
+
+  // Groups as actually rendered: when manual ordering is active, each
+  // stage group's cards are re-ordered by the user's pins; otherwise the
+  // default-sorted groups pass through untouched.
+  const renderGroups = useMemo(
+    () =>
+      manualEnabled
+        ? groups.map(g => ({ ...g, loans: applyManualOrder(g.loans, g.key, effectivePins) }))
+        : groups,
+    [groups, manualEnabled, effectivePins],
+  )
+
+  // Drag-to-reorder within a stage group (list view). Pins ONLY the
+  // dragged card to its dropped slot; other cards keep flowing in
+  // default order. Cross-group drops are ignored (changing stage is the
+  // board view's job).
+  const onListReorder = useCallback(async (event: DragEndEvent) => {
+    if (isImpersonating) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    const group = renderGroups.find(g => g.loans.some(l => l.id === activeId))
+    if (!group) return
+    const ids = group.loans.map(l => l.id)
+    const newIndex = ids.indexOf(overId)
+    if (newIndex < 0) return // dropped outside this group → ignore
+    if (ids.indexOf(activeId) === newIndex) return
+
+    const stage = group.key
+    setPinOverrides(prev => ({
+      ...prev,
+      [activeId]: { stage, position: newIndex, updatedAt: Date.now() },
+    }))
+    try {
+      const res = await fetch('/api/loans/card-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loanId: activeId, stage, position: newIndex }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!data?.success) throw new Error(data?.error ?? 'Could not save order')
+    } catch {
+      // Revert the optimistic move on failure.
+      setPinOverrides(prev => {
+        const next = { ...prev }
+        delete next[activeId]
+        return next
+      })
+    }
+  }, [isImpersonating, renderGroups])
 
   // On Hold loans live in a separate bucket at the bottom of the list,
   // regardless of the current loan_status filter (default = ['active']).
@@ -269,7 +393,7 @@ export function LoanListSorted({
 
           {state.group === 'none' ? (
             <div className="space-y-2">
-              {groups[0]?.loans.map(loan => (
+              {renderGroups[0]?.loans.map(loan => (
                 <LoanCard
                   key={loan.id}
                   loan={loan}
@@ -280,10 +404,26 @@ export function LoanListSorted({
                 />
               ))}
             </div>
-          ) : (
-            groups.map(group => {
+          ) : (() => {
+            const sections = renderGroups.map(group => {
               const isCollapsed = collapsed.has(group.key)
               const groupAmount = group.loans.reduce((sum, l) => sum + (l.loan_amount ?? 0), 0)
+              const ids = group.loans.map(l => l.id)
+              const cards = group.loans.map(loan => {
+                const cardProps = {
+                  loan,
+                  outstanding: outstandingMap[loan.id] ?? ZERO_COUNTS,
+                  linkPrefix,
+                  latestNotes: latestNotesByLoan?.[loan.id] ?? null,
+                  roleActivity: roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null,
+                  // Grouped by stage → sticky stage header makes the
+                  // per-card stage pill redundant.
+                  hideStagePill: state.group === 'pipeline_stage',
+                }
+                return manualEnabled
+                  ? <SortableLoanCard key={loan.id} {...cardProps} />
+                  : <LoanCard key={loan.id} {...cardProps} />
+              })
               return (
                 <section key={group.key}>
                   <GroupHeader
@@ -294,26 +434,21 @@ export function LoanListSorted({
                     onToggle={() => toggleGroup(group.key)}
                   />
                   {!isCollapsed && (
-                    <div className="space-y-1.5">
-                      {group.loans.map(loan => (
-                        <LoanCard
-                          key={loan.id}
-                          loan={loan}
-                          outstanding={outstandingMap[loan.id] ?? ZERO_COUNTS}
-                          linkPrefix={linkPrefix}
-                          latestNotes={latestNotesByLoan?.[loan.id] ?? null}
-                          roleActivity={roleActivityMap ? roleActivityMap[loan.id] ?? { lp: null, uw: null } : null}
-                          // Grouped by stage → sticky stage header makes
-                          // the per-card stage pill redundant.
-                          hideStagePill={state.group === 'pipeline_stage'}
-                        />
-                      ))}
-                    </div>
+                    manualEnabled ? (
+                      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-1.5">{cards}</div>
+                      </SortableContext>
+                    ) : (
+                      <div className="space-y-1.5">{cards}</div>
+                    )
                   )}
                 </section>
               )
             })
-          )}
+            return manualEnabled
+              ? <DndContext sensors={listSensors} onDragEnd={onListReorder}>{sections}</DndContext>
+              : <>{sections}</>
+          })()}
 
           {/* On Hold bucket — always rendered at the bottom regardless of
               the current loan_status filter. Default collapsed. Held loans
@@ -371,6 +506,38 @@ function formatCompactCurrency(val: number | null): string {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(val)
+}
+
+// Loan card with a drag handle for manual reordering. Only the grip
+// carries the drag listeners, so the card itself stays a normal
+// click-through link.
+function SortableLoanCard(props: React.ComponentProps<typeof LoanCard>) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: props.loan.id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-stretch gap-1 ${isDragging ? 'opacity-90' : ''}`}>
+      <button
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        type="button"
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+        className="shrink-0 flex items-center px-0.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <LoanCard {...props} />
+      </div>
+    </div>
+  )
 }
 
 function boardAccentClass(loan: LoanWithBorrower, outstanding: OutstandingCounts): string {
