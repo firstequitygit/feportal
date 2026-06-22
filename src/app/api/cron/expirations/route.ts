@@ -30,7 +30,7 @@ const CREDIT_VALID_DAYS = 90
 // stays short because lock windows themselves are short (15-45 days).
 const WINDOWS_BY_KIND: Record<ExpirationKind, number[]> = {
   rate_lock: [5, 0],
-  appraisal: [15, 5, 0],
+  appraisal: [15, 10, 5, 0],
   credit:    [15, 5, 0],
   maturity:  [45, 15, 5, 0],
 }
