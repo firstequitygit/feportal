@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     squareCustomerId: app.square_customer_id,
     squareCardId: app.square_card_id,
     feeAmountCents: app.fee_amount_cents,
-    idempotencyKey: `charge:${app.id}`,
+    idempotencyKey: `charge:${app.id}:${app.square_card_id}`,
     note: `Credit & Background Check - loan ${id}`,
   })
 

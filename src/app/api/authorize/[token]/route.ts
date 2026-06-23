@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { squareClient, feeCentsForBorrowerCount } from '@/lib/square'
+import { squareClient, feeCentsForBorrowerCount, chargeApplicationFee } from '@/lib/square'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   // loan_applications.data for the PDF / audit trail.
   const { data: app } = await admin
     .from('loan_applications')
-    .select('id, data, resume_email')
+    .select('id, data, resume_email, fee_charged_at')
     .eq('submitted_loan_id', loan.id)
     .maybeSingle()
   if (!app) return NextResponse.json({ error: 'Application record missing' }, { status: 500 })
@@ -104,9 +104,43 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     return NextResponse.json({ error: 'Could not finalize authorization' }, { status: 500 })
   }
 
+  // Attempt to charge the application fee. A decline must NOT block authorization.
+  // The status flip happens regardless of charge outcome.
+  let chargedResult: { charged: boolean; reason?: string } = { charged: false, reason: 'skipped' }
+
+  if (app.fee_charged_at) {
+    // Idempotent guard: fee already charged (e.g. borrower refreshed and resubmitted).
+    chargedResult = { charged: true }
+  } else if (squareCardId && squareCustomerId) {
+    const chargeRes = await chargeApplicationFee({
+      squareCustomerId,
+      squareCardId,
+      feeAmountCents: feeCents,
+      idempotencyKey: `charge:${app.id}:${squareCardId}`,
+      note: `Credit & Background Check - loan application ${app.id} (loan ${loan.id})`,
+    })
+
+    if (chargeRes.ok) {
+      await admin.from('loan_applications').update({
+        fee_charged_at: new Date().toISOString(),
+        fee_charge_status: 'charged',
+      }).eq('id', app.id)
+      chargedResult = { charged: true }
+    } else if (chargeRes.declined) {
+      await admin.from('loan_applications').update({
+        fee_charge_status: 'declined',
+      }).eq('id', app.id)
+      chargedResult = { charged: false, reason: 'declined' }
+    } else {
+      // Hard/network error - leave fee_charge_status unchanged; retryable.
+      console.error('Square charge error (authorize):', chargeRes.message)
+      chargedResult = { charged: false, reason: 'error' }
+    }
+  }
+
   // Flip the loan's authorization status. Use the square card id as the
   // payment reference so we have a stable link between the loan and the
-  // saved card. The actual charge runs later via the admin charge-fee route.
+  // saved card. Flip REGARDLESS of charge outcome.
   const { error: loanErr } = await admin
     .from('loans')
     .update({
@@ -128,10 +162,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         event_type: 'authorization_signed',
         description: `Borrower completed /authorize (card last4 ${cardLast4 ?? '?'})`,
       })
+      if (chargedResult.charged) {
+        await admin.from('loan_events').insert({
+          loan_id: loan.id,
+          event_type: 'fee_charged',
+          description: `Credit & Background Check fee charged: $${(feeCents / 100).toFixed(2)}`,
+        })
+      }
     } catch (err) {
       console.error('Authorize audit insert failed:', err)
     }
   })
 
-  return NextResponse.json({ success: true, last4: cardLast4, brand: cardBrand })
+  return NextResponse.json({
+    success: true,
+    last4: cardLast4,
+    brand: cardBrand,
+    charged: chargedResult.charged,
+    ...(chargedResult.reason != null ? { reason: chargedResult.reason } : {}),
+  })
 }

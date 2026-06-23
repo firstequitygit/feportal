@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { squareClient, feeCentsForBorrowerCount } from '@/lib/square'
+import { squareClient, feeCentsForBorrowerCount, chargeApplicationFee } from '@/lib/square'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient()
   const { data: app } = await admin
     .from('loan_applications')
-    .select('id, status, data, resume_email')
+    .select('id, status, data, resume_email, fee_charged_at')
     .eq('resume_token', body.resumeToken)
     .maybeSingle()
   if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 })
@@ -54,7 +54,45 @@ export async function POST(req: NextRequest) {
     }).eq('id', app.id)
     if (updErr) throw new Error(`Persist card-on-file failed: ${updErr.message}`)
 
-    return NextResponse.json({ success: true, feeCents, last4: c.last4 ?? null, brand: c.cardBrand ?? null })
+    const brand = c.cardBrand ?? null
+    const last4 = c.last4 ?? null
+    const squareCardId = c.id
+
+    // Idempotent guard: if fee was already charged (e.g. user navigated back and resubmitted),
+    // skip the charge and return immediately.
+    if (app.fee_charged_at) {
+      return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand, last4, feeCents })
+    }
+
+    const chargeResult = await chargeApplicationFee({
+      squareCustomerId: customerId,
+      squareCardId,
+      feeAmountCents: feeCents,
+      idempotencyKey: `charge:${app.id}:${squareCardId}`,
+      note: `Credit & Background Check - loan application ${app.id}`,
+    })
+
+    if (chargeResult.ok) {
+      // Charge succeeded - record it.
+      await admin.from('loan_applications').update({
+        fee_charged_at: new Date().toISOString(),
+        fee_charge_status: 'charged',
+      }).eq('id', app.id)
+      // No loan exists yet at this point (pre-submission), so skip loan_events.
+      return NextResponse.json({ success: true, charged: true, brand, last4, feeCents })
+    }
+
+    if (chargeResult.declined) {
+      // Card was declined - mark it so admin can see it, but let submission proceed.
+      await admin.from('loan_applications').update({
+        fee_charge_status: 'declined',
+      }).eq('id', app.id)
+      return NextResponse.json({ success: true, charged: false, reason: 'declined', brand, last4, feeCents })
+    }
+
+    // Hard/network error - leave fee_charge_status unchanged; retryable.
+    console.error('Square charge error (apply/payment):', chargeResult.message)
+    return NextResponse.json({ success: true, charged: false, reason: 'error', brand, last4, feeCents })
   } catch (e) {
     console.error('Square card-on-file failed:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({ error: 'Could not save card. Please re-check your card details.' }, { status: 502 })
