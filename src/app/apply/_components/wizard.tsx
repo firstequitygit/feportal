@@ -8,7 +8,7 @@ import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Declarations } from '../_steps/step4-declarations'
-import { Step5Authorization } from '../_steps/step5-authorization'
+import { Step5Authorization, type FeeOutcome } from '../_steps/step5-authorization'
 import { Step5BrokerAttestation } from '../_steps/step5-broker-attestation'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
@@ -68,6 +68,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
   const [testMode, setTestMode] = useState(false)
   const [testSubmitting, setTestSubmitting] = useState(false)
+  const [feeOutcome, setFeeOutcome] = useState<FeeOutcome | null>(null)
   const wizardRef = useRef<HTMLDivElement>(null)
 
   // Load + persist test mode toggle (admins only).
@@ -326,7 +327,8 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
             step5AttestationBody: variant.copy.step5AttestationBody ?? '',
           }} />
       : <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
-          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
+          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }}
+          onFeeOutcome={(outcome) => setFeeOutcome(outcome)} />,
   ][step - 1]
 
   return (
@@ -604,6 +606,13 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                       }
                       await testSubmit(overrides, 'Manual submit', data)
                     } else {
+                      // If the fee was not collected and user hasn't confirmed, prompt once.
+                      if (feeOutcome && !feeOutcome.charged) {
+                        const confirmed = window.confirm(
+                          "Your application fee hasn't been collected yet. You can submit now and our team will follow up about payment. Submit anyway?"
+                        )
+                        if (!confirmed) return
+                      }
                       submit()
                     }
                   }}

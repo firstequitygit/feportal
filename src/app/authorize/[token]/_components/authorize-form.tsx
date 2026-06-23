@@ -12,7 +12,9 @@ const CERT_TEXT = `The Undersigned certifies the following: (1) I/We have applie
 
 const AUTH_TEXT = `AUTHORIZATION TO RELEASE INFORMATION - I/We have applied for a mortgage loan through First Equity Funding, LP. As part of the application process, First Equity Funding, LP and the mortgage guaranty insurer (if any), may verify information contained in my/our loan application and in other documents required in connection with the loan. I/We authorize First Equity Funding, LP and its affiliates to verify any information in the application. I/We further authorize the transmission of this application, and all documents associated herewith, to any and all investors, mortgage insurance companies, and other institutions that may be involved in the processing or funding of this loan. A copy of this authorization may be accepted as an original.`
 
-const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Funding, LP to: (1) order a credit report and background check on all borrowers named in this application; (2) order an appraisal and any draw inspections as required for this loan; and (3) charge the card on file for the application processing fee described above. You acknowledge that all fees are non-refundable regardless of whether a loan is ultimately made. This authorization does not constitute a commitment by First Equity Funding, LP to make a loan, nor does it constitute a guarantee of any particular loan terms or approval.`
+const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Funding, LP to: (1) charge your card today for the application processing fee described above; (2) order a credit report and background check on all borrowers named in this application; (3) order an appraisal and any draw inspections as required for this loan; and (4) keep your card on file for any additional authorized charges. You acknowledge that all fees are non-refundable regardless of whether a loan is ultimately made. This authorization does not constitute a commitment by First Equity Funding, LP to make a loan, nor does it constitute a guarantee of any particular loan terms or approval.`
+
+const MAX_ATTEMPTS = 3
 
 export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
   token: string
@@ -24,6 +26,10 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
   const [paymentSignature, setPaymentSignature] = useState('')
   const [saveCardAgree, setSaveCardAgree] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [attemptCount, setAttemptCount] = useState(0)
+  const [inlineError, setInlineError] = useState<string | null>(null)
+  const [paid, setPaid] = useState<{ brand: string; last4: string } | null>(null)
+  const [feeUncollected, setFeeUncollected] = useState(false)
   const cardRef = useRef<SquareCard | null>(null)
   const [ready, setReady] = useState(false)
 
@@ -54,13 +60,18 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
   async function submit() {
     if (!signature) { toast.error('Please sign the borrower certification.'); return }
     if (!paymentSignature) { toast.error('Please sign the payment authorization.'); return }
-    if (!saveCardAgree) { toast.error('Please agree to save your card for the application fee.'); return }
+    if (!saveCardAgree) { toast.error('Please agree to authorize the application fee.'); return }
     if (!cardRef.current) { toast.error('Payment form is still loading - please wait a moment.'); return }
 
+    setInlineError(null)
     setSubmitting(true)
     try {
       const result = await cardRef.current.tokenize()
-      if (result.status !== 'OK' || !result.token) { toast.error('Card details invalid'); return }
+      if (result.status !== 'OK' || !result.token) {
+        setInlineError('Card details are invalid. Please check and try again.')
+        return
+      }
+
       const res = await fetch(`/api/authorize/${token}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,16 +81,58 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
           cardToken: result.token,
         }),
       })
-      const j = await res.json()
+
+      // HTTP 502 = card could not be saved
+      if (res.status === 502) {
+        const j = await res.json().catch(() => ({})) as Record<string, unknown>
+        setInlineError((j.error as string | undefined) ?? 'We couldn\'t save your card. Please re-check your card details.')
+        return
+      }
+
+      const j = await res.json() as {
+        success?: boolean
+        alreadySigned?: boolean
+        charged?: boolean
+        brand?: string
+        last4?: string
+        reason?: 'declined' | 'error'
+        error?: string
+      }
+
       if (j.success) {
-        toast.success('Authorization complete')
+        if (j.charged) {
+          setPaid({ brand: j.brand ?? '', last4: j.last4 ?? '' })
+          toast.success('Authorization complete - fee paid')
+        } else if (!j.charged && j.reason) {
+          // Authorization was recorded but charge failed
+          const newAttempts = attemptCount + 1
+          setAttemptCount(newAttempts)
+
+          if (newAttempts >= MAX_ATTEMPTS) {
+            // Cap reached - complete the authorization anyway; team will follow up on fee
+            setFeeUncollected(true)
+            toast.success('Authorization complete')
+            window.location.reload()
+            return
+          }
+
+          if (j.reason === 'declined') {
+            setInlineError('Your card was declined. Please check the details or try a different card.')
+          } else {
+            setInlineError('We couldn\'t process the payment right now. Please try again.')
+          }
+          return
+        } else {
+          toast.success('Authorization complete')
+        }
         window.location.reload()
         return
       }
-      toast.error(j.error ?? 'Could not save authorization')
+
+      setInlineError(j.error ?? 'Could not save authorization')
     } catch (err) {
       console.error('Authorize submit failed', err)
-      toast.error('Network error - please try again')
+      setInlineError('Network error - please try again')
     } finally {
       setSubmitting(false)
     }
@@ -167,12 +220,15 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <p className="text-sm font-medium text-gray-700 mb-3">Fee Summary</p>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Credit &amp; Background Check</span><span>${feeUsd.toFixed(2)}</span></div>
+          <div className="flex justify-between text-gray-600">
+            <span>Credit &amp; Background Check{borrowerCount > 1 ? ` x ${borrowerCount} borrowers` : ''}</span>
+            <span>${feeUsd.toFixed(2)}</span>
+          </div>
           <div className="border-t border-gray-200 pt-2 flex justify-between font-medium text-gray-800"><span>Subtotal</span><span>${feeUsd.toFixed(2)}</span></div>
-          <div className="flex justify-between font-semibold text-[#1F5D8F] text-base"><span>Amount Due</span><span>${feeUsd.toFixed(2)}</span></div>
+          <div className="flex justify-between font-semibold text-[#1F5D8F] text-base"><span>Amount Due Today</span><span>${feeUsd.toFixed(2)}</span></div>
         </div>
         <p className="mt-3 text-xs text-gray-500">
-          Your card is saved securely with Square and charged by our team after review, not now.
+          Your card will be charged ${feeUsd.toFixed(2)} today for the credit and background check. This fee is non-refundable.
           {borrowerCount > 1 && ` (${borrowerCount} borrowers on this application)`}
         </p>
       </div>
@@ -185,21 +241,42 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1F5D8F] focus:ring-[#1F5D8F]/30"
         />
         <span>
-          I authorize you to securely save my card and charge the application fee after my loan is reviewed.
+          I authorize First Equity Funding, LP to charge my card the application fee shown above and to keep my card on file.
           <span className="text-red-500 ml-1" aria-label="required">*</span>
         </span>
       </label>
 
-      <div id="sq-authorize-card" className="rounded-md border border-gray-300 p-3" />
-
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!ready || submitting}
-        className="inline-flex items-center rounded-md bg-[#1F5D8F] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
-      >
-        {submitting ? 'Submitting…' : ready ? 'Complete Authorization' : 'Loading payment form…'}
-      </button>
+      {paid
+        ? (
+          <p className="text-sm font-medium text-green-700">
+            Paid ${feeUsd.toFixed(2)} - {paid.brand} &bull;&bull;{paid.last4}
+          </p>
+        )
+        : feeUncollected
+          ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Authorization recorded. We could not collect the application fee at this time - our team will follow up about payment.
+            </div>
+          )
+          : (
+            <>
+              <div id="sq-authorize-card" className="rounded-md border border-gray-300 p-3" />
+              {inlineError && (
+                <p className="text-sm text-red-600">{inlineError}</p>
+              )}
+              {attemptCount > 0 && attemptCount < MAX_ATTEMPTS && (
+                <p className="text-xs text-gray-500">Attempt {attemptCount} of {MAX_ATTEMPTS}. After {MAX_ATTEMPTS} failed attempts your authorization will still be recorded.</p>
+              )}
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!ready || submitting}
+                className="inline-flex items-center rounded-md bg-[#1F5D8F] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+              >
+                {submitting ? 'Submitting...' : ready ? 'Complete Authorization' : 'Loading payment form...'}
+              </button>
+            </>
+          )}
     </div>
   )
 }

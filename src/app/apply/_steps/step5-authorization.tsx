@@ -18,15 +18,26 @@ const CERT_TEXT = `The Undersigned certifies the following: (1) I/We have applie
 
 const AUTH_TEXT = `AUTHORIZATION TO RELEASE INFORMATION - I/We have applied for a mortgage loan through First Equity Funding, LP. As part of the application process, First Equity Funding, LP and the mortgage guaranty insurer (if any), may verify information contained in my/our loan application and in other documents required in connection with the loan. I/We authorize First Equity Funding, LP and its affiliates to verify any information in the application. I/We further authorize the transmission of this application, and all documents associated herewith, to any and all investors, mortgage insurance companies, and other institutions that may be involved in the processing or funding of this loan. A copy of this authorization may be accepted as an original.`
 
-const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Funding, LP to: (1) order a credit report and background check on all borrowers named in this application; (2) order an appraisal and any draw inspections as required for this loan; and (3) charge the card on file for the application processing fee described above. You acknowledge that all fees are non-refundable regardless of whether a loan is ultimately made. This authorization does not constitute a commitment by First Equity Funding, LP to make a loan, nor does it constitute a guarantee of any particular loan terms or approval.`
+const PAYMENT_AUTH_TEXT = `By submitting payment you authorize First Equity Funding, LP to: (1) charge your card today for the application processing fee described above; (2) order a credit report and background check on all borrowers named in this application; (3) order an appraisal and any draw inspections as required for this loan; and (4) keep your card on file for any additional authorized charges. You acknowledge that all fees are non-refundable regardless of whether a loan is ultimately made. This authorization does not constitute a commitment by First Equity Funding, LP to make a loan, nor does it constitute a guarantee of any particular loan terms or approval.`
 
-export function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false }: {
+// Fee formula: $45 per borrower (primary + co-borrowers), capped at 4 borrowers.
+// Source of truth for the server-side equivalent: feeCentsForBorrowerCount() in src/lib/square.ts.
+function computeFeeUsd(borrowerCount: number): number {
+  return Math.max(1, Math.min(4, borrowerCount)) * 45
+}
+
+export type FeeOutcome =
+  | { charged: true; brand: string; last4: string; feeCents: number }
+  | { charged: false; feeUncollected: true }
+
+export function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false, onFeeOutcome }: {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
   token: string | null
   onEdit?: (step: number) => void
   testMode?: boolean
+  onFeeOutcome?: (outcome: FeeOutcome) => void
 }) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const printed = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
@@ -36,11 +47,17 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
   const isAuthInvalid = missingFields?.includes('auth_signature') ?? false
   const isPaymentInvalid = missingFields?.includes('payment_signature') ?? false
   const cobs = Array.isArray(data.co_borrowers) ? (data.co_borrowers as unknown[]) : []
-  const feeUsd = 45
+  const borrowerCount = 1 + cobs.length
+  const feeUsd = computeFeeUsd(borrowerCount)
 
   const cardRef = useRef<SquareCard | null>(null)
   const [ready, setReady] = useState(false)
   const [saved, setSaved] = useState<{ last4: string; brand: string; feeCents: number } | null>(null)
+  const [feeUncollected, setFeeUncollected] = useState(false)
+  const [attemptCount, setAttemptCount] = useState(0)
+  const [inlineError, setInlineError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const MAX_ATTEMPTS = 3
 
   useEffect(() => {
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
@@ -70,23 +87,87 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
     if (!cardRef.current) return
     if (!testMode && !token) return
     if (!paymentSignature) { toast.error('Please sign the payment authorization before saving your card.'); return }
-    if (!saveCardAgree) { toast.error('Please agree to save your card for future transactions.'); return }
+    if (!saveCardAgree) { toast.error('Please agree to authorize the application fee before saving your card.'); return }
+
+    setInlineError(null)
+    setSaving(true)
+
     try {
-      const result = await cardRef.current.tokenize()
-      if (result.status !== 'OK' || !result.token) { toast.error('Card details invalid'); return }
+      // testMode: simulate a successful charge without hitting Square or the network.
+      // Admins can click through to the "paid" state without real card credentials.
       if (testMode) {
+        const outcome: FeeOutcome = { charged: true, brand: 'TEST', last4: '1111', feeCents: feeUsd * 100 }
         setSaved({ last4: '1111', brand: 'TEST', feeCents: feeUsd * 100 })
-        toast.success('Test card validated (not saved to Square)')
+        toast.success('Test mode: simulated charge success')
+        onFeeOutcome?.(outcome)
         return
       }
+
+      const result = await cardRef.current.tokenize()
+      if (result.status !== 'OK' || !result.token) {
+        setInlineError('Card details are invalid. Please check and try again.')
+        return
+      }
+
       const res = await fetch('/api/apply/payment', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeToken: token, cardToken: result.token }),
       })
-      const j = await res.json()
-      if (j.success) { setSaved({ last4: j.last4 ?? '', brand: j.brand ?? '', feeCents: j.feeCents }); toast.success('Card saved') }
-      else toast.error(j.error ?? 'Could not save card')
-    } catch { toast.error('Network error - please try again') }
+
+      // HTTP 502 = card could not be saved at all
+      if (res.status === 502) {
+        const j = await res.json().catch(() => ({})) as Record<string, unknown>
+        setInlineError((j.error as string | undefined) ?? 'We couldn\'t save your card. Please re-check your card details.')
+        return
+      }
+
+      const j = await res.json() as {
+        success?: boolean
+        charged?: boolean
+        alreadyCharged?: boolean
+        brand?: string
+        last4?: string
+        feeCents?: number
+        reason?: 'declined' | 'error'
+        error?: string
+      }
+
+      if (j.success && j.charged) {
+        // Paid now (or was already paid idempotently)
+        const outcome: FeeOutcome = { charged: true, brand: j.brand ?? '', last4: j.last4 ?? '', feeCents: j.feeCents ?? feeUsd * 100 }
+        setSaved({ last4: j.last4 ?? '', brand: j.brand ?? '', feeCents: j.feeCents ?? feeUsd * 100 })
+        toast.success(j.alreadyCharged ? 'Application fee already paid' : 'Application fee paid')
+        onFeeOutcome?.(outcome)
+        return
+      }
+
+      if (j.success && !j.charged) {
+        const newAttempts = attemptCount + 1
+        setAttemptCount(newAttempts)
+
+        if (newAttempts >= MAX_ATTEMPTS) {
+          // Cap reached - allow proceeding with fee uncollected
+          setFeeUncollected(true)
+          const outcome: FeeOutcome = { charged: false, feeUncollected: true }
+          onFeeOutcome?.(outcome)
+          return
+        }
+
+        if (j.reason === 'declined') {
+          setInlineError('Your card was declined. Please check the details or try a different card.')
+        } else {
+          setInlineError('We couldn\'t process the payment right now. Please try again.')
+        }
+        return
+      }
+
+      // Unexpected response shape
+      setInlineError(j.error ?? 'Something went wrong. Please try again.')
+    } catch {
+      setInlineError('Network error - please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -222,21 +303,20 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         <p className="text-sm font-medium text-gray-700 mb-3">Fee Summary</p>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-gray-600">
-            <span>Credit &amp; Background Check</span>
-            <span>$45.00</span>
+            <span>Credit &amp; Background Check{borrowerCount > 1 ? ` x ${borrowerCount} borrowers` : ''}</span>
+            <span>${feeUsd.toFixed(2)}</span>
           </div>
           <div className="border-t border-gray-200 pt-2 flex justify-between font-medium text-gray-800">
             <span>Subtotal</span>
-            <span>$45.00</span>
+            <span>${feeUsd.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-semibold text-[#1F5D8F] text-base">
-            <span>Amount Due</span>
+            <span>Amount Due Today</span>
             <span>${feeUsd.toFixed(2)}</span>
           </div>
         </div>
         <p className="mt-3 text-xs text-gray-500">
-          Your card is saved securely with Square and charged by our team after review, not now.
-          {cobs.length > 0 && ` (${1 + cobs.length} borrowers on this application)`}
+          Your card will be charged ${feeUsd.toFixed(2)} today for the credit and background check. This fee is non-refundable.
         </p>
       </div>
 
@@ -249,41 +329,53 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1F5D8F] focus:ring-[#1F5D8F]/30"
         />
         <span>
-          I authorize you to securely save my card and charge the application fee after my loan is reviewed.
+          I authorize First Equity Funding, LP to charge my card the application fee shown above and to keep my card on file.
           <span className="text-red-500 ml-1" aria-label="required">*</span>
         </span>
       </label>
 
-      {/* Square card form */}
+      {/* Square card form / paid state / fee-uncollected state */}
       {saved
         ? (
-          <p className="text-sm font-medium text-[#1F5D8F]">
-            Card saved: {saved.brand} &bull;&bull;{saved.last4}
+          <p className="text-sm font-medium text-green-700">
+            Paid ${(saved.feeCents / 100).toFixed(2)} - {saved.brand} &bull;&bull;{saved.last4}
           </p>
         )
-        : (
-          <>
-            <div id="sq-card" className="rounded-md border border-gray-300 p-3" />
-            <button
-              type="button"
-              onClick={saveCard}
-              disabled={!ready || (!token && !testMode)}
-              className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
-            >
-              {ready ? 'Save card on file' : 'Loading payment form...'}
-            </button>
-            {!token && !testMode && (
-              <p className="text-xs text-red-600">
-                Enter your email in Step 1 first so we can attach the card to your application.
-              </p>
-            )}
-            {testMode && (
-              <p className="text-xs text-amber-700">
-                Test mode: use a Square sandbox card (e.g. 4111 1111 1111 1111, any future expiry, any CVV, any ZIP). The card is validated but not saved to Square.
-              </p>
-            )}
-          </>
-        )}
+        : feeUncollected
+          ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              We could not process your payment now. You can still submit your application and our team will follow up about the fee.
+            </div>
+          )
+          : (
+            <>
+              <div id="sq-card" className="rounded-md border border-gray-300 p-3" />
+              {inlineError && (
+                <p className="text-sm text-red-600">{inlineError}</p>
+              )}
+              {attemptCount > 0 && attemptCount < MAX_ATTEMPTS && (
+                <p className="text-xs text-gray-500">Attempt {attemptCount} of {MAX_ATTEMPTS}. After {MAX_ATTEMPTS} failed attempts you may still submit your application.</p>
+              )}
+              <button
+                type="button"
+                onClick={saveCard}
+                disabled={saving || !ready || (!token && !testMode)}
+                className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+              >
+                {saving ? 'Processing...' : ready ? 'Pay application fee' : 'Loading payment form...'}
+              </button>
+              {!token && !testMode && (
+                <p className="text-xs text-red-600">
+                  Enter your email in Step 1 first so we can attach the card to your application.
+                </p>
+              )}
+              {testMode && (
+                <p className="text-xs text-amber-700">
+                  Test mode: click &quot;Pay application fee&quot; to simulate a successful charge without hitting Square.
+                </p>
+              )}
+            </>
+          )}
     </div>
   )
 }
