@@ -1,5 +1,5 @@
 'use client'
-import { DEAL_FIELDS, type ApplicationData } from '@/lib/application-fields'
+import { DEAL_FIELDS, dscrUnitCount, type ApplicationData } from '@/lib/application-fields'
 import { FieldRenderer } from '../_components/field-renderer'
 import { RepeatingUnits } from '../_components/repeating-units'
 import { PropertyDocuments, type PropertyDoc } from '../_components/property-documents'
@@ -13,6 +13,13 @@ export function Step2Deal({ data, set, missingFields, token, testMode = false }:
 }) {
   const gateField = DEAL_FIELDS.find(f => f.name === 'has_deal')!
   const restFields = DEAL_FIELDS.filter(f => f.name !== 'has_deal')
+  // For DSCR Single Family / Condo, dscrUnitCount returns 1 but the "Rental income"
+  // section in restFields has no visible fields, so FieldRenderer never renders the
+  // section heading. We render it ourselves before RepeatingUnits in that case.
+  const unitCount = dscrUnitCount(data)
+  const needsRentalHeading =
+    unitCount > 0 &&
+    (data.property_type === 'Single Family' || data.property_type === 'Condo')
 
   return (
     <div className="space-y-5">
@@ -32,10 +39,18 @@ export function Step2Deal({ data, set, missingFields, token, testMode = false }:
             scope={data}
             onChange={(n, v) => set({ [n]: v })}
             missingFields={missingFields}
-            afterSection={{
-              'Rental income': <RepeatingUnits data={data} set={set} missingFields={missingFields} />,
-            }}
           />
+          {/* RepeatingUnits is self-gating: returns null when dscrUnitCount === 0.
+              For DSCR Single Family/Condo the "Rental income" FieldRenderer section
+              has no visible fields so no heading renders there; we add it here.
+              For DSCR Multifamily the FieldRenderer already renders the "Rental income"
+              heading + dscr_unit_count select, so no extra heading needed. */}
+          {needsRentalHeading && (
+            <div className="mt-4 mb-1.5 border-b border-gray-200 pb-1.5">
+              <h3 className="text-sm font-semibold text-gray-900">Rental income</h3>
+            </div>
+          )}
+          <RepeatingUnits data={data} set={set} missingFields={missingFields} />
           <div className="pt-2">
             <PropertyDocuments
               token={token}
