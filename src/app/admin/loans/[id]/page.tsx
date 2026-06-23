@@ -43,6 +43,7 @@ import { AdminArchiveButton } from '@/components/admin-archive-button'
 import { LoanAirtableSyncButton } from '@/components/loan-airtable-sync-button'
 import { LoanDocGeneratorMenu } from '@/components/loan-doc-generator-menu'
 import { AdminUnderwriterAssign } from '@/components/admin-underwriter-assign'
+import { AdminChargeFee } from '@/components/admin-charge-fee'
 import Link from 'next/link'
 
 function formatCurrency(val: number | null): string {
@@ -108,6 +109,14 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
   ])
 
   if (!loan) notFound()
+
+  // Fetch linked loan application for the fee-charge fallback section.
+  // Some older loans have no linked application row - guard for null below.
+  const { data: loanApplication } = await adminClient
+    .from('loan_applications')
+    .select('id, square_card_id, card_brand, card_last4, fee_amount_cents, fee_charged_at, fee_charge_status')
+    .eq('submitted_loan_id', id)
+    .maybeSingle()
 
   // Staff directory for @mention autocomplete in Staff Notes / condition
   // notes. Includes admins, which fetchStaffDirectory doesn't.
@@ -286,6 +295,18 @@ export default async function AdminLoanPage({ params }: { params: Promise<{ id: 
               currentLoanOfficerId={loan.loan_officers?.id ?? null}
               allLoanOfficers={(allLoanOfficers ?? []) as { id: string; auth_user_id: string | null; full_name: string; email: string | null; phone: string | null; title: string | null; pipedrive_user_id: number | null; created_at: string }[]}
             />
+
+            {loanApplication && (
+              <AdminChargeFee
+                loanId={id}
+                feeCents={loanApplication.fee_amount_cents ?? null}
+                chargedAt={loanApplication.fee_charged_at ?? null}
+                last4={loanApplication.card_last4 ?? null}
+                brand={loanApplication.card_brand ?? null}
+                squareCardId={loanApplication.square_card_id ?? null}
+                feeChargeStatus={loanApplication.fee_charge_status ?? null}
+              />
+            )}
 
             <AdminLoanProcessorAssign
               loanId={id}
