@@ -128,7 +128,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         brand?: string
         last4?: string
         feeCents?: number
-        reason?: 'declined' | 'error'
+        reason?: 'declined' | 'error' | 'in_review'
         error?: string
       }
 
@@ -142,6 +142,16 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
       }
 
       if (j.success && !j.charged) {
+        // Hard errors (error / in_review): do not count as a retryable attempt.
+        // Show a follow-up message and let the user proceed immediately.
+        if (j.reason === 'error' || j.reason === 'in_review') {
+          setFeeUncollected(true)
+          const outcome: FeeOutcome = { charged: false, feeUncollected: true }
+          onFeeOutcome?.(outcome)
+          return
+        }
+
+        // Declined: count the attempt and allow retry up to MAX_ATTEMPTS.
         const newAttempts = attemptCount + 1
         setAttemptCount(newAttempts)
 
@@ -153,11 +163,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
           return
         }
 
-        if (j.reason === 'declined') {
-          setInlineError('Your card was declined. Please check the details or try a different card.')
-        } else {
-          setInlineError('We couldn\'t process the payment right now. Please try again.')
-        }
+        setInlineError('Your card was declined. Please check the details or try a different card.')
         return
       }
 
@@ -344,7 +350,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         : feeUncollected
           ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              We could not process your payment now. You can still submit your application and our team will follow up about the fee.
+              We could not confirm your payment. Our team will follow up about the fee. You can continue.
             </div>
           )
           : (

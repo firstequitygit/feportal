@@ -606,14 +606,14 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                       }
                       await testSubmit(overrides, 'Manual submit', data)
                     } else {
-                      // If the fee was not collected and user hasn't confirmed, prompt once.
-                      if (feeOutcome && !feeOutcome.charged) {
+                      // If the fee was never attempted or not collected, prompt once before submitting.
+                      if (!feeOutcome || !feeOutcome.charged) {
                         const confirmed = window.confirm(
                           "Your application fee hasn't been collected yet. You can submit now and our team will follow up about payment. Submit anyway?"
                         )
                         if (!confirmed) return
                       }
-                      submit()
+                      await submit()
                     }
                   }}
                   disabled={testMode ? testSubmitting : (submitting || !token)}

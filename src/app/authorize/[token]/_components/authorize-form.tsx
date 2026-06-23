@@ -95,7 +95,7 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
         charged?: boolean
         brand?: string
         last4?: string
-        reason?: 'declined' | 'error'
+        reason?: 'declined' | 'error' | 'in_review'
         error?: string
       }
 
@@ -103,8 +103,21 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
         if (j.charged) {
           setPaid({ brand: j.brand ?? '', last4: j.last4 ?? '' })
           toast.success('Authorization complete - fee paid')
-        } else if (!j.charged && j.reason) {
-          // Authorization was recorded but charge failed
+          window.location.reload()
+          return
+        }
+
+        // Hard errors (error / in_review): authorization is already recorded server-side.
+        // Do not count as a retryable attempt - show follow-up message and complete.
+        if (j.reason === 'error' || j.reason === 'in_review') {
+          setFeeUncollected(true)
+          toast.success('Authorization complete')
+          window.location.reload()
+          return
+        }
+
+        if (j.reason === 'declined') {
+          // Declined: count the attempt and allow retry up to MAX_ATTEMPTS.
           const newAttempts = attemptCount + 1
           setAttemptCount(newAttempts)
 
@@ -116,15 +129,12 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
             return
           }
 
-          if (j.reason === 'declined') {
-            setInlineError('Your card was declined. Please check the details or try a different card.')
-          } else {
-            setInlineError('We couldn\'t process the payment right now. Please try again.')
-          }
+          setInlineError('Your card was declined. Please check the details or try a different card.')
           return
-        } else {
-          toast.success('Authorization complete')
         }
+
+        // No reason and not charged - treat as complete (e.g. alreadySigned path)
+        toast.success('Authorization complete')
         window.location.reload()
         return
       }
@@ -255,7 +265,7 @@ export function AuthorizeForm({ token, borrowerName, feeUsd, borrowerCount }: {
         : feeUncollected
           ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Authorization recorded. We could not collect the application fee at this time - our team will follow up about payment.
+              We could not confirm your payment. Our team will follow up about the fee. You can continue.
             </div>
           )
           : (

@@ -39,20 +39,25 @@ export function AdminChargeFee({ loanId, feeCents, chargedAt, last4, brand, squa
         <p className="text-sm">Amount: <strong>${(feeCents / 100).toFixed(2)}</strong>{cardInfo}</p>
         {done ? (
           <p className="text-sm text-green-600 font-medium">Fee charged: ${(feeCents / 100).toFixed(2)}</p>
-        ) : squareCardId ? (
+        ) : !squareCardId ? (
+          <p className="text-sm text-gray-500">No card on file.</p>
+        ) : feeChargeStatus === 'needs_review' ? (
+          <p className="text-sm text-amber-600">Needs manual review - verify in Square before charging.</p>
+        ) : feeChargeStatus === 'charging' ? (
+          <p className="text-sm text-gray-500">Charge in progress.</p>
+        ) : (
+          // Claimable: status null or 'declined', card present, not charged.
           <>
             {feeChargeStatus === 'declined' && (
               <p className="text-sm text-red-600">Borrower&apos;s card was declined at submission.</p>
             )}
-            {(feeChargeStatus === 'uncollected' || feeChargeStatus == null) && (
+            {feeChargeStatus == null && (
               <p className="text-sm text-gray-500">Fee not yet collected.</p>
             )}
             <Button size="sm" onClick={charge} disabled={loading}>
               {loading ? 'Charging…' : `Charge saved card ($${(feeCents / 100).toFixed(2)})`}
             </Button>
           </>
-        ) : (
-          <p className="text-sm text-gray-500">No card on file.</p>
         )}
       </CardContent>
     </Card>

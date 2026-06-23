@@ -24,6 +24,21 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   if (!app.square_customer_id || !app.square_card_id || !app.fee_amount_cents)
     return NextResponse.json({ error: 'No saved card on file' }, { status: 400 })
 
+  // Atomic claim: flip status to 'charging' only if uncharged AND claimable
+  // (null or 'declined'). Excludes 'charging'/'needs_review'/'charged'. Prevents a
+  // double-charge if an admin double-clicks or the public flow is racing.
+  const { data: claimed } = await admin
+    .from('loan_applications')
+    .update({ fee_charge_status: 'charging' })
+    .eq('id', app.id)
+    .is('fee_charged_at', null)
+    .or('fee_charge_status.is.null,fee_charge_status.eq.declined')
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return NextResponse.json({ error: 'Charge already in progress or under manual review' }, { status: 409 })
+  }
+
   const result = await chargeApplicationFee({
     squareCustomerId: app.square_customer_id,
     squareCardId: app.square_card_id,
@@ -34,6 +49,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   if (!result.ok) {
     console.error('Square charge failed:', result.message)
+    if (result.declined) {
+      // Release the claim back to 'declined' (retryable).
+      await admin.from('loan_applications').update({ fee_charge_status: 'declined' }).eq('id', app.id)
+    } else {
+      // Hard/network error - charge may have gone through; mark needs_review.
+      await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
+    }
     return NextResponse.json({ error: 'Charge failed - see Square dashboard' }, { status: 502 })
   }
 
@@ -42,7 +64,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     .update({ fee_charged_at: new Date().toISOString(), fee_charge_status: 'charged' })
     .eq('id', app.id)
   if (updErr) {
-    console.error('Persist fee_charged_at failed:', updErr.message)
+    const paymentId = (result.payment as { id?: string } | null)?.id ?? 'unknown'
+    console.error(`CRITICAL: charge SUCCEEDED but persist FAILED (admin charge-fee) app=${app.id} squarePaymentId=${paymentId}:`, updErr.message)
+    await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
     return NextResponse.json({ error: 'Charge succeeded but failed to persist - check Square dashboard' }, { status: 500 })
   }
   try {
