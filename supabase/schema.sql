@@ -427,6 +427,7 @@ create table if not exists loan_applications (
   card_last4 text,
   fee_amount_cents int,
   fee_charged_at timestamptz,
+  fee_charge_status text check (fee_charge_status is null or fee_charge_status in ('charged', 'declined', 'uncollected')),
   submitted_loan_id uuid references loans(id) on delete set null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()

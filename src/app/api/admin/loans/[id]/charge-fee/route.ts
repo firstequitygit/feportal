@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { squareClient, SQUARE_LOCATION_ID } from '@/lib/square'
+import { chargeApplicationFee } from '@/lib/square'
 
 export const runtime = 'nodejs'
 
@@ -24,36 +24,34 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   if (!app.square_customer_id || !app.square_card_id || !app.fee_amount_cents)
     return NextResponse.json({ error: 'No saved card on file' }, { status: 400 })
 
-  try {
-    const sq = squareClient()
-    // Square v44: payments.create() returns HttpResponsePromise<CreatePaymentResponse> (extends Promise<T>).
-    // Awaiting unwraps directly to CreatePaymentResponse, so pay.payment?.status is correct.
-    // amountMoney.amount must be BigInt per v44 Money type.
-    const pay = await sq.payments.create({
-      idempotencyKey: `charge:${app.id}`,
-      sourceId: app.square_card_id,
-      customerId: app.square_customer_id,
-      locationId: SQUARE_LOCATION_ID(),
-      amountMoney: { amount: BigInt(app.fee_amount_cents), currency: 'USD' },
-      note: `Credit & Background Check — loan ${id}`,
-    })
-    const status = pay.payment?.status
-    if (status !== 'COMPLETED' && status !== 'APPROVED')
-      throw new Error(`Square status ${status ?? 'unknown'}`)
+  const result = await chargeApplicationFee({
+    squareCustomerId: app.square_customer_id,
+    squareCardId: app.square_card_id,
+    feeAmountCents: app.fee_amount_cents,
+    idempotencyKey: `charge:${app.id}`,
+    note: `Credit & Background Check - loan ${id}`,
+  })
 
-    const { error: updErr } = await admin.from('loan_applications').update({ fee_charged_at: new Date().toISOString() }).eq('id', app.id)
-    if (updErr) throw new Error(`Persist fee_charged_at failed: ${updErr.message}`)
-    try {
-      await admin.from('loan_events').insert({
-        loan_id: id, event_type: 'fee_charged',
-        description: `Credit & Background Check fee charged: $${(app.fee_amount_cents / 100).toFixed(2)}`,
-      })
-    } catch (logErr) {
-      console.error('Audit log failed (fee_charged):', logErr instanceof Error ? logErr.message : logErr)
-    }
-    return NextResponse.json({ success: true, amount: app.fee_amount_cents })
-  } catch (e) {
-    console.error('Square charge failed:', e instanceof Error ? e.message : 'unknown')
-    return NextResponse.json({ error: 'Charge failed — see Square dashboard' }, { status: 502 })
+  if (!result.ok) {
+    console.error('Square charge failed:', result.message)
+    return NextResponse.json({ error: 'Charge failed - see Square dashboard' }, { status: 502 })
   }
+
+  const { error: updErr } = await admin
+    .from('loan_applications')
+    .update({ fee_charged_at: new Date().toISOString(), fee_charge_status: 'charged' })
+    .eq('id', app.id)
+  if (updErr) {
+    console.error('Persist fee_charged_at failed:', updErr.message)
+    return NextResponse.json({ error: 'Charge succeeded but failed to persist - check Square dashboard' }, { status: 500 })
+  }
+  try {
+    await admin.from('loan_events').insert({
+      loan_id: id, event_type: 'fee_charged',
+      description: `Credit & Background Check fee charged: $${(app.fee_amount_cents / 100).toFixed(2)}`,
+    })
+  } catch (logErr) {
+    console.error('Audit log failed (fee_charged):', logErr instanceof Error ? logErr.message : logErr)
+  }
+  return NextResponse.json({ success: true, amount: app.fee_amount_cents })
 }
