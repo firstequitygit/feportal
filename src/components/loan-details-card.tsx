@@ -203,6 +203,35 @@ const LOAN_TYPE_ONE_OPTIONS = ['Purchase', 'Refinance (no cash out)', 'Refinance
 const OWN_OR_RENT_OPTIONS = ['Own', 'Rent'] as const
 const ENTITY_TYPE_OPTIONS = ['LLC', 'Inc', 'Trust', 'LP'] as const
 
+// Full state name → 2-letter abbreviation, so "New York", "NY", and
+// "ny" all normalize to the same value when comparing the entity's
+// formation state against the subject property's state.
+const STATE_NAME_TO_ABBR: Record<string, string> = {
+  ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA',
+  COLORADO: 'CO', CONNECTICUT: 'CT', DELAWARE: 'DE', FLORIDA: 'FL', GEORGIA: 'GA',
+  HAWAII: 'HI', IDAHO: 'ID', ILLINOIS: 'IL', INDIANA: 'IN', IOWA: 'IA',
+  KANSAS: 'KS', KENTUCKY: 'KY', LOUISIANA: 'LA', MAINE: 'ME', MARYLAND: 'MD',
+  MASSACHUSETTS: 'MA', MICHIGAN: 'MI', MINNESOTA: 'MN', MISSISSIPPI: 'MS', MISSOURI: 'MO',
+  MONTANA: 'MT', NEBRASKA: 'NE', NEVADA: 'NV', NEWHAMPSHIRE: 'NH', NEWJERSEY: 'NJ',
+  NEWMEXICO: 'NM', NEWYORK: 'NY', NORTHCAROLINA: 'NC', NORTHDAKOTA: 'ND', OHIO: 'OH',
+  OKLAHOMA: 'OK', OREGON: 'OR', PENNSYLVANIA: 'PA', RHODEISLAND: 'RI', SOUTHCAROLINA: 'SC',
+  SOUTHDAKOTA: 'SD', TENNESSEE: 'TN', TEXAS: 'TX', UTAH: 'UT', VERMONT: 'VT',
+  VIRGINIA: 'VA', WASHINGTON: 'WA', WESTVIRGINIA: 'WV', WISCONSIN: 'WI', WYOMING: 'WY',
+  DISTRICTOFCOLUMBIA: 'DC', WASHINGTONDC: 'DC',
+}
+
+/** Normalize a state to its 2-letter abbreviation for comparison.
+ *  Accepts "NY", "ny", "N.Y.", "New York". Returns null when blank or
+ *  unrecognized (so we never warn on an ambiguous value). */
+function normalizeState(s: string | null | undefined): string | null {
+  if (!s) return null
+  const collapsed = s.trim().toUpperCase().replace(/[.\s]/g, '')
+  if (!collapsed) return null
+  if (STATE_NAME_TO_ABBR[collapsed]) return STATE_NAME_TO_ABBR[collapsed]
+  if (collapsed.length === 2) return collapsed
+  return null
+}
+
 const currencyFmt = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -1068,6 +1097,22 @@ export function LoanDetailsCard({
                   inputWidthClass="w-20"
                 />
               </DetailRow>
+              {/* Foreign-entity warning: fires when the formation state
+                  and the subject-property state are both known and
+                  differ. Normalized so NY / "New York" / ny all match;
+                  stays silent if either value is blank/unrecognized. */}
+              {(() => {
+                const formation = normalizeState(d.entity_formation_state)
+                const property = normalizeState(d.property_state)
+                if (!formation || !property || formation === property) return null
+                return (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span aria-hidden>⚠️</span>{' '}
+                    <span className="font-semibold">Formation state differs from subject property.</span>{' '}
+                    Foreign Entity Registration and COGS is required.
+                  </div>
+                )
+              })()}
               <p className="text-xs text-gray-400 italic">
                 Entity name itself is in the Loan Summary above (it syncs to Pipedrive).
               </p>
