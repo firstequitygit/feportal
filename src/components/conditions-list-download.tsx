@@ -30,15 +30,17 @@ export function ConditionsListDownload({ loanId }: { loanId: string }) {
 
   return (
     <div ref={rootRef} className="relative inline-block">
+      {/* Pill styling matches the Notify Underwriter / Send Reminder
+          buttons in the same header row. */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1 text-xs text-primary hover:opacity-80 font-medium"
+        className="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 whitespace-nowrap"
         title="Download the conditions list (internal PDF)"
       >
         <Download className="w-3.5 h-3.5" />
         Conditions List
-        <ChevronDown className="w-3 h-3" />
+        <ChevronDown className="w-3.5 h-3.5" />
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
