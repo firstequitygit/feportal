@@ -23,6 +23,9 @@ export interface ConditionsReportInput {
   propertyAddress: string | null
   conditions: Condition[]
   notesByCondition: Record<string, ConditionNoteInput[]>
+  /** Include the internal staff notes under each condition. When false,
+   *  the report is the clean title/details/status list only. */
+  includeNotes?: boolean
 }
 
 // Display order: complete items first, action-needed last.
@@ -170,7 +173,7 @@ function HeaderLogo() {
 }
 
 export async function renderConditionsReportPdf(input: ConditionsReportInput): Promise<Buffer> {
-  const { loanName, loanNumber, propertyAddress, conditions, notesByCondition } = input
+  const { loanName, loanNumber, propertyAddress, conditions, notesByCondition, includeNotes = true } = input
 
   const sorted = [...conditions].sort(
     (a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9),
@@ -203,7 +206,7 @@ export async function renderConditionsReportPdf(input: ConditionsReportInput): P
           <Text style={styles.empty}>No conditions on this loan.</Text>
         ) : (
           sorted.map(condition => {
-            const notes = notesByCondition[condition.id] ?? []
+            const notes = includeNotes ? (notesByCondition[condition.id] ?? []) : []
             return (
               <View key={condition.id} style={styles.condition} wrap={false}>
                 <View style={styles.conditionTitleRow}>

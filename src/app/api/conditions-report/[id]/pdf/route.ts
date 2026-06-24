@@ -28,7 +28,7 @@ async function isStaff(authUserId: string): Promise<boolean> {
   return !!(adminUser || lo || lp || uw)
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,6 +36,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!(await isStaff(user.id))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+
+  // ?notes=0 → omit the internal staff notes (clean list only).
+  const includeNotes = new URL(req.url).searchParams.get('notes') !== '0'
 
   const adminClient = createAdminClient()
 
@@ -50,7 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .select('*')
       .eq('loan_id', id)
       .order('created_at', { ascending: true }),
-    fetchConditionNotesForLoan(adminClient, id),
+    includeNotes ? fetchConditionNotesForLoan(adminClient, id) : Promise.resolve({}),
   ])
 
   if (!loan) return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
@@ -68,6 +71,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     propertyAddress: loan.property_address,
     conditions: (conditions ?? []) as Condition[],
     notesByCondition,
+    includeNotes,
   })
 
   const safeFileSeed =
@@ -75,7 +79,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .replace(/[^a-zA-Z0-9-_ ]/g, '')
       .trim()
       .replace(/\s+/g, '_')
-  const filename = `Conditions_${safeFileSeed || 'loan'}.pdf`
+  const filename = `Conditions_${safeFileSeed || 'loan'}${includeNotes ? '' : '_NoNotes'}.pdf`
 
   return new NextResponse(new Uint8Array(pdf), {
     status: 200,

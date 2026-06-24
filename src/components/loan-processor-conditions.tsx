@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronUp, Download } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ConditionsListDownload } from '@/components/conditions-list-download'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -795,16 +796,8 @@ export function LoanProcessorConditions({ loanId, loanType, propertyAddress, con
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
           <div className="flex items-center gap-3">
-            {/* Download the full conditions list (title, details,
-                status, staff notes) as an internal PDF. */}
-            <a
-              href={`/api/conditions-report/${loanId}/pdf`}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:opacity-80 font-medium"
-              title="Download the conditions list (internal PDF)"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Conditions List
-            </a>
+            {/* Download the conditions list (with / without staff notes). */}
+            <ConditionsListDownload loanId={loanId} />
             {/* Section-level Notify UW for the whole condition set. */}
             <NotifyUnderwriterButton
               loanId={loanId}
