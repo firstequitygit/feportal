@@ -8,8 +8,18 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Printer } from 'lucide-react'
-import { CONDITION_CATEGORIES, type Condition, type ConditionStatus } from '@/lib/types'
+import { type Condition, type ConditionStatus } from '@/lib/types'
 import type { ConditionNote } from '@/components/condition-notes'
+
+// Display order: complete items first, action-needed last.
+const STATUS_RANK: Record<ConditionStatus, number> = {
+  'Satisfied':    0,
+  'Waived':       1,
+  'Received':     2,
+  'Under Review': 3,
+  'Outstanding':  4,
+  'Rejected':     5,
+}
 
 interface Props {
   loanName: string
@@ -48,13 +58,10 @@ export function ConditionsReport({
   notesByCondition,
   backHref,
 }: Props) {
-  // Group by category, mirroring the on-screen conditions lists.
-  const grouped = [...CONDITION_CATEGORIES, null].map(cat => {
-    const catValue = cat ? cat.value : null
-    const catLabel = cat ? cat.label : 'Uncategorized'
-    const group = conditions.filter(c => (c.category ?? null) === catValue)
-    return { catLabel, group }
-  }).filter(g => g.group.length > 0)
+  // Flat list ordered by status (complete → action-needed).
+  const sorted = [...conditions].sort(
+    (a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9),
+  )
 
   const outstanding = conditions.filter(
     c => c.status === 'Outstanding' || c.status === 'Rejected',
@@ -113,50 +120,41 @@ export function ConditionsReport({
           {conditions.length === 0 ? (
             <p className="mt-8 text-gray-500">No conditions on this loan.</p>
           ) : (
-            grouped.map(({ catLabel, group }) => (
-              <div key={catLabel} className="mt-6">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 border-b border-gray-300 pb-1">
-                  {catLabel}
-                </h2>
-                <div className="mt-2 space-y-3">
-                  {group.map(condition => {
-                    const notes = notesByCondition[condition.id] ?? []
-                    return (
-                      <div key={condition.id} className="condition-row border border-gray-200 rounded-md px-3 py-2.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="font-semibold text-gray-900">{condition.title}</p>
-                          <span className={`text-xs font-semibold whitespace-nowrap ${statusClass(condition.status)}`}>
-                            {condition.status}
-                          </span>
-                        </div>
-                        {condition.description && (
-                          <p className="text-xs text-gray-600 mt-1">{condition.description}</p>
-                        )}
-                        {condition.status === 'Rejected' && condition.rejection_reason && (
-                          <p className="text-xs text-red-700 mt-1">Rejected: {condition.rejection_reason}</p>
-                        )}
-                        {/* Staff notes — internal, included in this report */}
-                        <div className="mt-2 border-t border-gray-100 pt-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Staff Notes</p>
-                          {notes.length === 0 ? (
-                            <p className="text-xs text-gray-400 italic mt-0.5">No notes.</p>
-                          ) : (
-                            <ul className="mt-1 space-y-1">
-                              {notes.map(n => (
-                                <li key={n.id} className="text-xs text-gray-700">
-                                  <span className="whitespace-pre-wrap">{n.content}</span>
-                                  <span className="text-gray-400"> — {n.created_by}{n.created_at ? `, ${formatDateTime(n.created_at)}` : ''}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
+            <div className="mt-6 space-y-4">
+              {sorted.map(condition => {
+                const notes = notesByCondition[condition.id] ?? []
+                return (
+                  <div key={condition.id} className="condition-row">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="font-semibold text-gray-900">{condition.title}</p>
+                      <span className={`text-xs font-semibold whitespace-nowrap ${statusClass(condition.status)}`}>
+                        {condition.status}
+                      </span>
+                    </div>
+                    {condition.description && (
+                      <p className="text-xs text-gray-600 mt-0.5">{condition.description}</p>
+                    )}
+                    {condition.status === 'Rejected' && condition.rejection_reason && (
+                      <p className="text-xs text-red-700 mt-0.5">Rejected: {condition.rejection_reason}</p>
+                    )}
+                    {/* Staff notes — only when present (blank otherwise). */}
+                    {notes.length > 0 && (
+                      <div className="mt-1 ml-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Staff Notes</p>
+                        <ul className="mt-0.5 space-y-0.5 list-disc ml-3">
+                          {notes.map(n => (
+                            <li key={n.id} className="text-xs text-gray-700">
+                              <span className="whitespace-pre-wrap">{n.content}</span>
+                              <span className="text-gray-400"> — {n.created_by}{n.created_at ? `, ${formatDateTime(n.created_at)}` : ''}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>
