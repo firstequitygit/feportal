@@ -1,6 +1,6 @@
 // Server-rendered Conditions List PDF — a true downloadable file.
-// Staff-gated (admin / LO / LP / UW). Mirrors the on-screen
-// /conditions-report/[id] page.
+// Staff-gated (admin / LO / LP / UW). Reached via the "Conditions
+// List" button in the Conditions section header on the loan pages.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'

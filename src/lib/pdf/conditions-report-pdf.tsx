@@ -1,7 +1,8 @@
-// React-PDF version of the Conditions List — produces a true
-// downloadable PDF (vs. browser print). Mirrors the on-screen
-// src/components/conditions-report.tsx: a flat list ordered by status,
-// each condition showing title, details, status, and staff notes.
+// React-PDF Conditions List — a downloadable PDF of a loan's
+// conditions: a flat list ordered by status (complete first,
+// action-needed last), each showing title, details, status, and the
+// internal staff notes. Reached via the "Conditions List" button in
+// the Conditions section header.
 
 import React from 'react'
 import fs from 'fs'

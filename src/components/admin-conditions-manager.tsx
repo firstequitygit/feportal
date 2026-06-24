@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { Upload } from 'lucide-react'
+import { Upload, Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -382,6 +382,16 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
             </span>
           </CardTitle>
           <div className="flex items-center gap-2">
+            {/* Download the full conditions list (title, details,
+                status, staff notes) as an internal PDF. */}
+            <a
+              href={`/api/conditions-report/${loanId}/pdf`}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:opacity-80 font-medium"
+              title="Download the conditions list (internal PDF)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Conditions List
+            </a>
             <NotifyUnderwriterButton
               loanId={loanId}
               underwriterName={underwriterName ?? null}

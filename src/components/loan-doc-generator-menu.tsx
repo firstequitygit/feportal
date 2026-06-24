@@ -57,9 +57,6 @@ export function LoanDocGeneratorMenu({ loanId }: Props) {
           <MenuLink href={`/committee-review/${loanId}`} label="Committee Review Sheet" />
           <MenuLink href={`/term-sheet/${loanId}`} label="Loan Term Sheet" />
           <MenuLink href={`/attorney-summary/${loanId}`} label="Attorney Submission Summary" />
-          <div className="border-t border-gray-100 my-1" />
-          {/* Internal working doc — conditions + staff notes. */}
-          <MenuLink href={`/conditions-report/${loanId}`} label="Conditions List (Internal)" />
         </div>
       )}
     </div>
