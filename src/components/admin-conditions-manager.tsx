@@ -373,8 +373,9 @@ export function AdminConditionsManager({ loanId, loanType, conditions, templates
 
   return (
     <div className="space-y-4">
-      {/* Current Conditions */}
-      <Card>
+      {/* Current Conditions. overflow-visible so the Conditions List
+          dropdown isn't clipped by the Card's default overflow-hidden. */}
+      <Card className="overflow-visible">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">
             Conditions

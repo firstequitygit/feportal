@@ -705,7 +705,9 @@ export function LoanOfficerConditions({ loanId, propertyAddress, conditions, doc
       {deleteError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{deleteError}</p>}
 
       {/* Add Condition card */}
-      <Card>
+      {/* overflow-visible so the Conditions List dropdown isn't clipped
+          by the Card's default overflow-hidden. */}
+      <Card className="overflow-visible">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">Conditions</CardTitle>
           <div className="flex items-center gap-3">

@@ -41,7 +41,7 @@ export function ConditionsListDownload({ loanId }: { loanId: string }) {
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-20 py-1">
+        <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
           <a
             href={`/api/conditions-report/${loanId}/pdf`}
             onClick={() => setOpen(false)}
