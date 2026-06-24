@@ -74,6 +74,7 @@ export default async function ConditionsReportPage({ params }: { params: Promise
 
   return (
     <ConditionsReport
+      loanId={id}
       loanName={loanName}
       loanNumber={loan.loan_number}
       propertyAddress={loan.property_address}

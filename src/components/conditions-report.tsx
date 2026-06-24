@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { type Condition, type ConditionStatus } from '@/lib/types'
 import type { ConditionNote } from '@/components/condition-notes'
 
@@ -22,6 +22,7 @@ const STATUS_RANK: Record<ConditionStatus, number> = {
 }
 
 interface Props {
+  loanId: string
   loanName: string
   loanNumber: string | null
   propertyAddress: string | null
@@ -51,6 +52,7 @@ function formatDateTime(val: string): string {
 }
 
 export function ConditionsReport({
+  loanId,
   loanName,
   loanNumber,
   propertyAddress,
@@ -82,14 +84,13 @@ export function ConditionsReport({
             <ArrowLeft className="w-4 h-4" />
             Back to Loan
           </Link>
-          <button
-            type="button"
-            onClick={() => window.print()}
+          <a
+            href={`/api/conditions-report/${loanId}/pdf`}
             className="flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-md hover:opacity-90"
           >
-            <Printer className="w-4 h-4" />
-            Print / Save PDF
-          </button>
+            <Download className="w-4 h-4" />
+            Download PDF
+          </a>
         </div>
       </div>
 
