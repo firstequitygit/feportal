@@ -188,6 +188,9 @@ const FIELD_WHITELIST: Record<string, FieldConfig> = {
   value_as_is:       { type: 'number', table: 'loan_details' },
   value_bpo:         { type: 'number', table: 'loan_details' },
   payoff:            { type: 'number', table: 'loan_details' },
+  // PUD/Condo HOA marked on the appraisal. true auto-adds the HOA
+  // documentation condition for the LP (see maybeAutoAddHoaCondition).
+  pud_condo_hoa_marked: { type: 'boolean', table: 'loan_details' },
 
   // Construction / Rehab
   construction_holdback: { type: 'number', table: 'loan_details' },
@@ -323,6 +326,81 @@ async function maybeAutoAddAppraisalCondition(
   } catch (err) {
     // Don't fail the parent field-update API call if the automation hiccups.
     console.error('Auto-add Appraisal Received condition failed:', err instanceof Error ? err.message : err)
+  }
+}
+
+/**
+ * When a loan's PUD/Condo HOA is marked on the appraisal (and HOA fees
+ * apply), auto-add a condition for the assigned Loan Processor to gather
+ * the HOA documentation needed to avoid closing delays. No-op if the
+ * condition already exists on the loan.
+ */
+async function maybeAutoAddHoaCondition(
+  adminClient: ReturnType<typeof createAdminClient>,
+  loanId: string,
+  editorName: string | null,
+) {
+  try {
+    const TITLE = 'HOA Documentation (Condo/PUD)'
+    const DESCRIPTION =
+      'Obtain the following directly from the association as soon as possible to avoid delays at closing: ' +
+      '(1) Condo Questionnaire; ' +
+      '(2) Estoppel or written confirmation verifying any and all outstanding fees/dues are current — if they are not current, they will be satisfied at closing; ' +
+      '(3) Written confirmation that the HOA does not have a Right of First Refusal or a waiver of the same; ' +
+      '(4) All items must come directly from the association.'
+
+    const { data: existing } = await adminClient
+      .from('conditions').select('id')
+      .eq('loan_id', loanId).eq('title', TITLE).maybeSingle()
+    if (existing) return // already on the loan
+
+    await adminClient.from('conditions').insert({
+      loan_id: loanId,
+      title: TITLE,
+      description: DESCRIPTION,
+      assigned_to: 'loan_processor',
+      category: 'pre_close',
+      status: 'Outstanding',
+    })
+
+    await adminClient.from('loan_events').insert({
+      loan_id: loanId,
+      event_type: 'condition_added',
+      description: `Condition automatically added (Loan Processor): "${TITLE}" — triggered by PUD/Condo HOA being marked${editorName ? ` by ${editorName}` : ''}`,
+    })
+
+    // Notify the assigned LP(s) — matches the manual condition-add email.
+    try {
+      const { data: loan } = await adminClient
+        .from('loans')
+        .select('property_address, loan_processors!loan_processor_id(full_name, email), loan_processor_2:loan_processors!loan_processor_id_2(full_name, email)')
+        .eq('id', loanId).single()
+      type LpRow = { full_name: string | null; email: string | null } | null
+      const lps = [
+        loan?.loan_processors as unknown as LpRow,
+        (loan as unknown as { loan_processor_2: LpRow }).loan_processor_2,
+      ].filter((x): x is { full_name: string | null; email: string } => !!x?.email)
+      const addr = loan?.property_address ?? 'a loan'
+      const seen = new Set<string>()
+      for (const lp of lps) {
+        if (seen.has(lp.email.toLowerCase())) continue
+        seen.add(lp.email.toLowerCase())
+        const html =
+          `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">Hi ${lp.full_name?.split(/\s+/)[0] ?? 'there'},</p>` +
+          `<p style="font-family:Arial,sans-serif;font-size:14px;color:#333;">A new condition has been assigned to you for <strong>${addr}</strong>.</p>` +
+          `<table style="font-family:Arial,sans-serif;font-size:14px;color:#333;border-collapse:collapse;margin-top:12px;">` +
+          `<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">Condition</td><td><strong>${TITLE}</strong></td></tr>` +
+          `<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">Details</td><td>${DESCRIPTION}</td></tr>` +
+          `</table>` +
+          `<p style="margin-top:16px;"><a href="${PORTAL_URL}/loan-processor" style="background-color:#1F5D8F;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;">View in Portal</a></p>` +
+          `<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin-top:24px;">First Equity Funding Online Portal</p>`
+        await sendEmail({ to: lp.email, subject: `New condition assigned to you — ${addr}`, html })
+      }
+    } catch (mailErr) {
+      console.error('Auto HOA condition email failed:', mailErr instanceof Error ? mailErr.message : mailErr)
+    }
+  } catch (err) {
+    console.error('Auto-add HOA condition failed:', err instanceof Error ? err.message : err)
   }
 }
 
@@ -571,6 +649,25 @@ export async function PATCH(req: NextRequest) {
     // source of truth for title / description / assignment.
     if (field === 'appraisal_received_date' && typeof dbValue === 'string' && dbValue.trim()) {
       await maybeAutoAddAppraisalCondition(adminClient, loanId, editorName)
+    }
+
+    // PUD/Condo HOA marked → auto-add the HOA documentation condition
+    // for the LP.
+    if (field === 'pud_condo_hoa_marked' && dbValue === true) {
+      await maybeAutoAddHoaCondition(adminClient, loanId, editorName)
+    }
+
+    // Property Type set to Condo defaults the HOA flag to Yes (only when
+    // it hasn't been set yet — respects a prior manual choice) and fires
+    // the same HOA condition.
+    if (field === 'property_type' && dbValue === 'Condo') {
+      const { data: cur } = await adminClient
+        .from('loan_details').select('pud_condo_hoa_marked').eq('loan_id', loanId).maybeSingle()
+      if (cur?.pud_condo_hoa_marked == null) {
+        await adminClient.from('loan_details')
+          .update({ pud_condo_hoa_marked: true }).eq('loan_id', loanId)
+        await maybeAutoAddHoaCondition(adminClient, loanId, editorName)
+      }
     }
   }
 

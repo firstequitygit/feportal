@@ -5,6 +5,7 @@ import { assertNotImpersonating } from '@/lib/impersonate'
 import { markDealLost, markDealOpen, setDealLabel } from '@/lib/pipedrive'
 import { pushLoanStatusToAirtable } from '@/lib/airtable'
 import { notifyAdminsOfSyncFailure } from '@/lib/admin-notify'
+import { sendLoanCancelledEmail } from '@/lib/email'
 import type { LoanStatus } from '@/lib/types'
 
 // PATCH /api/loans/status
@@ -118,6 +119,16 @@ export async function PATCH(req: NextRequest) {
       description,
     })
   } catch (err) { console.error('Event log error:', err) }
+
+  // Cancellation notice — email the assigned staff + the broker/borrower.
+  // Best-effort; the status change already landed.
+  if (status === 'cancelled') {
+    try {
+      await sendLoanCancelledEmail(loanId, reason ?? null)
+    } catch (err) {
+      console.error('Loan cancelled email error:', err)
+    }
+  }
 
   // Best-effort downstream pushes. Each failure is captured as a warning,
   // logged as a 'sync_warning' loan_events row, and emailed to admins.

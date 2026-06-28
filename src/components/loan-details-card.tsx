@@ -81,6 +81,7 @@ export interface LoanDetails {
   value_as_is?: number | null
   value_bpo?: number | null
   payoff?: number | null
+  pud_condo_hoa_marked?: boolean | null
 
   // Construction / Rehab
   construction_holdback?: number | null
@@ -1452,6 +1453,16 @@ export function LoanDetailsCard({
                   currentValue={d.payoff ?? null}
                   display={formatCurrency(d.payoff)}
                   placeholder="200000"
+                />
+              </DetailRow>
+              {/* Checking Yes (auto-set when Property Type = Condo) adds
+                  the HOA documentation condition for the LP. */}
+              <DetailRow fieldKey="pud_condo_hoa_marked" label="PUD / Condo HOA marked on appraisal report">
+                <EditableLoanField
+                  loanId={loanId}
+                  field="pud_condo_hoa_marked"
+                  type="boolean"
+                  currentValue={d.pud_condo_hoa_marked ?? false}
                 />
               </DetailRow>
             </Section>

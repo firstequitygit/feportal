@@ -299,6 +299,89 @@ export async function sendLoanApprovedEmail(loanId: string) {
 }
 
 /**
+ * Loan cancelled — notify everyone connected to the loan: the assigned
+ * staff (LO + both LP slots + UW) AND the outside party (broker if one
+ * is assigned, else the registered borrowers, via getLoanContacts).
+ */
+export async function sendLoanCancelledEmail(loanId: string, reason: string | null) {
+  const adminClient = createAdminClient()
+  const { data: loan } = await adminClient
+    .from('loans')
+    .select(`
+      property_address, loan_number,
+      loan_officers!loan_officer_id(full_name, email),
+      loan_processors!loan_processor_id(full_name, email),
+      loan_processor_2:loan_processors!loan_processor_id_2(full_name, email),
+      underwriters!underwriter_id(full_name, email)
+    `)
+    .eq('id', loanId)
+    .single()
+  if (!loan) return
+
+  const property = loan.property_address ?? 'a loan'
+
+  // Staff recipients — generic greeting.
+  type StaffRow = { full_name: string | null; email: string | null } | null
+  const staff: StaffRow[] = [
+    loan.loan_officers as unknown as StaffRow,
+    loan.loan_processors as unknown as StaffRow,
+    (loan as unknown as { loan_processor_2: StaffRow }).loan_processor_2,
+    loan.underwriters as unknown as StaffRow,
+  ]
+
+  // Outside contacts — broker(s) win, else borrowers (personalized).
+  const contacts = await getLoanContacts(loanId)
+
+  const reasonRow = reason?.trim()
+    ? `<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top;">Reason</td><td>${reason.trim()}</td></tr>`
+    : ''
+
+  const bodyHtml = (greetingName: string | null) => `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #333;">
+      <div style="background-color: #b91c1c; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; color: white; font-size: 18px;">Loan Cancelled</h1>
+      </div>
+      <div style="background-color: #ffffff; padding: 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 15px; margin-top: 0;">Hi ${greetingName ?? 'there'},</p>
+        <p style="font-size: 15px;">
+          The loan for <strong>${property}</strong> has been <strong style="color: #b91c1c;">cancelled</strong>.
+        </p>
+        <table style="font-size: 14px; color: #333; border-collapse: collapse; margin-top: 12px;">
+          ${loan.loan_number ? `<tr><td style="padding:4px 16px 4px 0;color:#666;">Loan #</td><td><strong>${loan.loan_number}</strong></td></tr>` : ''}
+          ${reasonRow}
+        </table>
+        <p style="font-size: 13px; color: #555; margin-top: 24px;">— The First Equity Funding Team</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin-top: 20px;" />
+        <p style="font-size: 11px; color: #9ca3af; margin-bottom: 0;">First Equity Funding Online Portal &nbsp;·&nbsp; ${PORTAL_DOMAIN}</p>
+      </div>
+    </div>
+  `
+
+  const subject = `Loan cancelled — ${property}`
+  const seen = new Set<string>()
+  const sends: Promise<unknown>[] = []
+
+  for (const s of staff) {
+    if (!s?.email) continue
+    const key = s.email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const first = s.full_name ? s.full_name.split(/\s+/)[0] : null
+    sends.push(sendEmail({ to: s.email, subject, html: bodyHtml(first) })
+      .catch(err => console.error(`Cancellation email to ${s.email} failed:`, err)))
+  }
+  for (const c of contacts) {
+    const key = c.email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const first = c.name ? c.name.split(/\s+/)[0] : null
+    sends.push(sendEmail({ to: c.email, subject, html: bodyHtml(first) })
+      .catch(err => console.error(`Cancellation email to ${c.email} failed:`, err)))
+  }
+  await Promise.all(sends)
+}
+
+/**
  * "A condition needs your attention" — sent when a borrower-facing
  * condition is rejected so the outside party re-submits quickly.
  *

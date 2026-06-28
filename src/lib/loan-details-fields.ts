@@ -150,6 +150,7 @@ export const LOAN_DETAILS_FIELDS: LoanDetailsFieldDef[] = [
   { key: 'arv',                    label: 'Value (ARV)',                    section: 'Valuation / Collateral' },
   { key: 'value_bpo',              label: 'Value (BPO)',                    section: 'Valuation / Collateral' },
   { key: 'payoff',                 label: 'Payoff',                         section: 'Valuation / Collateral' },
+  { key: 'pud_condo_hoa_marked',   label: 'PUD / Condo HOA marked on appraisal report', section: 'Valuation / Collateral' },
 
   // Construction / Rehab
   { key: 'construction_holdback',  label: 'Construction Holdback',          section: 'Construction / Rehab' },
