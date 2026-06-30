@@ -185,6 +185,9 @@ export default async function LoanOfficerLoanPage({
           <Card>
             <CardHeader><CardTitle className="text-base">Loan Summary</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
+              <FieldRow label="Loan Officer">
+                <span className="font-medium text-gray-700">{(loan.loan_officers as { full_name: string | null } | null)?.full_name ?? '—'}</span>
+              </FieldRow>
               <FieldRow label="Loan Number">
                 <EditableLoanField loanId={id} field="loan_number" type="text" currentValue={loan.loan_number} display={loan.loan_number ?? '—'} />
               </FieldRow>
