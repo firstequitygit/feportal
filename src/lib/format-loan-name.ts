@@ -36,7 +36,7 @@ export function formatLoanName({
 }: LoanNameSource): string {
   const borrower = trimToNull(borrowerName)
   const street = streetFromAddress(propertyAddress)
-  if (borrower && street) return `${borrower} — ${street}`
+  if (borrower && street) return `${borrower} — ${stripBorrowerPrefix(street, borrower)}`
   if (borrower) return borrower
   if (street) return street
   const raw = trimToNull(propertyAddress)
@@ -67,4 +67,19 @@ function trimToNull(s: string | null | undefined): string | null {
   if (!s) return null
   const t = s.trim()
   return t || null
+}
+
+/** New Pipedrive deals without a structured address fall back to the
+ *  deal title, which is conventionally "Borrower Name - Address". That
+ *  bakes the borrower name into property_address, so composing
+ *  "{borrower} — {address}" would show the name twice. Strip a leading
+ *  "{borrower}" + separator from the street so it appears once.
+ *  Examples (borrower "Meyer Kesserman"):
+ *    "Meyer Kesserman - 148 Pinehurst Road" → "148 Pinehurst Road"
+ *    "148 Pinehurst Road"                    → "148 Pinehurst Road" (unchanged) */
+function stripBorrowerPrefix(street: string, borrower: string): string {
+  const esc = borrower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp('^' + esc + '\\s*[-–—|:]\\s*', 'i')
+  const stripped = street.replace(re, '').trim()
+  return stripped || street
 }
