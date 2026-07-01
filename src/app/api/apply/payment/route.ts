@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       squareCustomerId: customerId,
       squareCardId,
       feeAmountCents: feeCents,
-      idempotencyKey: `charge:${app.id}:${squareCardId}`,
+      // Hash the (app, card) pair: Square idempotency keys must be <= 45 chars,
+      // and a UUID + ccof: card id far exceeds that (was silently failing charges).
+      idempotencyKey: `charge:${shortHash(`${app.id}:${squareCardId}`)}`,
       note: `Credit & Background Check - loan application ${app.id}`,
     })
 

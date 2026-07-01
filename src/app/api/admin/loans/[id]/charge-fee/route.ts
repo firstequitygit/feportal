@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { chargeApplicationFee } from '@/lib/square'
+import { createHash } from 'node:crypto'
 
 export const runtime = 'nodejs'
+
+/** First 16 hex of sha256 - keeps Square idempotency keys under the 45-char cap. */
+function shortHash(input: string): string {
+  return createHash('sha256').update(input).digest('hex').slice(0, 16)
+}
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -43,7 +49,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     squareCustomerId: app.square_customer_id,
     squareCardId: app.square_card_id,
     feeAmountCents: app.fee_amount_cents,
-    idempotencyKey: `charge:${app.id}:${app.square_card_id}`,
+    idempotencyKey: `charge:${shortHash(`${app.id}:${app.square_card_id}`)}`,
     note: `Credit & Background Check - loan ${id}`,
   })
 
