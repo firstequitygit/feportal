@@ -48,20 +48,31 @@ export async function POST(req: NextRequest) {
     const customerId = cust.customer?.id
     if (!customerId) throw new Error('No customer id')
 
-    // Persist the Square customer id + fee amount up front. We no longer save a
-    // card-on-file (a just-created card is not chargeable for several seconds due
-    // to Square's eventual consistency), so brand/last4/square_card_id are set from
-    // the PAYMENT response after a successful direct-nonce charge below.
+    const card = await sq.cards.create({
+      idempotencyKey: `card:${shortHash(body.cardToken)}`,
+      sourceId: body.cardToken,
+      card: { customerId },
+    })
+    const c = card.card
+    if (!c?.id) throw new Error('No card id')
+
     const { error: updErr } = await admin.from('loan_applications').update({
       square_customer_id: customerId,
+      square_card_id: c.id,
+      card_brand: c.cardBrand ?? null,
+      card_last4: c.last4 ?? null,
       fee_amount_cents: feeCents,
     }).eq('id', app.id)
-    if (updErr) throw new Error(`Persist Square customer failed: ${updErr.message}`)
+    if (updErr) throw new Error(`Persist card-on-file failed: ${updErr.message}`)
+
+    const brand = c.cardBrand ?? null
+    const last4 = c.last4 ?? null
+    const squareCardId = c.id
 
     // Idempotent guard: if fee was already charged (e.g. user navigated back and resubmitted),
     // skip the charge and return immediately.
     if (app.fee_charged_at) {
-      return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand: null, last4: null, feeCents })
+      return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand, last4, feeCents })
     }
 
     // Atomic claim: flip status to 'charging' only if the fee is uncharged AND the
@@ -85,50 +96,31 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
       if (fresh?.fee_charged_at) {
         // Another request charged it - idempotent success.
-        return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand: null, last4: null, feeCents })
+        return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand, last4, feeCents })
       }
       // Status is 'charging' or 'needs_review' - in flight or under review; not retryable inline.
-      return NextResponse.json({ success: true, charged: false, reason: 'in_review', brand: null, last4: null, feeCents })
+      return NextResponse.json({ success: true, charged: false, reason: 'in_review', brand, last4, feeCents })
     }
 
-    // Charge the card nonce/token DIRECTLY. A nonce is instantly chargeable (no
-    // eventual-consistency lag like a just-created card-on-file), so this avoids
-    // the transient failures that were landing good cards in needs_review.
-    // Idempotency key is token-scoped: a new nonce on client retry yields a new key
-    // (fresh attempt); the same nonce yields the same key (Square dedupes) -> double-charge-safe.
     const chargeResult = await chargeApplicationFee({
       squareCustomerId: customerId,
-      sourceId: body.cardToken,
+      squareCardId,
       feeAmountCents: feeCents,
-      idempotencyKey: `charge:${app.id}:${shortHash(body.cardToken)}`,
+      idempotencyKey: `charge:${app.id}:${squareCardId}`,
       note: `Credit & Background Check - loan application ${app.id}`,
     })
 
     if (chargeResult.ok) {
-      // Charge succeeded - record it. Pull brand/last4 + the payment id from the
-      // PAYMENT response (payment result is typed `unknown`, so narrow carefully).
-      const payment = chargeResult.payment as {
-        id?: string
-        cardDetails?: { card?: { cardBrand?: string; last4?: string } }
-      } | null
-      const brand = payment?.cardDetails?.card?.cardBrand ?? null
-      const last4 = payment?.cardDetails?.card?.last4 ?? null
-      // We repurpose square_card_id to hold the Square PAYMENT id: there is no
-      // reusable card-on-file anymore, but a payment id is still a valid Square ref.
-      const paymentId = payment?.id ?? null
-      // If the persist fails, money was still taken: fall back to needs_review
-      // and log loudly, but still report charged:true.
+      // Charge succeeded - record it. If the persist fails, money was still taken:
+      // fall back to needs_review and log loudly, but still report charged:true.
       const { error: persistErr } = await admin.from('loan_applications').update({
         fee_charged_at: new Date().toISOString(),
         fee_charge_status: 'charged',
-        card_brand: brand,
-        card_last4: last4,
-        square_customer_id: customerId,
-        square_card_id: paymentId,
       }).eq('id', app.id)
       if (persistErr) {
+        const paymentId = (chargeResult.payment as { id?: string } | null)?.id ?? 'unknown'
         console.error(
-          `CRITICAL: charge SUCCEEDED but persist FAILED (apply/payment) app=${app.id} squarePaymentId=${paymentId ?? 'unknown'}:`,
+          `CRITICAL: charge SUCCEEDED but persist FAILED (apply/payment) app=${app.id} squarePaymentId=${paymentId}:`,
           persistErr.message,
         )
         await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
@@ -142,7 +134,7 @@ export async function POST(req: NextRequest) {
       await admin.from('loan_applications').update({
         fee_charge_status: 'declined',
       }).eq('id', app.id)
-      return NextResponse.json({ success: true, charged: false, reason: 'declined', brand: null, last4: null, feeCents })
+      return NextResponse.json({ success: true, charged: false, reason: 'declined', brand, last4, feeCents })
     }
 
     // Hard/network error - the charge may have gone through. Mark needs_review (do NOT
@@ -151,9 +143,9 @@ export async function POST(req: NextRequest) {
     await admin.from('loan_applications').update({
       fee_charge_status: 'needs_review',
     }).eq('id', app.id)
-    return NextResponse.json({ success: true, charged: false, reason: 'error', brand: null, last4: null, feeCents })
+    return NextResponse.json({ success: true, charged: false, reason: 'error', brand, last4, feeCents })
   } catch (e) {
-    console.error('Square payment setup failed:', e instanceof Error ? e.message : 'unknown')
-    return NextResponse.json({ error: 'Could not process payment. Please re-check your card details.' }, { status: 502 })
+    console.error('Square card-on-file failed:', e instanceof Error ? e.message : 'unknown')
+    return NextResponse.json({ error: 'Could not save card. Please re-check your card details.' }, { status: 502 })
   }
 }

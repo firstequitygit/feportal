@@ -68,7 +68,7 @@ function squareErrorItems(e: unknown): SquareApiErrorItem[] {
 }
 
 /**
- * Charge a Square payment source (a card nonce/token or a saved card id) for the application fee.
+ * Charge a saved Square card for the application fee.
  *
  * Returns a discriminated result so callers can distinguish:
  *   ok:true         - COMPLETED or APPROVED; money collected
@@ -84,13 +84,13 @@ function squareErrorItems(e: unknown): SquareApiErrorItem[] {
  */
 export async function chargeApplicationFee({
   squareCustomerId,
-  sourceId,
+  squareCardId,
   feeAmountCents,
   idempotencyKey,
   note,
 }: {
   squareCustomerId: string
-  sourceId: string
+  squareCardId: string
   feeAmountCents: number
   idempotencyKey: string
   note: string
@@ -104,7 +104,7 @@ export async function chargeApplicationFee({
       // Awaiting unwraps directly to CreatePaymentResponse; amountMoney.amount must be BigInt.
       const pay = await sq.payments.create({
         idempotencyKey,
-        sourceId,
+        sourceId: squareCardId,
         customerId: squareCustomerId,
         locationId: SQUARE_LOCATION_ID(),
         amountMoney: { amount: BigInt(feeAmountCents), currency: 'USD' },
