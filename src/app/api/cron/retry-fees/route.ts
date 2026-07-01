@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { chargeApplicationFee } from '@/lib/square'
+import { createHash } from 'node:crypto'
 
 export const runtime = 'nodejs'
+
+/** First 16 hex of sha256 - keeps Square idempotency keys under the 45-char cap. */
+function shortHash(input: string): string {
+  return createHash('sha256').update(input).digest('hex').slice(0, 16)
+}
 
 // Called automatically by Vercel cron every 3 minutes.
 // Also protected by CRON_SECRET so only Vercel can trigger it.
@@ -111,7 +117,7 @@ export async function GET(request: Request) {
           squareCustomerId: row.square_customer_id,
           squareCardId: row.square_card_id,
           feeAmountCents: row.fee_amount_cents,
-          idempotencyKey: `charge:${row.id}:${row.square_card_id}`,
+          idempotencyKey: `charge:${shortHash(`${row.id}:${row.square_card_id}`)}`,
           note: `Credit & Background Check - loan application ${row.id} (retry)`,
         })
 

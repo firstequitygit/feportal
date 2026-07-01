@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   try {
     const sq = squareClient()
     const cust = await sq.customers.create({
-      idempotencyKey: `customer:authz:${app.id}`,
+      idempotencyKey: `customer:authz:${shortHash(app.id)}`,
       emailAddress: app.resume_email ?? undefined,
       note: `Loan ${loan.id} (authorize)`,
     })
@@ -157,7 +157,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         squareCustomerId,
         squareCardId,
         feeAmountCents: feeCents,
-        idempotencyKey: `charge:${app.id}:${squareCardId}`,
+        // Hash to stay within Square's 45-char idempotency key limit.
+        idempotencyKey: `charge:${shortHash(`${app.id}:${squareCardId}`)}`,
         note: `Credit & Background Check - loan application ${app.id} (loan ${loan.id})`,
       })
 
