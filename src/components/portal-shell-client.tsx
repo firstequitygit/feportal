@@ -16,7 +16,7 @@ import type { StaffContext } from '@/lib/types'
 import {
   LayoutDashboard, LogOut, Menu, X, Pin, PinOff,
   Users, UserCog, ShieldCheck, ClipboardList, Archive, FileCheck,
-  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings, Eye, Table,
+  Inbox, Building2, BarChart3, UserCircle, Briefcase, Store, Settings, Eye, Table, FileSignature,
 } from 'lucide-react'
 
 type Variant = 'default' | 'admin' | 'borrower' | 'broker' | 'loan-officer' | 'loan-processor' | 'underwriter'
@@ -72,6 +72,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
   { href: '/admin/templates',        label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
+  { href: '/e-signature',            label: 'E-Signature',         icon: FileSignature },
   { href: '/admin/archived',         label: 'Archived Loans',      icon: Archive },
   { href: '/admin/settings',         label: 'Settings',            icon: Settings },
 ]
@@ -84,6 +85,7 @@ const LO_NAV: NavItem[] = [
   { href: '/loan-officer/brokers',    label: 'Brokers',        icon: Briefcase },
   { href: '/loan-officer/vendors',    label: 'Vendors',        icon: Store },
   { href: '/reports',                 label: 'Reports',        icon: BarChart3 },
+  { href: '/e-signature',             label: 'E-Signature',    icon: FileSignature },
   { href: '/loan-officer/archived',   label: 'Archived Loans', icon: Archive },
 ]
 
@@ -96,6 +98,7 @@ const LP_NAV: NavItem[] = [
   { href: '/loan-processor/vendors',    label: 'Vendors',             icon: Store },
   { href: '/loan-processor/templates',  label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                   label: 'Reports',             icon: BarChart3 },
+  { href: '/e-signature',               label: 'E-Signature',         icon: FileSignature },
   { href: '/loan-processor/archived',   label: 'Archived Loans',      icon: Archive },
 ]
 
@@ -105,6 +108,7 @@ const UW_NAV: NavItem[] = [
   { href: '/underwriter/inbox',      label: 'Inbox',               icon: Inbox },
   { href: '/underwriter/templates',  label: 'Condition Templates', icon: ClipboardList },
   { href: '/reports',                label: 'Reports',             icon: BarChart3 },
+  { href: '/e-signature',            label: 'E-Signature',         icon: FileSignature },
 ]
 
 function navIsActive(item: NavItem, pathname: string): boolean {

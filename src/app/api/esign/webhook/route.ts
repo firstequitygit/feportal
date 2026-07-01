@@ -12,6 +12,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyWebhookSignature, downloadDocument } from '@/lib/esign/boldsign'
+import { ESIGN_DOC_LABELS } from '@/lib/esign/forms'
 
 export const runtime = 'nodejs'
 
@@ -106,8 +107,9 @@ export async function POST(req: Request) {
         .upload(filePath, signedPdf, { contentType: 'application/pdf', upsert: true })
       if (uploadErr) throw new Error('storage upload: ' + uploadErr.message)
 
-      const docName = envelope.document_kind === 'term_sheet'
-        ? `Signed Term Sheet — ${envelope.signer_name ?? 'borrower'}.pdf`
+      const label = ESIGN_DOC_LABELS[envelope.document_kind as string]
+      const docName = label
+        ? `Signed ${label} — ${envelope.signer_name ?? 'borrower'}.pdf`
         : `Signed document — ${envelope.signer_name ?? 'borrower'}.pdf`
 
       const { data: docRow, error: docErr } = await adminClient
