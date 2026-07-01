@@ -1,10 +1,11 @@
 'use client'
 import { Fragment, useState } from "react"
-import { Mail, Phone, Calendar } from "lucide-react"
+import { Mail, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { SSNInput } from "@/components/ui/ssn-input"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { YesNoToggle } from "@/components/ui/yes-no-toggle"
 import { FieldReveal } from "@/components/ui/field-reveal"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
@@ -28,6 +29,8 @@ type Props = {
   optionsOverride?: Record<string, readonly string[]>
   /** Field names that should be rendered as read-only (disabled). */
   readOnlyFields?: string[]
+  /** Render every field full-width in a single column (no two-column grid). */
+  singleColumn?: boolean
 }
 
 // Shared focus + border classes applied across all input types
@@ -40,14 +43,19 @@ function inputClasses(isInvalid: boolean) {
   return `${baseInputClasses} ${isInvalid ? invalidBorder : `${validBorder} ${focusClasses}`}`
 }
 
-export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection, optionsOverride, readOnlyFields }: Props) {
+export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", missingFields, afterSection, optionsOverride, readOnlyFields, singleColumn }: Props) {
   const [blurErrors, setBlurErrors] = useState<Record<string, string | null>>({})
 
-  function handleBlur(name: string, type: string, value: unknown) {
-    const validator = validators[type === 'tel' ? 'phone' : type]
-    if (!validator) return
-    const error = validator(value)
-    setBlurErrors(prev => ({ ...prev, [name]: error }))
+  function handleBlur(f: FieldDef, value: unknown) {
+    // Required-empty takes priority: a touched required field left blank shows
+    // an inline error even when no type validator applies.
+    if (isRequired(f, data, scope) && (value === undefined || value === null || value === '')) {
+      setBlurErrors(prev => ({ ...prev, [f.name]: 'This field is required' }))
+      return
+    }
+    const validator = validators[f.type === 'tel' ? 'phone' : f.type]
+    const error = validator ? validator(value) : null
+    setBlurErrors(prev => ({ ...prev, [f.name]: error }))
   }
 
   // Build visible groups - section breaks only appear when there are visible fields in that section
@@ -63,7 +71,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
   }
 
   return (
-    <div className="grid gap-y-2 gap-x-3 sm:grid-cols-2">
+    <div className={`grid gap-y-2 gap-x-3 ${singleColumn ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
       {groups.map((g, gi) => (
         <Fragment key={`group-${gi}-${g.section ?? 'nosection'}`}>
           {g.section && (
@@ -83,7 +91,7 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
             const options = optionsOverride?.[f.name] ?? (f.optionsWhen ? f.optionsWhen(data, scope) : f.options)
             return (
               <FieldReveal key={f.name} show={true}>
-                <div className={`space-y-1 ${wide ? 'sm:col-span-2' : ''}`}>
+                <div className={`space-y-1 ${wide && !singleColumn ? 'sm:col-span-2' : ''}`}>
                   <Label htmlFor={id} className="text-sm font-medium text-gray-700">
                     {f.label}
                     {isRequired(f, data, scope) && (
@@ -148,13 +156,20 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                       value={String(v ?? '')}
                       onChange={(val) => onChange(f.name, val)}
                       invalid={Boolean(blurErr || isInvalid)}
-                      onBlur={() => handleBlur(f.name, f.type, v)} />
+                      onBlur={() => handleBlur(f, v)} />
                   ) : f.type === 'ssn' ? (
                     <SSNInput id={id} name={f.name}
                       value={String(v ?? '')}
                       onChange={(val) => onChange(f.name, val)}
                       invalid={Boolean(blurErr || isInvalid)}
-                      onBlur={() => handleBlur(f.name, f.type, v)} />
+                      onBlur={() => handleBlur(f, v)} />
+                  ) : f.type === 'tel' ? (
+                    <PhoneInput id={id} name={f.name}
+                      value={String(v ?? '')}
+                      onChange={(val) => onChange(f.name, val)}
+                      invalid={Boolean(blurErr || isInvalid)}
+                      autoComplete={f.autocomplete}
+                      onBlur={() => handleBlur(f, v)} />
                   ) : f.type === 'signature' ? (
                     <div className="space-y-2">
                       <input
@@ -182,28 +197,32 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                       </p>
                     </div>
                   ) : f.address ? (
-                    <AddressAutocomplete
-                      id={id}
-                      value={(v as string) ?? ''}
-                      onChange={(val) => onChange(f.name, val)}
-                      onPlaceSelected={(parts) => {
-                        onChange(f.name, parts.street)
-                        onChange(f.address!.city, parts.city)
-                        onChange(f.address!.state, parts.state)
-                        onChange(f.address!.zip, parts.zip)
-                        if (f.address!.lat && parts.lat !== undefined)
-                          onChange(f.address!.lat, parts.lat)
-                        if (f.address!.lng && parts.lng !== undefined)
-                          onChange(f.address!.lng, parts.lng)
-                      }}
-                      invalid={isInvalid}
-                      placeholder={f.placeholder}
-                    />
+                    <>
+                      <AddressAutocomplete
+                        id={id}
+                        value={(v as string) ?? ''}
+                        onChange={(val) => onChange(f.name, val)}
+                        onPlaceSelected={(parts) => {
+                          onChange(f.name, parts.street)
+                          onChange(f.address!.city, parts.city)
+                          onChange(f.address!.state, parts.state)
+                          onChange(f.address!.zip, parts.zip)
+                          if (f.address!.lat && parts.lat !== undefined)
+                            onChange(f.address!.lat, parts.lat)
+                          if (f.address!.lng && parts.lng !== undefined)
+                            onChange(f.address!.lng, parts.lng)
+                        }}
+                        invalid={isInvalid}
+                        placeholder={f.placeholder}
+                      />
+                      <p className="text-xs text-gray-400">
+                        Can&apos;t find your address? Keep typing and fill in the fields below.
+                      </p>
+                    </>
                   ) : (() => {
-                    const inputType = f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'
+                    const inputType = f.type === 'email' ? 'email' : f.type === 'date' ? 'date' : 'text'
                     const LeadIcon =
                       f.type === 'email' ? Mail :
-                      f.type === 'tel' ? Phone :
                       f.type === 'date' ? Calendar :
                       null
                     return LeadIcon ? (
@@ -212,23 +231,25 @@ export function FieldRenderer({ fields, data, scope, onChange, idPrefix = "", mi
                         <Input id={id}
                           type={inputType}
                           inputMode={f.type === 'number' ? 'decimal' : undefined}
+                          autoComplete={f.autocomplete}
                           placeholder={f.placeholder}
                           className={isInvalid ? 'border-red-500 h-10 pl-10 rounded-md' : `${validBorder} ${focusClasses} h-10 pl-10 rounded-md`}
                           aria-invalid={isInvalid || undefined}
                           disabled={readOnlyFields?.includes(f.name) || undefined}
                           value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
-                          onBlur={() => handleBlur(f.name, f.type, v)} />
+                          onBlur={() => handleBlur(f, v)} />
                       </div>
                     ) : (
                       <Input id={id}
                         type={inputType}
                         inputMode={f.type === 'number' ? 'decimal' : undefined}
+                        autoComplete={f.autocomplete}
                         placeholder={f.placeholder}
                         className={isInvalid ? 'border-red-500 h-10 rounded-md' : `${validBorder} ${focusClasses} h-10 rounded-md`}
                         aria-invalid={isInvalid || undefined}
                         disabled={readOnlyFields?.includes(f.name) || undefined}
                         value={(v as string) ?? ''} onChange={e => onChange(f.name, e.target.value)}
-                        onBlur={() => handleBlur(f.name, f.type, v)} />
+                        onBlur={() => handleBlur(f, v)} />
                     )
                   })()}
                   {blurErr && (
