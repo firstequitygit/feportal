@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { ALL_FIELDS, getMissingRequiredFields, type ApplicationData, type StepId } from '@/lib/application-fields'
@@ -8,7 +8,7 @@ import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Declarations } from '../_steps/step4-declarations'
-import { Step5Authorization } from '../_steps/step5-authorization'
+import { Step5Authorization, type FeeOutcome } from '../_steps/step5-authorization'
 import { Step5BrokerAttestation } from '../_steps/step5-broker-attestation'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
@@ -68,6 +68,8 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
   const [testMode, setTestMode] = useState(false)
   const [testSubmitting, setTestSubmitting] = useState(false)
+  const [feeOutcome, setFeeOutcome] = useState<FeeOutcome | null>(null)
+  const wizardRef = useRef<HTMLDivElement>(null)
 
   // Load + persist test mode toggle (admins only).
   useEffect(() => {
@@ -124,6 +126,15 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   useEffect(() => {
     setMaxVisited((m) => Math.max(m, step))
   }, [step])
+
+  // Scroll to the top of the wizard card on every successful step change.
+  // Skipped when submitErrors are present (validation scroll takes priority).
+  useEffect(() => {
+    if (submitErrors && submitErrors.length > 0) return
+    if (wizardRef.current) {
+      wizardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = useCallback(
     (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) =>
@@ -316,11 +327,12 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
             step5AttestationBody: variant.copy.step5AttestationBody ?? '',
           }} />
       : <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
-          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
+          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }}
+          onFeeOutcome={(outcome) => setFeeOutcome(outcome)} />,
   ][step - 1]
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-5">
+    <div ref={wizardRef} className="mx-auto max-w-3xl px-6 py-5">
       <EmbedHeightReporter />
       {existingAccountEmail && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -404,8 +416,8 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
         </div>
       )}
 
-      {/* SaveStatus - top-right above stepper */}
-      <div className="mb-3 flex justify-end">
+      {/* SaveStatus - sticky top-right so it stays visible when scrolled */}
+      <div className="sticky top-2 z-20 mb-3 flex justify-end pointer-events-none">
         <SaveStatus status={autosaveStatus} />
       </div>
 
@@ -594,7 +606,14 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                       }
                       await testSubmit(overrides, 'Manual submit', data)
                     } else {
-                      submit()
+                      // If the fee was never attempted or not collected, prompt once before submitting.
+                      if (!feeOutcome || !feeOutcome.charged) {
+                        const confirmed = window.confirm(
+                          "Your application fee hasn't been collected yet. You can submit now and our team will follow up about payment. Submit anyway?"
+                        )
+                        if (!confirmed) return
+                      }
+                      await submit()
                     }
                   }}
                   disabled={testMode ? testSubmitting : (submitting || !token)}

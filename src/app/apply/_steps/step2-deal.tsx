@@ -32,10 +32,12 @@ export function Step2Deal({ data, set, missingFields, token, testMode = false }:
             scope={data}
             onChange={(n, v) => set({ [n]: v })}
             missingFields={missingFields}
-            afterSection={{
-              'Rental income': <RepeatingUnits data={data} set={set} missingFields={missingFields} />,
-            }}
           />
+          {/* RepeatingUnits is self-gating: returns null when dscrUnitCount === 0.
+              For DSCR Single Family/Condo it renders an <h4>Rental income</h4> card (count === 1).
+              For DSCR Multifamily the FieldRenderer already renders the "Rental income"
+              heading + dscr_unit_count select, so no extra heading needed here either. */}
+          <RepeatingUnits data={data} set={set} missingFields={missingFields} />
           <div className="pt-2">
             <PropertyDocuments
               token={token}
