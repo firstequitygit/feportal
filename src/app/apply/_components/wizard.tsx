@@ -417,7 +417,7 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                 onClick={async () => { setFeeConfirm(false); await submit() }}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] disabled:pointer-events-none disabled:opacity-60"
               >
-                {submitting ? 'Submitting…' : 'Submit anyway'}
+                {submitting ? 'Submitting...' : 'Submit anyway'}
               </button>
               <button
                 type="button"
@@ -714,9 +714,9 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                   className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
                   {testMode
-                    ? (testSubmitting ? 'Submitting…' : 'Submit Test Application')
+                    ? (testSubmitting ? 'Submitting...' : 'Submit Test Application')
                     : submitting
-                      ? (variantKind === 'broker' ? 'Submitting…' : 'Processing...')
+                      ? (variantKind === 'broker' ? 'Submitting...' : 'Processing...')
                       : variant.copy.submitButtonLabel}
                 </button>
               )}

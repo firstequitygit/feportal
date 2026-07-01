@@ -112,14 +112,18 @@ export async function chargeApplicationFee({
       })
       const status = pay.payment?.status
       if (status !== 'COMPLETED' && status !== 'APPROVED') {
-        // Returned (no throw) with a non-success status - genuine decline, no retry.
-        return { ok: false, declined: true, message: `Square status ${status ?? 'unknown'}` }
+        // Returned (no throw) with a non-success status (e.g. PENDING). This is AMBIGUOUS:
+        // the payment may still settle, so it must NOT be treated as a retryable decline. A
+        // client re-submit re-tokenizes into a new card id -> new idempotency key, which would
+        // double-charge if this attempt actually settled. Route to needs_review instead.
+        return { ok: false, declined: false, message: `Square status ${status ?? 'unknown'}` }
       }
       return { ok: true, payment: pay.payment }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       const items = squareErrorItems(e)
-      const code = items[0]?.code
+      // Check every returned error item (not just the first) for a genuine decline code.
+      const isDecline = items.some((i) => i.code != null && DECLINE_CODES.has(i.code))
       // Log the failure path loudly: previously we logged nothing here, which made this
       // transient-failure bug invisible in production.
       console.error(
@@ -129,7 +133,7 @@ export async function chargeApplicationFee({
           : message,
       )
 
-      if (code != null && DECLINE_CODES.has(code)) {
+      if (isDecline) {
         // Genuine decline - the same card will decline again; do not retry.
         return { ok: false, declined: true, message }
       }
