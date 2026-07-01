@@ -702,9 +702,9 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                       }
                       await testSubmit(overrides, 'Manual submit', data)
                     } else if (variantKind === 'broker') {
-                      // Broker variant: no card on Step 5 (fee is charged later at /authorize).
-                      // Prompt once, then submit - same behavior as before.
-                      setFeeConfirm(true)
+                      // Broker variant: no card on Step 5 (the borrower pays later at
+                      // /authorize), so submit directly with no payment prompt.
+                      await submit()
                     } else {
                       // Borrower variant: charge the fee on submit, then branch on the result.
                       await handleBorrowerSubmit()
