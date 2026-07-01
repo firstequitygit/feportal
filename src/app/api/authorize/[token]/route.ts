@@ -81,22 +81,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     })
     squareCustomerId = cust.customer?.id ?? null
     if (!squareCustomerId) throw new Error('No Square customer id')
-
-    const card = await sq.cards.create({
-      idempotencyKey: `card:authz:${shortHash(body.cardToken)}`,
-      sourceId: body.cardToken,
-      card: { customerId: squareCustomerId },
-    })
-    squareCardId = card.card?.id ?? null
-    cardBrand = card.card?.cardBrand ?? null
-    cardLast4 = card.card?.last4 ?? null
-    if (!squareCardId) throw new Error('No Square card id')
   } catch (err) {
-    console.error('Authorize card save failed:', err instanceof Error ? err.message : 'unknown')
-    return NextResponse.json({ error: 'Could not save card. Please re-check your card details.' }, { status: 502 })
+    console.error('Authorize Square customer setup failed:', err instanceof Error ? err.message : 'unknown')
+    return NextResponse.json({ error: 'Could not process payment. Please re-check your card details.' }, { status: 502 })
   }
 
-  // Persist card-on-file fields on loan_applications + merge signatures into the JSONB blob.
+  // Persist the Square customer id + fee amount + merge signatures into the JSONB blob.
+  // We no longer save a card-on-file (a just-created card is not chargeable for
+  // several seconds due to eventual consistency); brand/last4/square_card_id are set
+  // from the PAYMENT response after a successful direct-nonce charge below.
   const mergedData = {
     ...data,
     auth_signature: body.authSignature,
@@ -108,9 +101,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     .update({
       data: mergedData,
       square_customer_id: squareCustomerId,
-      square_card_id: squareCardId,
-      card_brand: cardBrand,
-      card_last4: cardLast4,
       fee_amount_cents: feeCents,
     })
     .eq('id', app.id)
@@ -126,7 +116,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   if (app.fee_charged_at) {
     // Idempotent guard: fee already charged (e.g. borrower refreshed and resubmitted).
     chargedResult = { charged: true }
-  } else if (squareCardId && squareCustomerId) {
+  } else if (squareCustomerId) {
     // Atomic claim: flip status to 'charging' only if uncharged AND claimable
     // (null or 'declined'). A conditional UPDATE prevents a double-charge across
     // concurrent retries of the same authorize link.
@@ -153,25 +143,42 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         chargedResult = { charged: false, reason: 'in_review' }
       }
     } else {
+      // Charge the card nonce/token DIRECTLY. A nonce is instantly chargeable (no
+      // eventual-consistency lag like a just-created card-on-file). Token-scoped
+      // idempotency key: new nonce on retry -> new key (fresh attempt); same nonce ->
+      // same key (Square dedupes) -> double-charge-safe.
       const chargeRes = await chargeApplicationFee({
         squareCustomerId,
-        squareCardId,
+        sourceId: body.cardToken,
         feeAmountCents: feeCents,
-        idempotencyKey: `charge:${app.id}:${squareCardId}`,
+        idempotencyKey: `charge:${app.id}:${shortHash(body.cardToken)}`,
         note: `Credit & Background Check - loan application ${app.id} (loan ${loan.id})`,
       })
 
       if (chargeRes.ok) {
-        // Charge succeeded - record it. If the persist fails, money was still taken:
-        // fall back to needs_review and log loudly, but still report charged:true.
+        // Charge succeeded. Pull brand/last4 + the payment id from the PAYMENT
+        // response (payment result is typed `unknown`, so narrow carefully).
+        const payment = chargeRes.payment as {
+          id?: string
+          cardDetails?: { card?: { cardBrand?: string; last4?: string } }
+        } | null
+        cardBrand = payment?.cardDetails?.card?.cardBrand ?? null
+        cardLast4 = payment?.cardDetails?.card?.last4 ?? null
+        // Repurpose square_card_id to hold the Square PAYMENT id (no reusable
+        // card-on-file anymore; a payment id is still a valid Square ref).
+        squareCardId = payment?.id ?? null
+        // If the persist fails, money was still taken: fall back to needs_review
+        // and log loudly, but still report charged:true.
         const { error: persistErr } = await admin.from('loan_applications').update({
           fee_charged_at: new Date().toISOString(),
           fee_charge_status: 'charged',
+          card_brand: cardBrand,
+          card_last4: cardLast4,
+          square_card_id: squareCardId,
         }).eq('id', app.id)
         if (persistErr) {
-          const paymentId = (chargeRes.payment as { id?: string } | null)?.id ?? 'unknown'
           console.error(
-            `CRITICAL: charge SUCCEEDED but persist FAILED (authorize) app=${app.id} squarePaymentId=${paymentId}:`,
+            `CRITICAL: charge SUCCEEDED but persist FAILED (authorize) app=${app.id} squarePaymentId=${squareCardId ?? 'unknown'}:`,
             persistErr.message,
           )
           await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
@@ -195,9 +202,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     }
   }
 
-  // Flip the loan's authorization status. Use the square card id as the
-  // payment reference so we have a stable link between the loan and the
-  // saved card. Flip REGARDLESS of charge outcome.
+  // Flip the loan's authorization status. Use the Square payment id (held in
+  // squareCardId after a successful charge; null if declined/errored) as the
+  // payment reference. Flip REGARDLESS of charge outcome.
   const { error: loanErr } = await admin
     .from('loans')
     .update({
