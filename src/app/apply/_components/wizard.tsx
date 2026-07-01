@@ -72,7 +72,10 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   // Each Submit click is one charge attempt; after MAX_DECLINE_ATTEMPTS declines we
   // let them submit with the fee uncollected (via the in-page confirm below).
   const [declineAttempts, setDeclineAttempts] = useState(0)
-  const [feeConfirm, setFeeConfirm] = useState(false)
+  // false = hidden. 'declined' = repeated declines (submit-without-payment copy).
+  // 'processing' = payment couldn't be confirmed inline but the retry cron will
+  // collect it shortly (reassuring copy).
+  const [feeConfirm, setFeeConfirm] = useState<false | 'declined' | 'processing'>(false)
   const MAX_DECLINE_ATTEMPTS = 3
   const step5Ref = useRef<Step5Handle>(null)
   const wizardRef = useRef<HTMLDivElement>(null)
@@ -294,16 +297,16 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       setSubmitting(false)
       if (attempts >= MAX_DECLINE_ATTEMPTS) {
         // After repeated declines, offer to submit with the fee uncollected.
-        setFeeConfirm(true)
+        setFeeConfirm('declined')
       }
       // Otherwise stay on Step 5; the inline "declined" message is already shown.
       return
     }
 
     if (out.reason === 'error' || out.reason === 'in_review') {
-      // Payment couldn't be confirmed - let them submit; our team follows up.
+      // Payment couldn't be confirmed inline; the retry cron collects it shortly.
       setSubmitting(false)
-      setFeeConfirm(true)
+      setFeeConfirm('processing')
       return
     }
 
@@ -406,9 +409,13 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
       {feeConfirm && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900">Submit without payment?</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {feeConfirm === 'processing' ? 'Payment processing' : 'Submit without payment?'}
+            </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Your application fee hasn&rsquo;t been collected yet. You can submit now and our team will follow up about payment.
+              {feeConfirm === 'processing'
+                ? 'Your payment is being processed and will be completed shortly. You can submit your application now.'
+                : 'Your application fee hasn’t been collected yet. You can submit now and our team will follow up about payment.'}
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
               <button

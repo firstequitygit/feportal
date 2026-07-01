@@ -359,7 +359,7 @@ export const Step5Authorization = forwardRef<Step5Handle, {
         : feeUncollected
           ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              We could not confirm your payment. Our team will follow up about the fee. You can continue.
+              Your payment is being processed and will be completed shortly. You can continue.
             </div>
           )
           : (
