@@ -102,6 +102,13 @@ interface Props {
    * Used by the LO role page where the dimension is degenerate.
    */
   hideLoanOfficerDimensions?: boolean
+  /**
+   * Max-width for the capped chrome (toolbar + list view). The board view
+   * intentionally ignores this and spans the full width of its parent, so the
+   * page must render this component outside its own max-width wrapper and give
+   * it room to breathe. Defaults to the previous fixed width.
+   */
+  listMaxWidth?: string
 }
 
 function formatCurrency(val: number | null): string {
@@ -141,6 +148,7 @@ export function LoanListSorted({
   manualOrderMap,
   linkPrefix,
   hideLoanOfficerDimensions = false,
+  listMaxWidth = 'max-w-7xl',
 }: Props) {
   // Memoized so the object identity is stable across renders — the
   // view-state hook keys its memos on it.
@@ -354,18 +362,22 @@ export function LoanListSorted({
 
   return (
     <div className="space-y-5">
-      <LoanListToolbar
-        state={state}
-        onSortChange={(sort, dir) => patch({ sort, dir })}
-        onGroupChange={group => patch({ group })}
-        onFiltersChange={partial => patchFilters(partial)}
-        onClearFilters={clearFilters}
-        onViewChange={view => patch({ view })}
-        loanOfficers={loanOfficers}
-        loanProcessors={loanProcessors}
-        loanTypes={loanTypes}
-        hideLoanOfficerDimensions={hideLoanOfficerDimensions}
-      />
+      {/* Toolbar stays capped and aligned with the page header, even when the
+          board view below spans the full width. */}
+      <div className={`${listMaxWidth} mx-auto`}>
+        <LoanListToolbar
+          state={state}
+          onSortChange={(sort, dir) => patch({ sort, dir })}
+          onGroupChange={group => patch({ group })}
+          onFiltersChange={partial => patchFilters(partial)}
+          onClearFilters={clearFilters}
+          onViewChange={view => patch({ view })}
+          loanOfficers={loanOfficers}
+          loanProcessors={loanProcessors}
+          loanTypes={loanTypes}
+          hideLoanOfficerDimensions={hideLoanOfficerDimensions}
+        />
+      </div>
 
       {state.view === 'board' && (
         <BoardView
@@ -382,7 +394,7 @@ export function LoanListSorted({
       )}
 
       {state.view === 'list' && (
-        <>
+        <div className={`${listMaxWidth} mx-auto space-y-5`}>
           {filteredTotal === 0 && (
             <Card>
               <CardContent className="py-10 text-center text-gray-500 text-sm">
@@ -490,7 +502,7 @@ export function LoanListSorted({
               )}
             </section>
           )}
-        </>
+        </div>
       )}
     </div>
   )
@@ -574,7 +586,7 @@ function BoardDroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`w-48 shrink-0 snap-start rounded-md transition-colors ${
+      className={`flex-1 min-w-48 snap-start rounded-md transition-colors ${
         isOver ? 'bg-blue-50 ring-1 ring-blue-200' : ''
       }`}
     >

@@ -131,19 +131,23 @@ export default async function LoanProcessorLoansPage() {
   const isImpersonating = impersonation?.kind === 'loan_processor'
 
   return (
-    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-7xl" impersonation={isImpersonating ? {
+    <PortalShell userName={lp.full_name} userRole="Loan Processor" dashboardHref="/loan-processor/inbox" variant="loan-processor" maxWidth="max-w-none" impersonation={isImpersonating ? {
         kind: 'loan_processor',
         name: lp.full_name,
         exitHref: impersonationExitHref(),
       } : null}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      <DashboardStats {...metrics} />
-      <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
-      <AvailableLoans
-        loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
-        claimEndpoint="/api/loan-processor/claim"
-        role="loan_processor"
-      />
+      {/* Header stays capped; LoanListSorted caps its own list view but lets
+          the board span the full width available. */}
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+        <DashboardStats {...metrics} />
+        <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
+        <AvailableLoans
+          loans={(unassignedLoans ?? []).filter(l => !archivedSet.has(l.id))}
+          claimEndpoint="/api/loan-processor/claim"
+          role="loan_processor"
+        />
+      </div>
       <LoanListSorted
         activeLoans={activeLoans}
         closedLoans={closedLoans}

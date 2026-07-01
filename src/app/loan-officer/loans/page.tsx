@@ -106,14 +106,18 @@ export default async function LoanOfficerLoansPage() {
   const isImpersonating = impersonation?.kind === 'loan_officer'
 
   return (
-    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-7xl" staffContext={ctx} impersonation={isImpersonating ? {
+    <PortalShell userName={lo.full_name} userRole="Loan Officer" dashboardHref="/loan-officer/inbox" variant="loan-officer" maxWidth="max-w-none" staffContext={ctx} impersonation={isImpersonating ? {
         kind: 'loan_officer',
         name: lo.full_name,
         exitHref: impersonationExitHref(),
       } : null}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      <DashboardStats {...metrics} />
-      <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
+      {/* Header stays capped; LoanListSorted caps its own list view but lets
+          the board span the full width available. */}
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+        <DashboardStats {...metrics} />
+        <h3 className="text-xl font-bold text-gray-900 mt-10 mb-4">Loans</h3>
+      </div>
       <LoanListSorted
         activeLoans={activeLoans}
         closedLoans={closedLoans}
