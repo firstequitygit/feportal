@@ -51,6 +51,9 @@ export interface FieldDef {
   /** When present, renders this text field as a Google Places address autocomplete
    *  and auto-fills the listed sibling fields on place selection. */
   address?: AddressConfig
+  /** HTML autocomplete token (e.g. 'given-name', 'tel', 'postal-code').
+   *  Passed through to the rendered input; omitted when undefined. SSN stays off. */
+  autocomplete?: string
 }
 
 // ---- Option lists (spec 5.1, confirmed final) ----
@@ -83,10 +86,10 @@ export const HMDA_SEX_OPTIONS = ['Male','Female','I do not wish to provide this 
 
 // Per-borrower field set (used for primary + each co-borrower; `scope` = that borrower's sub-object)
 export const BORROWER_FIELDS: FieldDef[] = [
-  { name: 'first_name', label: 'First Name', type: 'text', required: true, placeholder: 'John', section: 'About you' },
-  { name: 'middle_name', label: 'Middle Name', type: 'text', placeholder: 'Quentin', section: 'About you' },
-  { name: 'last_name', label: 'Last Name', type: 'text', required: true, placeholder: 'Smith', section: 'About you' },
-  { name: 'dob', label: 'Date of Birth', type: 'date', required: true, section: 'About you',
+  { name: 'first_name', label: 'First Name', type: 'text', required: true, placeholder: 'John', section: 'About you', autocomplete: 'given-name' },
+  { name: 'middle_name', label: 'Middle Name', type: 'text', placeholder: 'Quentin', section: 'About you', autocomplete: 'additional-name' },
+  { name: 'last_name', label: 'Last Name', type: 'text', required: true, placeholder: 'Smith', section: 'About you', autocomplete: 'family-name' },
+  { name: 'dob', label: 'Date of Birth', type: 'date', required: true, section: 'About you', autocomplete: 'bday',
     helpTooltip: "Verifies your identity and confirms you're of legal age to enter a loan agreement." },
   { name: 'ssn', label: 'Social Security Number', type: 'ssn', required: true, section: 'About you',
     helpTooltip: "We use your SSN only to verify your identity. No credit check happens until you authorize it on Step 4." },
@@ -104,30 +107,30 @@ export const BORROWER_FIELDS: FieldDef[] = [
   { name: 'marital_status', label: 'Marital Status', type: 'select', options: MARITAL_STATUS_OPTIONS,
     section: 'Citizenship & marital status',
     helpTooltip: "Required because your spouse may have rights in the property under your state's marital property laws." },
-  { name: 'email', label: 'Email', type: 'email', required: true, placeholder: 'you@example.com', section: 'Contact information' },
-  { name: 'cell_phone', label: 'Cell Phone', type: 'tel', required: true, placeholder: '(732) 555-0100', section: 'Contact information' },
-  { name: 'other_phone', label: 'Other Phone', type: 'tel', placeholder: '(732) 555-0100', section: 'Contact information' },
-  { name: 'address_street', label: 'Address Line 1', type: 'text', required: true, placeholder: '123 Main St', section: 'Current address',
+  { name: 'email', label: 'Email', type: 'email', required: true, placeholder: 'you@example.com', section: 'Contact information', autocomplete: 'email' },
+  { name: 'cell_phone', label: 'Cell Phone', type: 'tel', required: true, placeholder: '(732) 555-0100', section: 'Contact information', autocomplete: 'tel' },
+  { name: 'other_phone', label: 'Other Phone', type: 'tel', placeholder: '(732) 555-0100', section: 'Contact information', autocomplete: 'tel' },
+  { name: 'address_street', label: 'Address Line 1', type: 'text', required: true, placeholder: '123 Main St', section: 'Current address', autocomplete: 'address-line1',
     address: { city: 'address_city', state: 'address_state', zip: 'address_zip', lat: 'address_lat', lng: 'address_lng' } },
-  { name: 'address_line_2', label: 'Apt, Suite, Unit', type: 'text', placeholder: 'Apt 4B', section: 'Current address' },
-  { name: 'address_city', label: 'City', type: 'text', required: true, placeholder: 'Sea Girt', section: 'Current address' },
-  { name: 'address_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Current address' },
-  { name: 'address_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08750', section: 'Current address' },
+  { name: 'address_line_2', label: 'Apt, Suite, Unit', type: 'text', placeholder: 'Apt 4B', section: 'Current address', autocomplete: 'address-line2' },
+  { name: 'address_city', label: 'City', type: 'text', required: true, placeholder: 'Sea Girt', section: 'Current address', autocomplete: 'address-level2' },
+  { name: 'address_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Current address', autocomplete: 'address-level1' },
+  { name: 'address_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08750', section: 'Current address', autocomplete: 'postal-code' },
   { name: 'lived_2y', label: 'Have you lived here for two years?', type: 'yesno', required: true, section: 'Current address' },
-  { name: 'prior_address_street', label: 'Prior Address Line 1', type: 'text', placeholder: '456 Oak Ave',
+  { name: 'prior_address_street', label: 'Prior Address Line 1', type: 'text', placeholder: '456 Oak Ave', autocomplete: 'address-line1',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address',
     address: { city: 'prior_address_city', state: 'prior_address_state', zip: 'prior_address_zip' } },
-  { name: 'prior_address_line_2', label: 'Prior Apt, Suite, Unit', type: 'text', placeholder: 'Apt 4B',
+  { name: 'prior_address_line_2', label: 'Prior Apt, Suite, Unit', type: 'text', placeholder: 'Apt 4B', autocomplete: 'address-line2',
     visibleWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address' },
-  { name: 'prior_address_city', label: 'Prior City', type: 'text', placeholder: 'Asbury Park',
+  { name: 'prior_address_city', label: 'Prior City', type: 'text', placeholder: 'Asbury Park', autocomplete: 'address-level2',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address' },
-  { name: 'prior_address_state', label: 'Prior State', type: 'text', placeholder: 'NJ',
+  { name: 'prior_address_state', label: 'Prior State', type: 'text', placeholder: 'NJ', autocomplete: 'address-level1',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address' },
-  { name: 'prior_address_zip', label: 'Prior Zip', type: 'text', placeholder: '07712',
+  { name: 'prior_address_zip', label: 'Prior Zip', type: 'text', placeholder: '07712', autocomplete: 'postal-code',
     visibleWhen: (_d, s) => s?.lived_2y === false, requiredWhen: (_d, s) => s?.lived_2y === false,
     section: 'Current address' },
 ]
@@ -173,12 +176,12 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'deal_source', label: 'Deal Source', type: 'select', options: DEAL_SOURCE_OPTIONS, section: 'Your deal' },
   { name: 'property_type', label: 'Property Type', type: 'select', required: true, section: 'Property',
     optionsWhen: (d) => isDSCR(d) ? PROPERTY_TYPE_OPTIONS_DSCR : PROPERTY_TYPE_OPTIONS_BRIDGE },
-  { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true, placeholder: '789 Elm St', section: 'Property',
+  { name: 'property_street', label: 'Property Address Line 1', type: 'text', required: true, placeholder: '789 Elm St', section: 'Property', autocomplete: 'address-line1',
     address: { city: 'property_city', state: 'property_state', zip: 'property_zip', lat: 'property_lat', lng: 'property_lng', streetView: true } },
-  { name: 'property_line_2', label: 'Apt, Suite, Unit', type: 'text', placeholder: 'Unit 2', section: 'Property' },
-  { name: 'property_city', label: 'City', type: 'text', required: true, placeholder: 'Toms River', section: 'Property' },
-  { name: 'property_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Property' },
-  { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property' },
+  { name: 'property_line_2', label: 'Apt, Suite, Unit', type: 'text', placeholder: 'Unit 2', section: 'Property', autocomplete: 'address-line2' },
+  { name: 'property_city', label: 'City', type: 'text', required: true, placeholder: 'Toms River', section: 'Property', autocomplete: 'address-level2' },
+  { name: 'property_state', label: 'State', type: 'text', required: true, placeholder: 'NJ', section: 'Property', autocomplete: 'address-level1' },
+  { name: 'property_zip', label: 'Zip Code', type: 'text', required: true, placeholder: '08753', section: 'Property', autocomplete: 'postal-code' },
   // Purchase-only fields
   { name: 'purchase_price', label: 'Purchase Price', type: 'currency',
     visibleWhen: isPurchase, requiredWhen: isPurchase, section: 'Purchase details' },
@@ -248,7 +251,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'broker_company', label: "Broker's Company", type: 'text', visibleWhen: (d) => d.has_broker === true, section: 'Mortgage broker' },
   { name: 'broker_email', label: "Broker's Email", type: 'email', placeholder: 'broker@example.com', section: 'Mortgage broker',
     visibleWhen: (d) => d.has_broker === true },
-  { name: 'broker_phone', label: "Broker's Phone", type: 'tel', placeholder: '(732) 555-0100', visibleWhen: (d) => d.has_broker === true, section: 'Mortgage broker' },
+  { name: 'broker_phone', label: "Broker's Phone", type: 'tel', placeholder: '(732) 555-0100', autocomplete: 'tel', visibleWhen: (d) => d.has_broker === true, section: 'Mortgage broker' },
   { name: 'broker_fee', label: 'Broker Fee', type: 'text', placeholder: 'e.g. 1%', visibleWhen: (d) => d.has_broker === true, section: 'Mortgage broker' },
   { name: 'has_title_vendor', label: 'Do you have a preferred vendor for title insurance?', type: 'yesno', section: 'Title vendor' },
   { name: 'title_company', label: 'Title Company Name', type: 'text', placeholder: 'Acme Title Co.', section: 'Title vendor',
@@ -256,14 +259,14 @@ export const DEAL_FIELDS: FieldDef[] = [
   { name: 'title_contact_name', label: 'Title Contact Name', type: 'text', placeholder: 'Jane Doe', visibleWhen: (d) => d.has_title_vendor === true, section: 'Title vendor' },
   { name: 'title_contact_email', label: 'Title Contact Email', type: 'email', placeholder: 'title@example.com', section: 'Title vendor',
     visibleWhen: (d) => d.has_title_vendor === true },
-  { name: 'title_contact_phone', label: 'Title Contact Phone', type: 'tel', placeholder: '(732) 555-0100', visibleWhen: (d) => d.has_title_vendor === true, section: 'Title vendor' },
+  { name: 'title_contact_phone', label: 'Title Contact Phone', type: 'tel', placeholder: '(732) 555-0100', autocomplete: 'tel', visibleWhen: (d) => d.has_title_vendor === true, section: 'Title vendor' },
   { name: 'has_insurance_vendor', label: 'Do you have a preferred vendor for property insurance?', type: 'yesno', section: 'Insurance vendor' },
   { name: 'insurance_company', label: 'Insurance Company Name', type: 'text', placeholder: 'Liberty Mutual', section: 'Insurance vendor',
     visibleWhen: (d) => d.has_insurance_vendor === true },
   { name: 'insurance_contact_name', label: 'Insurance Contact Name', type: 'text', placeholder: 'John Smith', visibleWhen: (d) => d.has_insurance_vendor === true, section: 'Insurance vendor' },
   { name: 'insurance_contact_email', label: 'Insurance Contact Email', type: 'email', placeholder: 'insure@example.com', section: 'Insurance vendor',
     visibleWhen: (d) => d.has_insurance_vendor === true },
-  { name: 'insurance_contact_phone', label: 'Insurance Contact Phone', type: 'tel', placeholder: '(732) 555-0100', visibleWhen: (d) => d.has_insurance_vendor === true, section: 'Insurance vendor' },
+  { name: 'insurance_contact_phone', label: 'Insurance Contact Phone', type: 'tel', placeholder: '(732) 555-0100', autocomplete: 'tel', visibleWhen: (d) => d.has_insurance_vendor === true, section: 'Insurance vendor' },
 ]
 
 // Step 1 primary-only fields (in addition to BORROWER_FIELDS for the primary)

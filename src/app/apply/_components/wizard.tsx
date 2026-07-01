@@ -8,7 +8,7 @@ import { Step1Borrower } from '../_steps/step1-borrower'
 import { Step2Deal } from '../_steps/step2-deal'
 import { Step3Experience } from '../_steps/step3-experience'
 import { Step4Declarations } from '../_steps/step4-declarations'
-import { Step5Authorization, type FeeOutcome } from '../_steps/step5-authorization'
+import { Step5Authorization, type Step5Handle } from '../_steps/step5-authorization'
 import { Step5BrokerAttestation } from '../_steps/step5-broker-attestation'
 import { useAutosave } from './use-autosave'
 import { SaveStatus } from "@/components/ui/save-status"
@@ -68,7 +68,13 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
   const [submitErrors, setSubmitErrors] = useState<string[] | null>(null)
   const [testMode, setTestMode] = useState(false)
   const [testSubmitting, setTestSubmitting] = useState(false)
-  const [feeOutcome, setFeeOutcome] = useState<FeeOutcome | null>(null)
+  // Charge-on-submit (borrower variant): the wizard drives Step 5's chargeFee handle.
+  // Each Submit click is one charge attempt; after MAX_DECLINE_ATTEMPTS declines we
+  // let them submit with the fee uncollected (via the in-page confirm below).
+  const [declineAttempts, setDeclineAttempts] = useState(0)
+  const [feeConfirm, setFeeConfirm] = useState(false)
+  const MAX_DECLINE_ATTEMPTS = 3
+  const step5Ref = useRef<Step5Handle>(null)
   const wizardRef = useRef<HTMLDivElement>(null)
 
   // Load + persist test mode toggle (admins only).
@@ -244,6 +250,68 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
     finally { setSubmitting(false) }
   }
 
+  // Borrower-variant Submit Application handler: validate required fields, charge the
+  // application fee via Step 5's chargeFee handle, then branch on the result.
+  // The broker variant never calls this (no card on its Step 5) - see the footer button.
+  async function handleBorrowerSubmit() {
+    // (1) Required-field validation - same gate the server enforces.
+    const stepId = STEPS[step - 1].id as StepId
+    const missing = getMissingRequiredFields(stepId, data, { variant: variantKind })
+    if (missing.length > 0) {
+      setSubmitErrors(missing)
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`f-${missing[0]}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          ;(el as HTMLElement).focus()
+        }
+      })
+      return
+    }
+    setSubmitErrors(null)
+
+    // (2) Charge the fee.
+    setSubmitting(true)
+    let out: Awaited<ReturnType<Step5Handle['chargeFee']>>
+    try {
+      if (!step5Ref.current) { setSubmitting(false); return }
+      out = await step5Ref.current.chargeFee()
+    } catch {
+      setSubmitting(false)
+      toast.error('Network error - please try again')
+      return
+    }
+
+    // (3) Branch on the charge result.
+    if (out.charged) {
+      await submit() // submit() manages its own submitting state
+      return
+    }
+
+    if (out.reason === 'declined') {
+      const attempts = declineAttempts + 1
+      setDeclineAttempts(attempts)
+      setSubmitting(false)
+      if (attempts >= MAX_DECLINE_ATTEMPTS) {
+        // After repeated declines, offer to submit with the fee uncollected.
+        setFeeConfirm(true)
+      }
+      // Otherwise stay on Step 5; the inline "declined" message is already shown.
+      return
+    }
+
+    if (out.reason === 'error' || out.reason === 'in_review') {
+      // Payment couldn't be confirmed - let them submit; our team follows up.
+      setSubmitting(false)
+      setFeeConfirm(true)
+      return
+    }
+
+    // save_failed / incomplete: do not submit. Step 5's inline error tells them
+    // to fix the card / sign / check the box.
+    setSubmitting(false)
+  }
+
   async function testSubmit(overrides: TestOverridesState, scenarioLabel: string, submissionData: ApplicationData) {
     setTestSubmitting(true)
     setSubmitErrors(null)
@@ -326,14 +394,42 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
             step5AttestationLabel: variant.copy.step5AttestationLabel ?? 'Broker Certification',
             step5AttestationBody: variant.copy.step5AttestationBody ?? '',
           }} />
-      : <Step5Authorization key={5} data={data} set={set} missingFields={liveMissing}
-          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }}
-          onFeeOutcome={(outcome) => setFeeOutcome(outcome)} />,
+      : <Step5Authorization key={5} ref={step5Ref} data={data} set={set} missingFields={liveMissing}
+          token={token} testMode={testMode} onEdit={(s) => { setSubmitErrors(null); setStep(s) }} />,
   ][step - 1]
 
   return (
     <div ref={wizardRef} className="mx-auto max-w-3xl px-6 py-5">
       <EmbedHeightReporter />
+      {/* In-page confirm shown when submitting with the application fee uncollected
+          (after repeated declines, a payment we couldn't confirm, or the broker path). */}
+      {feeConfirm && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900">Submit without payment?</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Your application fee hasn&rsquo;t been collected yet. You can submit now and our team will follow up about payment.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={async () => { setFeeConfirm(false); await submit() }}
+                className="inline-flex h-10 items-center justify-center rounded-md bg-[#1F5D8F] px-5 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] disabled:pointer-events-none disabled:opacity-60"
+              >
+                {submitting ? 'Submitting...' : 'Submit anyway'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeeConfirm(false)}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-gray-300 px-5 text-sm text-gray-700 transition-colors hover:border-gray-400"
+              >
+                Go back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {existingAccountEmail && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
@@ -605,21 +701,23 @@ export function Wizard({ initialData, initialStep, initialToken, isAdmin = false
                         loEmail: 'apalmiotto@outlook.com',
                       }
                       await testSubmit(overrides, 'Manual submit', data)
-                    } else {
-                      // If the fee was never attempted or not collected, prompt once before submitting.
-                      if (!feeOutcome || !feeOutcome.charged) {
-                        const confirmed = window.confirm(
-                          "Your application fee hasn't been collected yet. You can submit now and our team will follow up about payment. Submit anyway?"
-                        )
-                        if (!confirmed) return
-                      }
+                    } else if (variantKind === 'broker') {
+                      // Broker variant: no card on Step 5 (the borrower pays later at
+                      // /authorize), so submit directly with no payment prompt.
                       await submit()
+                    } else {
+                      // Borrower variant: charge the fee on submit, then branch on the result.
+                      await handleBorrowerSubmit()
                     }
                   }}
                   disabled={testMode ? testSubmitting : (submitting || !token)}
                   className="inline-flex h-11 items-center rounded-md bg-[#1F5D8F] px-6 text-base font-semibold text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
-                  {testMode ? (testSubmitting ? 'Submitting…' : 'Submit Test Application') : (submitting ? 'Submitting…' : variant.copy.submitButtonLabel)}
+                  {testMode
+                    ? (testSubmitting ? 'Submitting...' : 'Submit Test Application')
+                    : submitting
+                      ? (variantKind === 'broker' ? 'Submitting...' : 'Processing...')
+                      : variant.copy.submitButtonLabel}
                 </button>
               )}
           </div>

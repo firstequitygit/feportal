@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { type ApplicationData } from "@/lib/application-fields"
 import { ReviewSummary } from "../_components/review-summary"
@@ -26,19 +27,26 @@ function computeFeeUsd(borrowerCount: number): number {
   return Math.max(1, Math.min(4, borrowerCount)) * 45
 }
 
-export type FeeOutcome =
-  | { charged: true; brand: string; last4: string; feeCents: number }
-  | { charged: false; feeUncollected: true }
+// Result of a charge attempt driven by the wizard's Submit Application button.
+// 'save_failed'/'incomplete' mean we never reached Square (pre-checks failed or the
+// card could not be tokenized/saved); the wizard must NOT submit in those cases.
+export type ChargeResult = {
+  charged: boolean
+  reason?: 'declined' | 'error' | 'in_review' | 'save_failed' | 'incomplete'
+}
 
-export function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false, onFeeOutcome }: {
+export type Step5Handle = {
+  chargeFee: () => Promise<ChargeResult>
+}
+
+export const Step5Authorization = forwardRef<Step5Handle, {
   data: ApplicationData
   set: (patchOrFn: Record<string, unknown> | ((d: ApplicationData) => Record<string, unknown>)) => void
   missingFields?: string[]
   token: string | null
   onEdit?: (step: number) => void
   testMode?: boolean
-  onFeeOutcome?: (outcome: FeeOutcome) => void
-}) {
+}>(function Step5Authorization({ data, set, missingFields, token, onEdit, testMode = false }, ref) {
   const primary = (data.primary as Record<string, unknown>) ?? {}
   const printed = [primary.first_name, primary.last_name].filter(Boolean).join(' ')
   const signature = (data.auth_signature as string) ?? ''
@@ -54,10 +62,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
   const [ready, setReady] = useState(false)
   const [saved, setSaved] = useState<{ last4: string; brand: string; feeCents: number } | null>(null)
   const [feeUncollected, setFeeUncollected] = useState(false)
-  const [attemptCount, setAttemptCount] = useState(0)
   const [inlineError, setInlineError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const MAX_ATTEMPTS = 3
 
   useEffect(() => {
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
@@ -83,30 +88,45 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
     sc.src = src; sc.onload = () => { void init() }; document.body.appendChild(sc)
   }, [])
 
-  async function saveCard() {
-    if (!cardRef.current) return
-    if (!testMode && !token) return
-    if (!paymentSignature) { toast.error('Please sign the payment authorization before saving your card.'); return }
-    if (!saveCardAgree) { toast.error('Please agree to authorize the application fee before saving your card.'); return }
+  // Charge the application fee. Driven by the wizard's "Submit Application" button.
+  // Runs the same pre-checks + tokenize + POST /api/apply/payment logic the old
+  // "Pay application fee" button did, but returns a ChargeResult so the wizard can
+  // decide whether to submit. Inline UI state (error / saved / feeUncollected) is
+  // still updated so Step 5 shows the same messages to the borrower.
+  async function chargeFee(): Promise<ChargeResult> {
+    // Pre-checks: card ready, signature present, authorize box checked.
+    if (!cardRef.current) {
+      setInlineError('The payment form is still loading. Please wait a moment and try again.')
+      return { charged: false, reason: 'incomplete' }
+    }
+    if (!testMode && !token) {
+      setInlineError('Enter your email in Step 1 first so we can attach the card to your application.')
+      return { charged: false, reason: 'incomplete' }
+    }
+    if (!paymentSignature) {
+      setInlineError('Please sign the payment authorization above before submitting.')
+      return { charged: false, reason: 'incomplete' }
+    }
+    if (!saveCardAgree) {
+      setInlineError('Please check the box to authorize the application fee before submitting.')
+      return { charged: false, reason: 'incomplete' }
+    }
 
     setInlineError(null)
-    setSaving(true)
 
     try {
       // testMode: simulate a successful charge without hitting Square or the network.
       // Admins can click through to the "paid" state without real card credentials.
       if (testMode) {
-        const outcome: FeeOutcome = { charged: true, brand: 'TEST', last4: '1111', feeCents: feeUsd * 100 }
         setSaved({ last4: '1111', brand: 'TEST', feeCents: feeUsd * 100 })
         toast.success('Test mode: simulated charge success')
-        onFeeOutcome?.(outcome)
-        return
+        return { charged: true }
       }
 
       const result = await cardRef.current.tokenize()
       if (result.status !== 'OK' || !result.token) {
         setInlineError('Card details are invalid. Please check and try again.')
-        return
+        return { charged: false, reason: 'save_failed' }
       }
 
       const res = await fetch('/api/apply/payment', {
@@ -118,7 +138,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
       if (res.status === 502) {
         const j = await res.json().catch(() => ({})) as Record<string, unknown>
         setInlineError((j.error as string | undefined) ?? 'We couldn\'t save your card. Please re-check your card details.')
-        return
+        return { charged: false, reason: 'save_failed' }
       }
 
       const j = await res.json() as {
@@ -134,47 +154,34 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
 
       if (j.success && j.charged) {
         // Paid now (or was already paid idempotently)
-        const outcome: FeeOutcome = { charged: true, brand: j.brand ?? '', last4: j.last4 ?? '', feeCents: j.feeCents ?? feeUsd * 100 }
         setSaved({ last4: j.last4 ?? '', brand: j.brand ?? '', feeCents: j.feeCents ?? feeUsd * 100 })
         toast.success(j.alreadyCharged ? 'Application fee already paid' : 'Application fee paid')
-        onFeeOutcome?.(outcome)
-        return
+        return { charged: true }
       }
 
       if (j.success && !j.charged) {
-        // Hard errors (error / in_review): do not count as a retryable attempt.
-        // Show a follow-up message and let the user proceed immediately.
+        // Hard errors (error / in_review): our team follows up. The wizard shows the
+        // in-page "couldn't confirm payment" confirm and still allows submit.
         if (j.reason === 'error' || j.reason === 'in_review') {
           setFeeUncollected(true)
-          const outcome: FeeOutcome = { charged: false, feeUncollected: true }
-          onFeeOutcome?.(outcome)
-          return
+          return { charged: false, reason: j.reason }
         }
 
-        // Declined: count the attempt and allow retry up to MAX_ATTEMPTS.
-        const newAttempts = attemptCount + 1
-        setAttemptCount(newAttempts)
-
-        if (newAttempts >= MAX_ATTEMPTS) {
-          // Cap reached - allow proceeding with fee uncollected
-          setFeeUncollected(true)
-          const outcome: FeeOutcome = { charged: false, feeUncollected: true }
-          onFeeOutcome?.(outcome)
-          return
-        }
-
+        // Declined: surface the inline message. The wizard owns the attempt counter.
         setInlineError('Your card was declined. Please check the details or try a different card.')
-        return
+        return { charged: false, reason: 'declined' }
       }
 
       // Unexpected response shape
       setInlineError(j.error ?? 'Something went wrong. Please try again.')
+      return { charged: false, reason: 'save_failed' }
     } catch {
       setInlineError('Network error - please try again.')
-    } finally {
-      setSaving(false)
+      return { charged: false, reason: 'save_failed' }
     }
   }
+
+  useImperativeHandle(ref, () => ({ chargeFee }))
 
   return (
     <div className="space-y-5">
@@ -186,7 +193,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
       {/* Certification block */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <h3 className="text-base font-semibold text-gray-900">Borrowers&rsquo; Certification</h3>
-        <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
+        <p className="whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
           {CERT_TEXT}
         </p>
       </div>
@@ -194,7 +201,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
       {/* Authorization to Release block */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <h3 className="text-base font-semibold text-gray-900">Authorization to Release Information</h3>
-        <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
+        <p className="whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
           {AUTH_TEXT}
         </p>
       </div>
@@ -252,7 +259,7 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
       {/* Payment authorization text + signature */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <h3 className="text-base font-semibold text-gray-900">Payment Authorization</h3>
-        <p className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
+        <p className="whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-500 leading-relaxed border border-gray-200">
           {PAYMENT_AUTH_TEXT}
         </p>
 
@@ -340,7 +347,9 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
         </span>
       </label>
 
-      {/* Square card form / paid state / fee-uncollected state */}
+      {/* Square card form / paid state / fee-uncollected state.
+          The card is charged when the borrower clicks "Submit Application" in the
+          wizard footer (via the chargeFee imperative handle), not from here. */}
       {saved
         ? (
           <p className="text-sm font-medium text-green-700">
@@ -356,20 +365,16 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
           : (
             <>
               <div id="sq-card" className="rounded-md border border-gray-300 p-3" />
+              <p className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                Payments processed securely by Square
+              </p>
               {inlineError && (
                 <p className="text-sm text-red-600">{inlineError}</p>
               )}
-              {attemptCount > 0 && attemptCount < MAX_ATTEMPTS && (
-                <p className="text-xs text-gray-500">Attempt {attemptCount} of {MAX_ATTEMPTS}. After {MAX_ATTEMPTS} failed attempts you may still submit your application.</p>
+              {!ready && (
+                <p className="text-xs text-gray-500">Loading payment form...</p>
               )}
-              <button
-                type="button"
-                onClick={saveCard}
-                disabled={saving || !ready || (!token && !testMode)}
-                className="inline-flex items-center rounded-md bg-[#1F5D8F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0F3A5E] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
-              >
-                {saving ? 'Processing...' : ready ? 'Pay application fee' : 'Loading payment form...'}
-              </button>
               {!token && !testMode && (
                 <p className="text-xs text-red-600">
                   Enter your email in Step 1 first so we can attach the card to your application.
@@ -377,11 +382,11 @@ export function Step5Authorization({ data, set, missingFields, token, onEdit, te
               )}
               {testMode && (
                 <p className="text-xs text-amber-700">
-                  Test mode: click &quot;Pay application fee&quot; to simulate a successful charge without hitting Square.
+                  Test mode: clicking &quot;Submit Application&quot; will simulate a successful charge without hitting Square.
                 </p>
               )}
             </>
           )}
     </div>
   )
-}
+})

@@ -23,13 +23,9 @@ export default function SubmittedPage() {
         <div className="my-6 rounded-xl bg-[#1F5D8F]/5 p-5 text-left">
           <p className="text-sm font-semibold text-[#1F5D8F]">Check your email to activate your portal account</p>
           <p className="mt-1 text-sm text-slate-600">
-            We just emailed you a secure link to activate your account, where you can track your loan,
-            upload documents, and message your team.
-          </p>
-          <p className="mt-3 text-sm text-slate-600">
-            If this is your first application with us, check your email for a link to set up
-            access to your portal, where you can track your loan and upload documents. If you
-            already have a portal account, your new loan is connected to it automatically.
+            We emailed you a secure activation link so you can track your loan, upload documents,
+            and message your team. If you have applied with us before, your new loan is already
+            connected to your existing portal account.
           </p>
         </div>
       </div>

@@ -11,9 +11,9 @@ const REFERRAL_SOURCE_OPTIONS = [
 ] as const
 
 export const BROKER_PRIMARY_EXTRA_FIELDS: FieldDef[] = [
-  { name: 'broker_full_name', label: 'Broker Name', type: 'text', required: true, placeholder: 'Your full name' },
-  { name: 'broker_email', label: 'Email', type: 'email', required: true, placeholder: 'you@brokerage.com' },
-  { name: 'broker_phone', label: 'Phone', type: 'tel', required: true, placeholder: '(732) 555-0100' },
+  { name: 'broker_full_name', label: 'Broker Name', type: 'text', required: true, placeholder: 'Your full name', autocomplete: 'name' },
+  { name: 'broker_email', label: 'Email', type: 'email', required: true, placeholder: 'you@brokerage.com', autocomplete: 'email' },
+  { name: 'broker_phone', label: 'Phone', type: 'tel', required: true, placeholder: '(732) 555-0100', autocomplete: 'tel' },
   { name: 'referral_source', label: 'Referral Source', type: 'select', required: true, options: REFERRAL_SOURCE_OPTIONS },
   { name: 'commission_split_percent', label: 'Commission Structure', type: 'text', placeholder: 'e.g. 50/50 split, 1% origination + 0.5%' },
 ]

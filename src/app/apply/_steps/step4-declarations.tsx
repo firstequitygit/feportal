@@ -26,6 +26,7 @@ export function Step4Declarations({ data, set, missingFields }: {
             onChange={(n, v) => set({ [n]: v })}
             idPrefix=""
             missingFields={missingFields}
+            singleColumn
           />
         </div>
         <div className="mt-4 space-y-1.5">
@@ -56,6 +57,7 @@ export function Step4Declarations({ data, set, missingFields }: {
             onChange={(n, v) => set({ [n]: v })}
             idPrefix=""
             missingFields={missingFields}
+            singleColumn
           />
         </div>
       </section>
