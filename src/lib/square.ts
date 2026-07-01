@@ -83,16 +83,14 @@ function squareErrorItems(e: unknown): SquareApiErrorItem[] {
  * Only genuine decline codes (DECLINE_CODES) short-circuit without retrying.
  */
 export async function chargeApplicationFee({
-  sourceId,
   squareCustomerId,
+  squareCardId,
   feeAmountCents,
   idempotencyKey,
   note,
 }: {
-  /** A payment source: a card nonce/token (charge directly, no propagation lag) or a saved card id. */
-  sourceId: string
-  /** Optional. Omit when charging a raw nonce so there is no just-created customer to propagate. */
-  squareCustomerId?: string
+  squareCustomerId: string
+  squareCardId: string
   feeAmountCents: number
   idempotencyKey: string
   note: string
@@ -106,8 +104,8 @@ export async function chargeApplicationFee({
       // Awaiting unwraps directly to CreatePaymentResponse; amountMoney.amount must be BigInt.
       const pay = await sq.payments.create({
         idempotencyKey,
-        sourceId,
-        ...(squareCustomerId ? { customerId: squareCustomerId } : {}),
+        sourceId: squareCardId,
+        customerId: squareCustomerId,
         locationId: SQUARE_LOCATION_ID(),
         amountMoney: { amount: BigInt(feeAmountCents), currency: 'USD' },
         note,

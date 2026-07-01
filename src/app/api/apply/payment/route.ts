@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { feeCentsForBorrowerCount, chargeApplicationFee } from '@/lib/square'
+import { squareClient, feeCentsForBorrowerCount, chargeApplicationFee } from '@/lib/square'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -39,18 +39,45 @@ export async function POST(req: NextRequest) {
   const feeCents = feeCentsForBorrowerCount(borrowerCount)
 
   try {
-    // Persist the fee amount up front.
-    await admin.from('loan_applications').update({ fee_amount_cents: feeCents }).eq('id', app.id)
+    const sq = squareClient()
+    const cust = await sq.customers.create({
+      idempotencyKey: `customer:${app.id}`,
+      emailAddress: app.resume_email ?? undefined,
+      note: `Loan application ${app.id}`,
+    })
+    const customerId = cust.customer?.id
+    if (!customerId) throw new Error('No customer id')
+
+    const card = await sq.cards.create({
+      idempotencyKey: `card:${shortHash(body.cardToken)}`,
+      sourceId: body.cardToken,
+      card: { customerId },
+    })
+    const c = card.card
+    if (!c?.id) throw new Error('No card id')
+
+    const { error: updErr } = await admin.from('loan_applications').update({
+      square_customer_id: customerId,
+      square_card_id: c.id,
+      card_brand: c.cardBrand ?? null,
+      card_last4: c.last4 ?? null,
+      fee_amount_cents: feeCents,
+    }).eq('id', app.id)
+    if (updErr) throw new Error(`Persist card-on-file failed: ${updErr.message}`)
+
+    const brand = c.cardBrand ?? null
+    const last4 = c.last4 ?? null
+    const squareCardId = c.id
 
     // Idempotent guard: if fee was already charged (e.g. user navigated back and resubmitted),
     // skip the charge and return immediately.
     if (app.fee_charged_at) {
-      return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand: null, last4: null, feeCents })
+      return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand, last4, feeCents })
     }
 
     // Atomic claim: flip status to 'charging' only if the fee is uncharged AND the
-    // status is a claimable one (null or 'declined'). Conditional UPDATE, so two
-    // concurrent submissions cannot both win the claim.
+    // status is a claimable one (null or 'declined'). This is a conditional UPDATE,
+    // so two concurrent submissions cannot both win the claim.
     const { data: claimed } = await admin
       .from('loan_applications')
       .update({ fee_charge_status: 'charging' })
@@ -61,64 +88,64 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (!claimed) {
+      // Lost the claim. Re-read to resolve the real outcome.
       const { data: fresh } = await admin
-        .from('loan_applications').select('fee_charged_at').eq('id', app.id).maybeSingle()
+        .from('loan_applications')
+        .select('fee_charged_at')
+        .eq('id', app.id)
+        .maybeSingle()
       if (fresh?.fee_charged_at) {
-        return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand: null, last4: null, feeCents })
+        // Another request charged it - idempotent success.
+        return NextResponse.json({ success: true, charged: true, alreadyCharged: true, brand, last4, feeCents })
       }
-      return NextResponse.json({ success: true, charged: false, reason: 'in_review', brand: null, last4: null, feeCents })
+      // Status is 'charging' or 'needs_review' - in flight or under review; not retryable inline.
+      return NextResponse.json({ success: true, charged: false, reason: 'in_review', brand, last4, feeCents })
     }
 
-    // Charge the card token (nonce) DIRECTLY - NO customer, NO saved card-on-file. A
-    // just-created Square customer/card is not usable for a few seconds (eventual
-    // consistency); that lag was landing good cards in needs_review. A raw payment token
-    // has no such dependency and is immediately chargeable. Token-scoped idempotency key
-    // keeps retries double-charge-safe (same nonce -> dedupe; new nonce -> fresh attempt).
     const chargeResult = await chargeApplicationFee({
-      sourceId: body.cardToken,
+      squareCustomerId: customerId,
+      squareCardId,
       feeAmountCents: feeCents,
-      idempotencyKey: `charge:${app.id}:${shortHash(body.cardToken)}`,
+      idempotencyKey: `charge:${app.id}:${squareCardId}`,
       note: `Credit & Background Check - loan application ${app.id}`,
     })
 
     if (chargeResult.ok) {
-      // Charge succeeded - record it (brand/last4/payment id come from the payment
-      // response; square_card_id now holds the payment reference). If the persist fails,
-      // money was still taken: fall back to needs_review and log loudly.
-      const payment = chargeResult.payment as {
-        id?: string
-        cardDetails?: { card?: { cardBrand?: string; last4?: string } }
-      } | null
-      const brand = payment?.cardDetails?.card?.cardBrand ?? null
-      const last4 = payment?.cardDetails?.card?.last4 ?? null
-      const paymentId = payment?.id ?? null
+      // Charge succeeded - record it. If the persist fails, money was still taken:
+      // fall back to needs_review and log loudly, but still report charged:true.
       const { error: persistErr } = await admin.from('loan_applications').update({
         fee_charged_at: new Date().toISOString(),
         fee_charge_status: 'charged',
-        card_brand: brand,
-        card_last4: last4,
-        square_card_id: paymentId,
       }).eq('id', app.id)
       if (persistErr) {
+        const paymentId = (chargeResult.payment as { id?: string } | null)?.id ?? 'unknown'
         console.error(
-          `CRITICAL: charge SUCCEEDED but persist FAILED (apply/payment) app=${app.id} squarePaymentId=${paymentId ?? 'unknown'}:`,
+          `CRITICAL: charge SUCCEEDED but persist FAILED (apply/payment) app=${app.id} squarePaymentId=${paymentId}:`,
           persistErr.message,
         )
         await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
       }
+      // No loan exists yet at this point (pre-submission), so skip loan_events.
       return NextResponse.json({ success: true, charged: true, brand, last4, feeCents })
     }
 
     if (chargeResult.declined) {
-      await admin.from('loan_applications').update({ fee_charge_status: 'declined' }).eq('id', app.id)
-      return NextResponse.json({ success: true, charged: false, reason: 'declined', brand: null, last4: null, feeCents })
+      // Card was declined - release the claim back to 'declined' (retryable), let submission proceed.
+      await admin.from('loan_applications').update({
+        fee_charge_status: 'declined',
+      }).eq('id', app.id)
+      return NextResponse.json({ success: true, charged: false, reason: 'declined', brand, last4, feeCents })
     }
 
+    // Hard/network error - the charge may have gone through. Mark needs_review (do NOT
+    // leave 'charging', do NOT mark retryable) and report a non-retryable error.
     console.error('Square charge error (apply/payment):', chargeResult.message)
-    await admin.from('loan_applications').update({ fee_charge_status: 'needs_review' }).eq('id', app.id)
-    return NextResponse.json({ success: true, charged: false, reason: 'error', brand: null, last4: null, feeCents })
+    await admin.from('loan_applications').update({
+      fee_charge_status: 'needs_review',
+    }).eq('id', app.id)
+    return NextResponse.json({ success: true, charged: false, reason: 'error', brand, last4, feeCents })
   } catch (e) {
-    console.error('Square payment failed (apply/payment):', e instanceof Error ? e.message : 'unknown')
-    return NextResponse.json({ error: 'Could not process payment. Please re-check your card details.' }, { status: 502 })
+    console.error('Square card-on-file failed:', e instanceof Error ? e.message : 'unknown')
+    return NextResponse.json({ error: 'Could not save card. Please re-check your card details.' }, { status: 502 })
   }
 }
