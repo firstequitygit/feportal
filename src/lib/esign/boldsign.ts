@@ -50,10 +50,15 @@ export interface SendForSignatureResult {
 }
 
 /**
- * Create a signature request from a rendered PDF. Field placement
- * uses BoldSign text tags ({{sign|1|*|…}}) rendered in white inside
- * the PDF, so the document itself decides where the fields go —
- * no brittle x/y coordinates in this file.
+ * Create a signature request from a rendered PDF. Field placement:
+ * the PDF carries invisible {{sign|1|*|…}} tags as position markers;
+ * we extract their coordinates server-side and send BoldSign explicit
+ * FormFields at those spots.
+ *
+ * Deliberately NOT UseTextTags — BoldSign's own tag scanning silently
+ * fails on our white-rendered tags (doc dies in async processing: no
+ * email, invisible in dashboard, 403 on read). Explicit FormFields
+ * process reliably. See lib/esign/tag-fields.ts.
  *
  * Emails stay ON so the borrower gets BoldSign's email with a sign
  * link (the "email fallback"). Embedded signing is also enabled so
@@ -61,6 +66,14 @@ export interface SendForSignatureResult {
  */
 export async function sendForSignature(input: SendForSignatureInput): Promise<SendForSignatureResult> {
   const { title, message, pdf, signerName, signerEmail, expiryDays = 30 } = input
+
+  const { extractTagFields } = await import('./tag-fields')
+  const fields = await extractTagFields(pdf)
+  if (fields.length === 0) {
+    // Without fields the request would either 400 or produce an
+    // unsignable document — fail loudly instead.
+    throw new Error('No signature tags found in the rendered PDF — cannot place signature fields')
+  }
 
   const res = await fetch(`${API_BASE}/v1/document/send`, {
     method: 'POST',
@@ -77,9 +90,14 @@ export async function sendForSignature(input: SendForSignatureInput): Promise<Se
           Name: signerName,
           EmailAddress: signerEmail,
           SignerType: 'Signer',
+          FormFields: fields.map(f => ({
+            FieldType: f.fieldType,
+            PageNumber: f.pageNumber,
+            Bounds: { X: f.bounds.x, Y: f.bounds.y, Width: f.bounds.width, Height: f.bounds.height },
+            IsRequired: f.isRequired,
+          })),
         },
       ],
-      UseTextTags: true,
       EnableEmbeddedSigning: true,
       DisableEmails: false,
       ExpiryDays: expiryDays,
