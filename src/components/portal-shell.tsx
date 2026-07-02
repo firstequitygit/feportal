@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { countUnreadMentions, resolveRoleIdent } from '@/lib/fetch-mentions'
 import { countOutstandingForRole } from '@/lib/fetch-outstanding-count'
+import { resolveAdminIdentities, staffRoleIds, mentionIdents, countPinnedOutstanding } from '@/lib/admin-inbox'
 
 // Server Component wrapper. Fetches StaffContext once on every render so the
 // admin/base toggle in the header is available on every page that uses
@@ -38,12 +39,35 @@ export async function PortalShell(props: PortalShellProps) {
   //   1. Unread @mentions for this role identity
   //   2. Outstanding-for-you conditions (same definition as the dashboard
   //      tile of the same name)
-  // Only computed for the three roles that have an Inbox nav item;
-  // admin / borrower / broker variants render no Inbox.
+  // Computed for the three role variants and for admin (whose Inbox is
+  // the personal pinned-conditions queue); borrower / broker variants
+  // render no Inbox.
   let unreadMentions = 0
   let outstandingForYou = 0
   const kindByVariant = mentionKindForVariant(props.variant)
-  if (kindByVariant) {
+  if (props.variant === 'admin') {
+    try {
+      const supa = await createClient()
+      const { data: { user } } = await supa.auth.getUser()
+      if (user) {
+        const adminClient = createAdminClient()
+        const ids = await resolveAdminIdentities(adminClient, user.id)
+        if (ids.admin) {
+          // Mentions across every identity the caller owns, plus
+          // conditions pinned to them by name — same scope as
+          // /admin/inbox.
+          const [mentionCounts, pinned] = await Promise.all([
+            Promise.all(mentionIdents(ids).map(i => countUnreadMentions(adminClient, i))),
+            countPinnedOutstanding(adminClient, staffRoleIds(ids)),
+          ])
+          unreadMentions = mentionCounts.reduce((a, b) => a + b, 0)
+          outstandingForYou = pinned
+        }
+      }
+    } catch (err) {
+      console.error('Inbox badge count failed:', err instanceof Error ? err.message : err)
+    }
+  } else if (kindByVariant) {
     try {
       const supa = await createClient()
       const { data: { user } } = await supa.auth.getUser()

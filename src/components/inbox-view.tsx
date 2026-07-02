@@ -30,6 +30,10 @@ interface Props {
   items: InboxItem[]
   role: InboxRole
   linkPrefix: string
+  /** Where the empty-state "View all your loans" link goes. Defaults to
+   *  `${linkPrefix}/loans`; the admin inbox passes "/admin" because the
+   *  admin loan list is the Overview page. */
+  loansHref?: string
 }
 
 type CategoryFilter = 'all' | ConditionCategory
@@ -59,7 +63,7 @@ function statusBadgeClass(status: ConditionStatus): string {
   }
 }
 
-export function InboxView({ items, role, linkPrefix }: Props) {
+export function InboxView({ items, role, linkPrefix, loansHref }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
 
   // Underwriters review Received + Under Review items, so they count as
@@ -154,7 +158,7 @@ export function InboxView({ items, role, linkPrefix }: Props) {
                 ? "You're all caught up."
                 : 'No items in this category.'}
             </p>
-            <Link href={`${linkPrefix}/loans`} className="text-sm text-primary hover:opacity-80 mt-4 inline-block">
+            <Link href={loansHref ?? `${linkPrefix}/loans`} className="text-sm text-primary hover:opacity-80 mt-4 inline-block">
               View all your loans →
             </Link>
           </CardContent>

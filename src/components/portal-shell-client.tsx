@@ -67,6 +67,7 @@ const IMPERSONATION_KIND_LABEL = {
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/admin',                  label: 'Overview',            icon: LayoutDashboard, exact: true },
+  { href: '/admin/inbox',            label: 'Inbox',               icon: Inbox },
   { href: '/admin/data-tape',        label: 'Data Tape',           icon: Table },
   { href: '/admin/borrowers',        label: 'Borrowers',           icon: UserCircle },
   { href: '/admin/brokers',          label: 'Brokers',             icon: Briefcase },
