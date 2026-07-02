@@ -1,8 +1,10 @@
 'use client'
 
-// Staff E-Signature console. Pick a form + a loan, confirm the signer
-// (defaults to the loan's primary borrower), and send via BoldSign.
-// Shows recent envelopes with their status.
+// Staff E-Signature console. Pick a form + a loan, complete the form's
+// fill-in fields (prefilled from loan data where possible), preview
+// the exact PDF that will go out, confirm the signer (defaults to the
+// loan's primary borrower), and send via BoldSign. Shows recent
+// envelopes with their status.
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -12,12 +14,27 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/searchable-select'
 
-export interface EsignFormOption { key: string; label: string }
+export interface EsignFillInput {
+  key: string
+  label: string
+  prefill?: 'borrower_name' | 'property_address' | 'loan_number'
+  defaultText?: string
+  multiline?: boolean
+}
+export interface EsignFormOption {
+  key: string
+  label: string
+  fill: EsignFillInput[]
+  /** What the borrower will be asked to complete at signing. */
+  signerFields: string[]
+}
 export interface EsignLoanOption {
   id: string
   name: string
   borrowerName: string | null
   borrowerEmail: string | null
+  propertyAddress: string | null
+  loanNumber: string | null
 }
 export interface EsignEnvelopeRow {
   id: string
@@ -51,25 +68,77 @@ function statusLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+function seedValues(form: EsignFormOption | undefined, loan: EsignLoanOption | null): Record<string, string> {
+  const v: Record<string, string> = {}
+  for (const f of form?.fill ?? []) {
+    v[f.key] =
+      (f.prefill === 'borrower_name' ? loan?.borrowerName
+        : f.prefill === 'property_address' ? loan?.propertyAddress
+        : f.prefill === 'loan_number' ? loan?.loanNumber
+        : null) ?? f.defaultText ?? ''
+  }
+  return v
+}
+
 export function EsignConsole({ forms, loans, envelopes }: Props) {
   const [formKey, setFormKey] = useState<string>('')
   const [loanId, setLoanId] = useState<string | null>(null)
   const [signerName, setSignerName] = useState('')
   const [signerEmail, setSignerEmail] = useState('')
+  const [values, setValues] = useState<Record<string, string>>({})
   const [sending, setSending] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
 
   const loanById = useMemo(() => {
     const m = new Map<string, EsignLoanOption>()
     for (const l of loans) m.set(l.id, l)
     return m
   }, [loans])
+  const form = forms.find(f => f.key === formKey)
+
+  function onFormChange(key: string) {
+    setFormKey(key)
+    const loan = loanId ? loanById.get(loanId) ?? null : null
+    setValues(seedValues(forms.find(f => f.key === key), loan))
+  }
 
   function onLoanChange(id: string | null) {
     setLoanId(id)
-    const loan = id ? loanById.get(id) : null
+    const loan = id ? loanById.get(id) ?? null : null
     // Prefill the signer from the loan's primary borrower (editable).
     setSignerName(loan?.borrowerName ?? '')
     setSignerEmail(loan?.borrowerEmail ?? '')
+    setValues(seedValues(form, loan))
+  }
+
+  async function preview() {
+    if (previewing) return
+    if (!formKey) { toast.error('Pick a form'); return }
+    setPreviewing(true)
+    // Open the tab synchronously so popup blockers allow it, then
+    // point it at the rendered PDF once the fetch resolves.
+    const tab = window.open('about:blank', '_blank')
+    try {
+      const res = await fetch('/api/esign/form/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formKey, values }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error ?? 'Preview failed')
+        tab?.close()
+        return
+      }
+      const url = URL.createObjectURL(await res.blob())
+      if (tab) tab.location.href = url
+      else window.open(url, '_blank')
+    } catch {
+      toast.error('Network error. Please try again.')
+      tab?.close()
+    } finally {
+      setPreviewing(false)
+    }
   }
 
   async function send() {
@@ -82,7 +151,7 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
       const res = await fetch('/api/esign/form/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey, loanId, signerName: signerName.trim(), signerEmail: signerEmail.trim() }),
+        body: JSON.stringify({ formKey, loanId, signerName: signerName.trim(), signerEmail: signerEmail.trim(), values }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
@@ -109,7 +178,7 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
             <Label>Document</Label>
             <select
               value={formKey}
-              onChange={e => setFormKey(e.target.value)}
+              onChange={e => onFormChange(e.target.value)}
               className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-700"
             >
               <option value="">— Select a form —</option>
@@ -128,6 +197,43 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
             />
           </div>
 
+          {form && form.fill.length > 0 && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Complete before sending
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {form.fill.map(f => (
+                  <div key={f.key} className={`space-y-1 ${f.multiline ? 'sm:col-span-2' : ''}`}>
+                    <Label className="text-xs">{f.label}</Label>
+                    {f.multiline ? (
+                      <textarea
+                        value={values[f.key] ?? ''}
+                        onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                        rows={3}
+                        className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-700"
+                      />
+                    ) : (
+                      <Input
+                        value={values[f.key] ?? ''}
+                        onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                        className="bg-white"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              {form.signerFields.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  The signer completes at signing: {form.signerFields.join(', ')}.
+                </p>
+              )}
+              <p className="text-xs text-gray-400">
+                Use Preview to check the completed form and field placement before sending.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Signer name</Label>
@@ -142,7 +248,10 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
             Defaults to the loan&rsquo;s primary borrower — edit to send to a different signer.
           </p>
 
-          <div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={preview} disabled={previewing || !formKey}>
+              {previewing ? 'Rendering…' : 'Preview'}
+            </Button>
             <Button onClick={send} disabled={sending}>
               {sending ? 'Sending…' : 'Send for Signature'}
             </Button>

@@ -21,6 +21,8 @@ export interface BoldSignFormField {
   pageNumber: number
   bounds: { x: number; y: number; width: number; height: number }
   isRequired: boolean
+  /** Optional stable field id (used by the fixed-form pipeline). */
+  id?: string
 }
 
 const TAG_RE = /\{\{([a-z]+)\|(\d+)(?:\|([^|}]*))?(?:\|([^|}]*))?(?:\|([^|}]*))?\}\}/gi

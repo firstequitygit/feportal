@@ -60,6 +60,8 @@ export default async function ESignaturePage() {
       name: formatLoanName({ borrowerName: b?.full_name ?? null, propertyAddress: l.property_address, loanNumber: l.loan_number }),
       borrowerName: b?.full_name ?? null,
       borrowerEmail: b?.email ?? null,
+      propertyAddress: (l.property_address as string | null) ?? null,
+      loanNumber: (l.loan_number as string | null) ?? null,
     }
   })
 
@@ -90,7 +92,12 @@ export default async function ESignaturePage() {
         </div>
       ) : (
         <EsignConsole
-          forms={ESIGN_FORMS.map(f => ({ key: f.key, label: f.label }))}
+          forms={ESIGN_FORMS.map(f => ({
+            key: f.key,
+            label: f.label,
+            fill: f.fill.map(({ key, label, prefill, defaultText, multiline }) => ({ key, label, prefill, defaultText, multiline })),
+            signerFields: (f.signerBoxes ?? []).map(b => b.label),
+          }))}
           loans={loanOptions}
           envelopes={envelopeRows}
         />

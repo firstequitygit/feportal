@@ -43,6 +43,10 @@ export interface SendForSignatureInput {
   signerEmail: string
   /** How many days until the request expires. */
   expiryDays?: number
+  /** Explicit field placements (fixed-form pipeline). When omitted,
+   *  fields are extracted from the {{...}} tags rendered in the PDF
+   *  (generated-doc pipeline, e.g. the Term Sheet). */
+  formFields?: import('./tag-fields').BoldSignFormField[]
 }
 
 export interface SendForSignatureResult {
@@ -67,12 +71,15 @@ export interface SendForSignatureResult {
 export async function sendForSignature(input: SendForSignatureInput): Promise<SendForSignatureResult> {
   const { title, message, pdf, signerName, signerEmail, expiryDays = 30 } = input
 
-  const { extractTagFields } = await import('./tag-fields')
-  const fields = await extractTagFields(pdf)
+  let fields = input.formFields
+  if (!fields || fields.length === 0) {
+    const { extractTagFields } = await import('./tag-fields')
+    fields = await extractTagFields(pdf)
+  }
   if (fields.length === 0) {
     // Without fields the request would either 400 or produce an
     // unsignable document — fail loudly instead.
-    throw new Error('No signature tags found in the rendered PDF — cannot place signature fields')
+    throw new Error('No signature fields configured or found in the rendered PDF — cannot send')
   }
 
   const res = await fetch(`${API_BASE}/v1/document/send`, {
@@ -90,7 +97,8 @@ export async function sendForSignature(input: SendForSignatureInput): Promise<Se
           Name: signerName,
           EmailAddress: signerEmail,
           SignerType: 'Signer',
-          FormFields: fields.map(f => ({
+          FormFields: fields.map((f, i) => ({
+            Id: f.id ?? `field_${i + 1}`,
             FieldType: f.fieldType,
             PageNumber: f.pageNumber,
             Bounds: { X: f.bounds.x, Y: f.bounds.y, Width: f.bounds.width, Height: f.bounds.height },

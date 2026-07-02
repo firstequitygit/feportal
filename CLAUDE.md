@@ -145,6 +145,14 @@ BoldSign's email. The webhook (`/api/esign/webhook`, HMAC-verified)
 updates envelope status and files the executed PDF on the loan as a
 `documents` row on Completed.
 
+Fixed forms (`public/esign-forms/`, configured in `src/lib/esign/forms.ts`)
+are sent from `/e-signature`: staff complete per-form fill fields in the
+console (stamped onto the PDF by `src/lib/esign/fill-form.ts`), can
+Preview the exact PDF with field outlines, and send. Field placement
+uses explicit BoldSign FormFields with coordinates, never UseTextTags
+(BoldSign's tag scan silently kills documents). Coordinates in forms.ts
+are points from the page's bottom-left; tune by editing + Preview.
+
 ## Important Conventions
 
 - **Server Components fetch data; Client Components handle interactivity.** Pages are async server components that pass pre-fetched data as props to `'use client'` components.

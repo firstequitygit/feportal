@@ -1,8 +1,9 @@
 // Send one of the fixed e-sign forms (public/esign-forms/) to a loan's
 // borrower for signature via BoldSign. Staff-only (admin / LO / LP /
-// UW). Mirrors the Term Sheet send flow: overlay the signature tags,
-// send, record an esign_envelopes row. The webhook handles status +
-// filing the signed PDF back on the loan.
+// UW). The staff-typed fill values are stamped onto the PDF and the
+// signature/date/signer boxes are sent as explicit BoldSign fields
+// (see lib/esign/fill-form.ts). Records an esign_envelopes row; the
+// webhook handles status + filing the signed PDF back on the loan.
 
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
@@ -12,7 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assertNotImpersonating } from '@/lib/impersonate'
 import { isEsignEnabled, sendForSignature } from '@/lib/esign/boldsign'
 import { getEsignForm } from '@/lib/esign/forms'
-import { overlayEsignTags } from '@/lib/esign/overlay-tags'
+import { prepareFormPdf } from '@/lib/esign/fill-form'
 import { formatLoanName } from '@/lib/format-loan-name'
 
 export const runtime = 'nodejs'
@@ -46,8 +47,9 @@ export async function POST(req: NextRequest) {
     (admin?.full_name as string | undefined) ??
     'Staff'
 
-  const { formKey, loanId, signerName, signerEmail } = (await req.json().catch(() => ({}))) as {
+  const { formKey, loanId, signerName, signerEmail, values } = (await req.json().catch(() => ({}))) as {
     formKey?: string; loanId?: string; signerName?: string; signerEmail?: string
+    values?: Record<string, string>
   }
 
   const form = formKey ? getEsignForm(formKey) : undefined
@@ -70,13 +72,14 @@ export async function POST(req: NextRequest) {
     loanNumber: loan.loan_number,
   })
 
-  // Load the form PDF and overlay the signature tags.
-  let pdf: Buffer
+  // Stamp the staff-typed values onto the PDF and build the explicit
+  // BoldSign field placements from the form's config.
+  let prepared: Awaited<ReturnType<typeof prepareFormPdf>>
   try {
     const raw = fs.readFileSync(path.join(process.cwd(), 'public', 'esign-forms', form.file))
-    pdf = await overlayEsignTags(raw, form)
+    prepared = await prepareFormPdf(raw, form, values ?? {})
   } catch (err) {
-    console.error('[esign] form load/overlay failed:', err)
+    console.error('[esign] form load/fill failed:', err)
     return NextResponse.json({ error: 'Could not prepare the form.' }, { status: 500 })
   }
 
@@ -85,9 +88,10 @@ export async function POST(req: NextRequest) {
     const result = await sendForSignature({
       title: `${form.label} — ${loanName}`,
       message: `Please review and sign the attached ${form.label} from First Equity Funding.`,
-      pdf,
+      pdf: prepared.pdf,
       signerName: signerName.trim(),
       signerEmail: signerEmail.trim(),
+      formFields: prepared.fields,
     })
     documentId = result.documentId
   } catch (err) {
