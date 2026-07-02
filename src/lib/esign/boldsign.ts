@@ -98,7 +98,10 @@ export async function sendForSignature(input: SendForSignatureInput): Promise<Se
           })),
         },
       ],
-      EnableEmbeddedSigning: true,
+      // Deliberately NO EnableEmbeddedSigning — that (deprecated) flag
+      // suppresses the signer's email invitation. We want BOTH: the
+      // BoldSign email AND the portal's embedded signing, and
+      // getEmbeddedSignLink works without the flag.
       DisableEmails: false,
       ExpiryDays: expiryDays,
     }),
