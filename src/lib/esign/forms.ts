@@ -18,7 +18,7 @@
 // PDF's text layer. The Preview button on the E-Signature page
 // renders every placement visibly, so tuning is: edit here, preview.
 
-export type EsignPrefill = 'borrower_name' | 'property_address' | 'loan_number'
+export type EsignPrefill = 'borrower_name' | 'property_address' | 'loan_number' | 'entity_name'
 
 export interface EsignFillField {
   key: string
@@ -183,6 +183,42 @@ export const ESIGN_FORMS: EsignForm[] = [
       { key: 'account_name',     label: 'Account in the name of',                 page: 1, x: 308, y: 478, prefill: 'borrower_name', maxWidth: 272 },
       { key: 'account_number',   label: "Loan number (borrower's account at creditor)", page: 1, x: 308, y: 455, maxWidth: 272 },
       { key: 'applicant',        label: 'Name and address of applicant(s) (item 8)', page: 1, x: 52, y: 405, prefill: 'borrower_name', maxWidth: 240, maxLines: 3, lineHeight: 13.5, multiline: true },
+    ],
+  },
+  {
+    key: 'w9',
+    label: 'W-9 (Request for TIN)',
+    file: 'w9.pdf',
+    // Official IRS W-9 (Rev. 3-2024), page 1 only, AcroForm stripped.
+    // Signer-box coordinates come from the original form's own field
+    // rectangles, so they sit exactly on the printed lines/boxes.
+    // The W-9 is also appended as the last page of the Loan Term Sheet
+    // e-sign package (see term-sheet-package.ts), reusing this config.
+    signature: { page: 1, x: 140, y: 194, width: 220, height: 30 },
+    dateSigned: { page: 1, x: 415, y: 196, width: 110, height: 22 },
+    fill: [
+      { key: 'line1_name',     label: 'Line 1: Name of entity/individual', page: 1, x: 62, y: 664, prefill: 'entity_name', maxWidth: 505 },
+      { key: 'line2_business', label: 'Line 2: Business/DBA name (optional)', page: 1, x: 62, y: 640, maxWidth: 505 },
+      { key: 'requester',      label: "Requester's name and address", page: 1, x: 393, y: 496, defaultText: 'First Equity Funding, L.P.\n1330 Laurel Avenue, Suite 101\nSea Girt, NJ 08750', maxWidth: 180, maxLines: 3, lineHeight: 11, multiline: true },
+    ],
+    signerBoxes: [
+      { type: 'checkbox', label: '3a: Individual/sole proprietor', page: 1, x: 72, y: 602.7, width: 10, height: 10 },
+      { type: 'checkbox', label: '3a: C corporation',              page: 1, x: 179, y: 602.7, width: 10, height: 10 },
+      { type: 'checkbox', label: '3a: S corporation',              page: 1, x: 251, y: 602.7, width: 10, height: 10 },
+      { type: 'checkbox', label: '3a: Partnership',                page: 1, x: 323, y: 602.7, width: 10, height: 10 },
+      { type: 'checkbox', label: '3a: Trust/estate',               page: 1, x: 387.8, y: 602.7, width: 10, height: 10 },
+      { type: 'checkbox', label: '3a: LLC',                        page: 1, x: 72, y: 589.5, width: 10, height: 10 },
+      { type: 'textbox',  label: 'LLC tax classification (C/S/P)', page: 1, x: 417.6, y: 588, width: 30, height: 13 },
+      { type: 'checkbox', label: '3a: Other',                      page: 1, x: 72, y: 553, width: 10, height: 10 },
+      { type: 'textbox',  label: 'Other classification',           page: 1, x: 162.4, y: 551, width: 284, height: 14 },
+      { type: 'checkbox', label: '3b: Foreign partners (if applicable)', page: 1, x: 439.6, y: 520, width: 10, height: 10 },
+      { type: 'textbox',  label: 'Line 5: Address',                page: 1, x: 59, y: 492, width: 329, height: 14, required: true },
+      { type: 'textbox',  label: 'Line 6: City, state, ZIP',       page: 1, x: 59, y: 468, width: 329, height: 14, required: true },
+      { type: 'textbox',  label: 'SSN (first 3)',                  page: 1, x: 417.6, y: 396, width: 43, height: 24 },
+      { type: 'textbox',  label: 'SSN (middle 2)',                 page: 1, x: 475.2, y: 396, width: 29, height: 24 },
+      { type: 'textbox',  label: 'SSN (last 4)',                   page: 1, x: 518.4, y: 396, width: 58, height: 24 },
+      { type: 'textbox',  label: 'EIN (first 2)',                  page: 1, x: 417.6, y: 348, width: 29, height: 24 },
+      { type: 'textbox',  label: 'EIN (last 7)',                   page: 1, x: 460.8, y: 348, width: 101, height: 24 },
     ],
   },
   {

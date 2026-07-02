@@ -153,6 +153,11 @@ uses explicit BoldSign FormFields with coordinates, never UseTextTags
 (BoldSign's tag scan silently kills documents). Coordinates in forms.ts
 are points from the page's bottom-left; tune by editing + Preview.
 
+Term Sheet e-sign sends (from `/term-sheet/[id]` or the `/e-signature`
+console) go through `src/lib/esign/term-sheet-package.ts`: the rendered
+Term Sheet plus the W-9 appended as the last page, W-9 Line 1 stamped
+from the loan's entity_name (borrower name fallback).
+
 ## Important Conventions
 
 - **Server Components fetch data; Client Components handle interactivity.** Pages are async server components that pass pre-fetched data as props to `'use client'` components.

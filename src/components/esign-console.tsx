@@ -17,7 +17,7 @@ import { SearchableSelect } from '@/components/searchable-select'
 export interface EsignFillInput {
   key: string
   label: string
-  prefill?: 'borrower_name' | 'property_address' | 'loan_number'
+  prefill?: 'borrower_name' | 'property_address' | 'loan_number' | 'entity_name'
   defaultText?: string
   multiline?: boolean
 }
@@ -35,6 +35,7 @@ export interface EsignLoanOption {
   borrowerEmail: string | null
   propertyAddress: string | null
   loanNumber: string | null
+  entityName: string | null
 }
 export interface EsignEnvelopeRow {
   id: string
@@ -75,6 +76,9 @@ function seedValues(form: EsignFormOption | undefined, loan: EsignLoanOption | n
       (f.prefill === 'borrower_name' ? loan?.borrowerName
         : f.prefill === 'property_address' ? loan?.propertyAddress
         : f.prefill === 'loan_number' ? loan?.loanNumber
+        // Entity-vested loans use the entity; individual loans fall
+        // back to the borrower (matches W-9 Line 1 rules).
+        : f.prefill === 'entity_name' ? (loan?.entityName ?? loan?.borrowerName)
         : null) ?? f.defaultText ?? ''
   }
   return v
@@ -114,6 +118,7 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
   async function preview() {
     if (previewing) return
     if (!formKey) { toast.error('Pick a form'); return }
+    if (formKey === 'term_sheet' && !loanId) { toast.error('Pick a loan to preview the Term Sheet'); return }
     setPreviewing(true)
     // Open the tab synchronously so popup blockers allow it, then
     // point it at the rendered PDF once the fetch resolves.
@@ -122,7 +127,7 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
       const res = await fetch('/api/esign/form/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey, values }),
+        body: JSON.stringify({ formKey, values, loanId }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -148,11 +153,19 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
     if (!signerName.trim() || !signerEmail.trim()) { toast.error('Signer name and email are required'); return }
     setSending(true)
     try {
-      const res = await fetch('/api/esign/form/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey, loanId, signerName: signerName.trim(), signerEmail: signerEmail.trim(), values }),
-      })
+      // The Term Sheet is a generated package (rendered from loan data,
+      // W-9 appended) with its own route; fixed forms share one route.
+      const res = formKey === 'term_sheet'
+        ? await fetch(`/api/esign/term-sheet/${loanId}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signerName: signerName.trim(), signerEmail: signerEmail.trim() }),
+          })
+        : await fetch('/api/esign/form/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ formKey, loanId, signerName: signerName.trim(), signerEmail: signerEmail.trim(), values }),
+          })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
         toast.success('Sent for signature')
@@ -196,6 +209,15 @@ export function EsignConsole({ forms, loans, envelopes }: Props) {
               emptyLabel="— None —"
             />
           </div>
+
+          {formKey === 'term_sheet' && (
+            <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
+              The Term Sheet is generated from the loan file, and the W-9 is appended as its
+              last page. The W-9&rsquo;s Line 1 auto-fills from the loan&rsquo;s Entity Name
+              (or the borrower&rsquo;s name when the loan has no entity). Use Preview to
+              check both documents before sending.
+            </div>
+          )}
 
           {form && form.fill.length > 0 && (
             <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 space-y-3">

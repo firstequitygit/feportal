@@ -107,15 +107,18 @@ function wrap(font: PDFFont, value: string, maxWidth: number, size: number): str
   return lines.length ? lines : ['']
 }
 
-/** Convert a bottom-left-origin box to BoldSign's top-origin bounds. */
+/** Convert a bottom-left-origin box to BoldSign's top-origin bounds.
+ *  pageOffset shifts the form's page numbers when its pages have been
+ *  appended after another document's (the Term Sheet + W-9 package). */
 function toFormField(
   box: EsignBox,
   fieldType: string,
   id: string,
   required: boolean,
   pages: PDFPage[],
+  pageOffset: number,
 ): BoldSignFormField {
-  const pageNumber = Math.min(box.page, pages.length)
+  const pageNumber = Math.min(box.page + pageOffset, pages.length)
   const pageHeight = pages[pageNumber - 1].getHeight()
   return {
     fieldType,
@@ -131,10 +134,10 @@ function toFormField(
   }
 }
 
-export function buildFormFields(form: EsignForm, pages: PDFPage[]): BoldSignFormField[] {
+export function buildFormFields(form: EsignForm, pages: PDFPage[], pageOffset = 0): BoldSignFormField[] {
   const fields: BoldSignFormField[] = [
-    toFormField(form.signature, 'Signature', 'signature', true, pages),
-    toFormField(form.dateSigned, 'DateSigned', 'date_signed', true, pages),
+    toFormField(form.signature, 'Signature', 'signature', true, pages, pageOffset),
+    toFormField(form.dateSigned, 'DateSigned', 'date_signed', true, pages, pageOffset),
   ]
   ;(form.signerBoxes ?? []).forEach((box, i) => {
     fields.push(toFormField(
@@ -143,9 +146,79 @@ export function buildFormFields(form: EsignForm, pages: PDFPage[]): BoldSignForm
       `${box.type}_${i + 1}`,
       box.required ?? false,
       pages,
+      pageOffset,
     ))
   })
   return fields
+}
+
+/**
+ * Append a fixed form (stamped with its fill values) to the end of an
+ * existing PDF and return the merged PDF plus the form's BoldSign
+ * fields with page numbers shifted past the base document.
+ */
+export async function appendFormToPdf(
+  basePdf: Buffer,
+  form: EsignForm,
+  formTemplate: Uint8Array | Buffer,
+  values: Record<string, string>,
+): Promise<PreparedForm> {
+  const base = await PDFDocument.load(basePdf)
+  const pageOffset = base.getPageCount()
+  const { doc: formDoc } = await loadAndStamp(formTemplate, form, values)
+  const copied = await base.copyPages(formDoc, formDoc.getPageIndices())
+  copied.forEach(p => base.addPage(p))
+  const fields = buildFormFields(form, base.getPages(), pageOffset)
+  return { pdf: Buffer.from(await base.save()), fields }
+}
+
+/**
+ * Draw visible dashed outlines for a set of BoldSign fields onto a
+ * PDF. Used to preview generated packages (Term Sheet + W-9), where
+ * fields come from tag extraction + form config rather than a single
+ * form definition. Never send this rendering.
+ */
+export async function drawFieldOutlines(pdf: Buffer, fields: BoldSignFormField[]): Promise<Buffer> {
+  const doc = await PDFDocument.load(pdf)
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const pages = doc.getPages()
+  const blue = rgb(0.15, 0.39, 0.56)
+  const amber = rgb(0.72, 0.45, 0.05)
+
+  for (const f of fields) {
+    const page = pages[f.pageNumber - 1]
+    if (!page) continue
+    const pageHeight = page.getHeight()
+    const y = pageHeight - f.bounds.y - f.bounds.height
+    const isSignerInput = f.fieldType === 'TextBox' || f.fieldType === 'CheckBox'
+    const color = isSignerInput ? amber : blue
+    page.drawRectangle({
+      x: f.bounds.x,
+      y,
+      width: f.bounds.width,
+      height: f.bounds.height,
+      borderColor: color,
+      borderWidth: 1,
+      borderDashArray: [3, 2],
+      color,
+      opacity: 0.08,
+      borderOpacity: 0.9,
+    })
+    const label =
+      f.fieldType === 'Signature' ? 'Signature (signs here)' :
+      f.fieldType === 'DateSigned' ? 'Date: auto' :
+      f.fieldType === 'TextBox' ? 'Signer fills' : ''
+    if (label && f.bounds.height >= 12) {
+      page.drawText(label, {
+        x: f.bounds.x + 2,
+        y: y + Math.max(2, f.bounds.height / 2 - 3),
+        size: Math.min(6.5, f.bounds.height - 3),
+        font,
+        color,
+      })
+    }
+  }
+  return Buffer.from(await doc.save())
 }
 
 export interface PreparedForm {

@@ -41,7 +41,7 @@ export default async function ESignaturePage() {
   const [{ data: loans }, { data: envelopes }] = await Promise.all([
     adminClient
       .from('loans')
-      .select('id, property_address, loan_number, borrowers!borrower_id(full_name, email)')
+      .select('id, property_address, loan_number, entity_name, borrowers!borrower_id(full_name, email)')
       .eq('archived', false)
       .neq('pipeline_stage', 'Closed')
       .order('created_at', { ascending: false })
@@ -62,6 +62,7 @@ export default async function ESignaturePage() {
       borrowerEmail: b?.email ?? null,
       propertyAddress: (l.property_address as string | null) ?? null,
       loanNumber: (l.loan_number as string | null) ?? null,
+      entityName: (l.entity_name as string | null) ?? null,
     }
   })
 
@@ -92,12 +93,17 @@ export default async function ESignaturePage() {
         </div>
       ) : (
         <EsignConsole
-          forms={ESIGN_FORMS.map(f => ({
-            key: f.key,
-            label: f.label,
-            fill: f.fill.map(({ key, label, prefill, defaultText, multiline }) => ({ key, label, prefill, defaultText, multiline })),
-            signerFields: (f.signerBoxes ?? []).map(b => b.label),
-          }))}
+          forms={[
+            // Generated package: Term Sheet rendered from the loan file
+            // with the W-9 appended as its last page.
+            { key: 'term_sheet', label: 'Loan Term Sheet (+ W-9)', fill: [], signerFields: [] },
+            ...ESIGN_FORMS.map(f => ({
+              key: f.key,
+              label: f.label,
+              fill: f.fill.map(({ key, label, prefill, defaultText, multiline }) => ({ key, label, prefill, defaultText, multiline })),
+              signerFields: (f.signerBoxes ?? []).map(b => b.label),
+            })),
+          ]}
           loans={loanOptions}
           envelopes={envelopeRows}
         />
