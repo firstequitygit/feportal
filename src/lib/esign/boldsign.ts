@@ -97,11 +97,20 @@ export async function sendForSignature(input: SendForSignatureInput): Promise<Se
           Name: signerName,
           EmailAddress: signerEmail,
           SignerType: 'Signer',
+          // BoldSign bounds are 96-DPI pixels (4/3 x PDF points), origin
+          // top-left. Calibrated against fields hand-placed in the
+          // BoldSign UI (their stored x values = our PDF points * 4/3).
+          // Everything upstream works in PDF points; convert only here.
           FormFields: fields.map((f, i) => ({
             Id: f.id ?? `field_${i + 1}`,
             FieldType: f.fieldType,
             PageNumber: f.pageNumber,
-            Bounds: { X: f.bounds.x, Y: f.bounds.y, Width: f.bounds.width, Height: f.bounds.height },
+            Bounds: {
+              X: f.bounds.x * (96 / 72),
+              Y: f.bounds.y * (96 / 72),
+              Width: f.bounds.width * (96 / 72),
+              Height: f.bounds.height * (96 / 72),
+            },
             IsRequired: f.isRequired,
           })),
         },

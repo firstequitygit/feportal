@@ -103,8 +103,10 @@ export async function extractTagFields(pdf: Buffer): Promise<BoldSignFormField[]
         fields.push({
           fieldType,
           pageNumber: pageNo,
-          // BoldSign bounds: X/Y from the page's TOP-left. Anchor the
-          // field so its bottom sits on the tag's baseline.
+          // Bounds here stay in PDF POINTS, X/Y from the page's
+          // TOP-left; boldsign.ts converts to BoldSign's 96-DPI pixel
+          // units at the API boundary. Anchor the field so its bottom
+          // sits on the tag's baseline.
           bounds: {
             x: Math.max(0, tagX),
             y: Math.max(0, pageHeight - tagY - size.height),
