@@ -91,8 +91,12 @@ export async function POST(req: NextRequest) {
     })
     documentId = result.documentId
   } catch (err) {
+    // Surface the provider's actual error — this page is staff-only, so
+    // showing the BoldSign message (bad key, field/tag issue, etc.) is
+    // safe and makes debugging possible without Vercel logs.
+    const detail = err instanceof Error ? err.message : String(err)
     console.error('[esign] BoldSign send failed:', err)
-    return NextResponse.json({ error: 'E-sign provider rejected the request. Check server logs.' }, { status: 502 })
+    return NextResponse.json({ error: `BoldSign rejected the request: ${detail}` }, { status: 502 })
   }
 
   const { data: envelope, error: insertErr } = await adminClient
